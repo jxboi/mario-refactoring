@@ -701,27 +701,82 @@ code,
   opacity: 0.7;
 }
 
-.col-collapse {
+.col-menu {
+  position: relative;
   margin-left: auto;
+  align-self: center;
+}
+
+.col-menu-btn {
   width: 22px;
   height: 22px;
-  align-self: center;
   display: grid;
   place-items: center;
   border-radius: 6px;
   color: var(--text-faint);
-  font-size: 12px;
+  font-size: 15px;
+  line-height: 1;
   opacity: 0;
   transition: all 0.15s;
 }
 
-.column:hover .col-collapse {
+.column:hover .col-menu-btn,
+.col-menu-btn.open {
   opacity: 1;
 }
 
-.col-collapse:hover {
+.col-menu-btn:hover,
+.col-menu-btn.open {
   background: var(--surface-hover);
   color: var(--text-dim);
+}
+
+.col-menu-pop {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 20;
+  min-width: 168px;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-raised);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+
+.col-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 7px 10px;
+  border-radius: 7px;
+  font-size: 13px;
+  color: var(--text-dim);
+  text-align: left;
+  transition:
+    background 0.12s,
+    color 0.12s;
+}
+
+.col-menu-item:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.col-menu-icon {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  font-size: 14px;
+  color: var(--text-faint);
+}
+
+.col-menu-item:hover .col-menu-icon {
+  color: var(--accent);
 }
 
 .column-archived-note {
@@ -747,29 +802,6 @@ code,
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--text-dim);
-}
-
-.col-add {
-  margin-left: auto;
-  width: 22px;
-  height: 22px;
-  align-self: center;
-  display: grid;
-  place-items: center;
-  border-radius: 6px;
-  color: var(--text-faint);
-  font-size: 13px;
-  opacity: 0;
-  transition: all 0.15s;
-}
-
-.column:hover .col-add {
-  opacity: 1;
-}
-
-.col-add:hover {
-  background: var(--surface-hover);
-  color: var(--accent);
 }
 
 .column-count {

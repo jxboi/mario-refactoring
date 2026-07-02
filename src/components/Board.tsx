@@ -259,11 +259,14 @@ function Card({item, dragging, onSelect, onDragStart, onDragEnd, onDropBefore}: 
         if (e.key === "Enter") onSelect();
       }}
     >
-      {item.blocked && (
-        <div className="card-block-banner" title={item.blockReason || "Blocked"}>
-          ⛔ {item.blockReason || "Blocked"}
-        </div>
-      )}
+      <div className="card-tags">
+        <span className="card-cat">{cat.label}</span>
+        {item.blocked && (
+          <span className="card-blocked-tag" title={item.blockReason || "Blocked"}>
+            Blocked
+          </span>
+        )}
+      </div>
       <div className={`card-title${item.title ? "" : " untitled"}`}>{item.title || "Untitled"}</div>
       {item.files.length > 0 && (
         <div className="card-file">
@@ -272,9 +275,6 @@ function Card({item, dragging, onSelect, onDragStart, onDragEnd, onDropBefore}: 
         </div>
       )}
       <div className="card-meta">
-        <span className="card-cat" title={cat.label}>
-          {cat.glyph}
-        </span>
         <span className="card-meta-right">
           {item.notes.length > 0 && (
             <span className="card-notes" title={`${item.notes.length} notes`}>

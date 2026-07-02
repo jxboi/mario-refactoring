@@ -111,7 +111,7 @@ export function Drawer({item, onClose, onUpdate, onAddNote, onDeleteNote, onDele
             <select className="input" value={item.category} onChange={(e) => onUpdate({category: e.target.value as RefactorItem["category"]})}>
               {CATEGORIES.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.glyph} {c.label}
+                  {c.label}
                 </option>
               ))}
             </select>

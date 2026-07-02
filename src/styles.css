@@ -23,8 +23,8 @@
   --shadow-modal: 0 24px 80px rgba(0, 0, 0, 0.6);
   --radius: 10px;
   --radius-sm: 7px;
-  --font: 'Inter', -apple-system, system-ui, sans-serif;
-  --mono: 'JetBrains Mono', ui-monospace, 'SF Mono', monospace;
+  --font: "Inter", -apple-system, system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SF Mono", monospace;
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
@@ -405,7 +405,9 @@ code,
   font: inherit;
   font-size: 13px;
   outline: none;
-  transition: border-color 0.15s, background 0.15s;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
 }
 
 .search-input:focus {
@@ -444,10 +446,26 @@ code,
   border-color: transparent;
 }
 
-.chip-low.active { background: var(--green-soft); color: var(--green); box-shadow: inset 0 0 0 1px var(--green); }
-.chip-medium.active { background: var(--amber-soft); color: var(--amber); box-shadow: inset 0 0 0 1px var(--amber); }
-.chip-high.active { background: var(--red-soft); color: var(--red); box-shadow: inset 0 0 0 1px var(--red); }
-.chip-blocked.active { background: var(--red-soft); color: var(--red); box-shadow: inset 0 0 0 1px var(--red); }
+.chip-low.active {
+  background: var(--green-soft);
+  color: var(--green);
+  box-shadow: inset 0 0 0 1px var(--green);
+}
+.chip-medium.active {
+  background: var(--amber-soft);
+  color: var(--amber);
+  box-shadow: inset 0 0 0 1px var(--amber);
+}
+.chip-high.active {
+  background: var(--red-soft);
+  color: var(--red);
+  box-shadow: inset 0 0 0 1px var(--red);
+}
+.chip-blocked.active {
+  background: var(--red-soft);
+  color: var(--red);
+  box-shadow: inset 0 0 0 1px var(--red);
+}
 
 .chip-clear {
   color: var(--text-faint);
@@ -537,6 +555,7 @@ code,
 .board {
   flex: 1;
   display: flex;
+  justify-content: center;
   gap: 14px;
   padding: 18px 22px 22px;
   overflow-x: auto;
@@ -552,7 +571,10 @@ code,
   border-radius: var(--radius);
   background: var(--bg-raised);
   border: 1px solid var(--border);
-  transition: border-color 0.18s, background 0.18s, box-shadow 0.18s;
+  transition:
+    border-color 0.18s,
+    background 0.18s,
+    box-shadow 0.18s;
   min-height: 0;
 }
 
@@ -573,8 +595,7 @@ code,
 
 .column-active {
   border-color: rgba(232, 180, 90, 0.28);
-  background: linear-gradient(180deg, rgba(232, 180, 90, 0.05), rgba(232, 180, 90, 0) 140px),
-    var(--bg-raised);
+  background: linear-gradient(180deg, rgba(232, 180, 90, 0.05), rgba(232, 180, 90, 0) 140px), var(--bg-raised);
 }
 
 .column-active .column-title {
@@ -591,8 +612,13 @@ code,
 }
 
 @keyframes live-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.35; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
 }
 
 .column-done {
@@ -611,13 +637,7 @@ code,
 
 /* deferred: a muted, set-aside lane */
 .column-deferred {
-  background: repeating-linear-gradient(
-    -45deg,
-    rgba(255, 255, 255, 0.012),
-    rgba(255, 255, 255, 0.012) 8px,
-    transparent 8px,
-    transparent 16px
-  ), var(--bg-raised);
+  background: repeating-linear-gradient(-45deg, rgba(255, 255, 255, 0.012), rgba(255, 255, 255, 0.012) 8px, transparent 8px, transparent 16px), var(--bg-raised);
   border-style: dashed;
 }
 
@@ -644,7 +664,10 @@ code,
   background: var(--bg-raised);
   color: var(--text-faint);
   cursor: pointer;
-  transition: border-color 0.18s, background 0.18s, color 0.18s;
+  transition:
+    border-color 0.18s,
+    background 0.18s,
+    color 0.18s;
 }
 
 .column-collapsed:hover {
@@ -786,8 +809,12 @@ code,
   padding: 11px 12px;
   cursor: pointer;
   box-shadow: var(--shadow-card);
-  transition: transform 0.16s var(--ease), box-shadow 0.16s var(--ease), border-color 0.16s,
-    opacity 0.16s, background 0.16s;
+  transition:
+    transform 0.16s var(--ease),
+    box-shadow 0.16s var(--ease),
+    border-color 0.16s,
+    opacity 0.16s,
+    background 0.16s;
   animation: card-in 0.25s var(--ease);
 }
 
@@ -913,9 +940,18 @@ code,
   padding: 2px 6px;
 }
 
-.risk-low { color: var(--green); background: var(--green-soft); }
-.risk-medium { color: var(--amber); background: var(--amber-soft); }
-.risk-high { color: var(--red); background: var(--red-soft); }
+.risk-low {
+  color: var(--green);
+  background: var(--green-soft);
+}
+.risk-medium {
+  color: var(--amber);
+  background: var(--amber-soft);
+}
+.risk-high {
+  color: var(--red);
+  background: var(--red-soft);
+}
 
 .effort-dots {
   display: inline-flex;
@@ -1006,11 +1042,15 @@ code,
 }
 
 @keyframes veil-in {
-  from { opacity: 0; }
+  from {
+    opacity: 0;
+  }
 }
 
 @keyframes veil-out {
-  to { opacity: 0; }
+  to {
+    opacity: 0;
+  }
 }
 
 .drawer {
@@ -1039,11 +1079,17 @@ code,
 }
 
 @keyframes drawer-in {
-  from { transform: translateX(40px); opacity: 0; }
+  from {
+    transform: translateX(40px);
+    opacity: 0;
+  }
 }
 
 @keyframes drawer-out {
-  to { transform: translateX(40px); opacity: 0; }
+  to {
+    transform: translateX(40px);
+    opacity: 0;
+  }
 }
 
 .drawer-top {
@@ -1085,7 +1131,9 @@ code,
   margin: -6px -8px 0;
   resize: none;
   outline: none;
-  transition: border-color 0.15s, background 0.15s;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
 }
 
 .drawer-title:hover {
@@ -1217,9 +1265,15 @@ code,
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
 }
 
-.seg-low.active { color: var(--green); }
-.seg-medium.active { color: var(--amber); }
-.seg-high.active { color: var(--red); }
+.seg-low.active {
+  color: var(--green);
+}
+.seg-medium.active {
+  color: var(--amber);
+}
+.seg-high.active {
+  color: var(--red);
+}
 
 .list-editor {
   display: flex;
@@ -1318,7 +1372,9 @@ code,
   color: var(--text-faint);
   font-size: 11px;
   opacity: 0;
-  transition: opacity 0.15s, color 0.15s;
+  transition:
+    opacity 0.15s,
+    color 0.15s;
 }
 
 .note:hover .note-delete {
@@ -1499,8 +1555,12 @@ code,
   flex-shrink: 0;
 }
 
-.count-ok { color: var(--green); }
-.count-bad { color: var(--red); }
+.count-ok {
+  color: var(--green);
+}
+.count-bad {
+  color: var(--red);
+}
 
 .import-list {
   flex: 1;
@@ -1521,7 +1581,9 @@ code,
   border-radius: var(--radius-sm);
   background: var(--surface);
   cursor: pointer;
-  transition: opacity 0.15s, border-color 0.15s;
+  transition:
+    opacity 0.15s,
+    border-color 0.15s;
 }
 
 .import-row:hover {
@@ -1644,8 +1706,13 @@ code,
 }
 
 @keyframes bob {
-  0%, 100% { transform: translateY(-3px); }
-  50% { transform: translateY(3px); }
+  0%,
+  100% {
+    transform: translateY(-3px);
+  }
+  50% {
+    transform: translateY(3px);
+  }
 }
 
 /* ————— Toasts ————— */

@@ -1,19 +1,19 @@
-import { useEffect, useRef, useState } from 'react';
-import type { RefactorItem } from '../types';
-import { CATEGORIES, EFFORTS, RISKS, STAGES } from '../types';
-import { timeAgo } from './ui';
+import {useEffect, useRef, useState} from "react";
+import type {RefactorItem} from "../types";
+import {CATEGORIES, EFFORTS, RISKS, STAGES} from "../types";
+import {timeAgo} from "./ui";
 
 interface Props {
   item: RefactorItem;
   onClose: () => void;
-  onUpdate: (patch: Partial<Omit<RefactorItem, 'id' | 'notes'>>) => void;
+  onUpdate: (patch: Partial<Omit<RefactorItem, "id" | "notes">>) => void;
   onAddNote: (text: string) => void;
   onDeleteNote: (noteId: string) => void;
   onDelete: () => void;
 }
 
-export function Drawer({ item, onClose, onUpdate, onAddNote, onDeleteNote, onDelete }: Props) {
-  const [noteDraft, setNoteDraft] = useState('');
+export function Drawer({item, onClose, onUpdate, onAddNote, onDeleteNote, onDelete}: Props) {
+  const [noteDraft, setNoteDraft] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [closing, setClosing] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -22,7 +22,7 @@ export function Drawer({ item, onClose, onUpdate, onAddNote, onDeleteNote, onDel
   useEffect(() => {
     const ta = titleRef.current;
     if (ta) {
-      ta.style.height = 'auto';
+      ta.style.height = "auto";
       ta.style.height = `${ta.scrollHeight}px`;
     }
   }, [item.title, item.id]);
@@ -43,28 +43,27 @@ export function Drawer({ item, onClose, onUpdate, onAddNote, onDeleteNote, onDel
     const text = noteDraft.trim();
     if (!text) return;
     onAddNote(text);
-    setNoteDraft('');
+    setNoteDraft("");
   };
 
-  const addListItem = (key: 'files' | 'tags', value: string) => {
+  const addListItem = (key: "files" | "tags", value: string) => {
     const v = value.trim();
     if (!v) return;
-    const cleaned = key === 'tags' ? v.toLowerCase().replace(/\s+/g, '-') : v;
+    const cleaned = key === "tags" ? v.toLowerCase().replace(/\s+/g, "-") : v;
     if (item[key].includes(cleaned)) return;
-    onUpdate({ [key]: [...item[key], cleaned] });
+    onUpdate({[key]: [...item[key], cleaned]});
   };
 
   return (
-    <div className={`drawer-veil${closing ? ' closing' : ''}`} onMouseDown={(e) => {
-      if (!panelRef.current?.contains(e.target as Node)) close();
-    }}>
-      <aside className={`drawer${closing ? ' closing' : ''}`} ref={panelRef}>
+    <div
+      className={`drawer-veil${closing ? " closing" : ""}`}
+      onMouseDown={(e) => {
+        if (!panelRef.current?.contains(e.target as Node)) close();
+      }}
+    >
+      <aside className={`drawer${closing ? " closing" : ""}`} ref={panelRef}>
         <div className="drawer-top">
-          <select
-            className="stage-select"
-            value={item.stage}
-            onChange={(e) => onUpdate({ stage: e.target.value as RefactorItem['stage'] })}
-          >
+          <select className="stage-select" value={item.stage} onChange={(e) => onUpdate({stage: e.target.value as RefactorItem["stage"]})}>
             {STAGES.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.label}
@@ -76,31 +75,14 @@ export function Drawer({ item, onClose, onUpdate, onAddNote, onDeleteNote, onDel
           </button>
         </div>
 
-        <textarea
-          ref={titleRef}
-          className="drawer-title"
-          value={item.title}
-          rows={1}
-          onChange={(e) => onUpdate({ title: e.target.value })}
-        />
+        <textarea ref={titleRef} className="drawer-title" value={item.title} rows={1} onChange={(e) => onUpdate({title: e.target.value})} />
 
-        <div className={`block-panel${item.blocked ? ' on' : ''}`}>
+        <div className={`block-panel${item.blocked ? " on" : ""}`}>
           <label className="block-toggle">
-            <input
-              type="checkbox"
-              checked={item.blocked}
-              onChange={(e) => onUpdate({ blocked: e.target.checked })}
-            />
+            <input type="checkbox" checked={item.blocked} onChange={(e) => onUpdate({blocked: e.target.checked})} />
             <span>⛔ Blocked</span>
           </label>
-          {item.blocked && (
-            <input
-              className="block-reason"
-              placeholder="What is it waiting on?"
-              value={item.blockReason}
-              onChange={(e) => onUpdate({ blockReason: e.target.value })}
-            />
-          )}
+          {item.blocked && <input className="block-reason" placeholder="What is it waiting on?" value={item.blockReason} onChange={(e) => onUpdate({blockReason: e.target.value})} />}
         </div>
 
         <div className="drawer-grid">
@@ -108,11 +90,7 @@ export function Drawer({ item, onClose, onUpdate, onAddNote, onDeleteNote, onDel
             <span className="field-label">Risk</span>
             <div className="seg">
               {RISKS.map((r) => (
-                <button
-                  key={r}
-                  className={`seg-btn seg-${r}${item.risk === r ? ' active' : ''}`}
-                  onClick={() => onUpdate({ risk: r })}
-                >
+                <button key={r} className={`seg-btn seg-${r}${item.risk === r ? " active" : ""}`} onClick={() => onUpdate({risk: r})}>
                   {r}
                 </button>
               ))}
@@ -122,11 +100,7 @@ export function Drawer({ item, onClose, onUpdate, onAddNote, onDeleteNote, onDel
             <span className="field-label">Effort</span>
             <div className="seg">
               {EFFORTS.map((e) => (
-                <button
-                  key={e}
-                  className={`seg-btn${item.effort === e ? ' active' : ''}`}
-                  onClick={() => onUpdate({ effort: e })}
-                >
+                <button key={e} className={`seg-btn seg-${e}${item.effort === e ? " active" : ""}`} onClick={() => onUpdate({effort: e})}>
                   {e}
                 </button>
               ))}
@@ -134,11 +108,7 @@ export function Drawer({ item, onClose, onUpdate, onAddNote, onDeleteNote, onDel
           </label>
           <label className="field field-wide">
             <span className="field-label">Category</span>
-            <select
-              className="input"
-              value={item.category}
-              onChange={(e) => onUpdate({ category: e.target.value as RefactorItem['category'] })}
-            >
+            <select className="input" value={item.category} onChange={(e) => onUpdate({category: e.target.value as RefactorItem["category"]})}>
               {CATEGORIES.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.glyph} {c.label}
@@ -150,31 +120,12 @@ export function Drawer({ item, onClose, onUpdate, onAddNote, onDeleteNote, onDel
 
         <label className="field">
           <span className="field-label">Why this refactor</span>
-          <textarea
-            className="input drawer-desc"
-            rows={4}
-            placeholder="What's wrong today, and what better looks like…"
-            value={item.description}
-            onChange={(e) => onUpdate({ description: e.target.value })}
-          />
+          <textarea className="input drawer-desc" rows={4} placeholder="What's wrong today, and what better looks like…" value={item.description} onChange={(e) => onUpdate({description: e.target.value})} />
         </label>
 
-        <ListEditor
-          label="Files & paths"
-          mono
-          values={item.files}
-          placeholder="src/module/file.py — press Enter"
-          onAdd={(v) => addListItem('files', v)}
-          onRemove={(v) => onUpdate({ files: item.files.filter((f) => f !== v) })}
-        />
+        <ListEditor label="Files & paths" mono values={item.files} placeholder="src/module/file.py — press Enter" onAdd={(v) => addListItem("files", v)} onRemove={(v) => onUpdate({files: item.files.filter((f) => f !== v)})} />
 
-        <ListEditor
-          label="Tags"
-          values={item.tags}
-          placeholder="add tag — press Enter"
-          onAdd={(v) => addListItem('tags', v)}
-          onRemove={(v) => onUpdate({ tags: item.tags.filter((t) => t !== v) })}
-        />
+        <ListEditor label="Tags" values={item.tags} placeholder="add tag — press Enter" onAdd={(v) => addListItem("tags", v)} onRemove={(v) => onUpdate({tags: item.tags.filter((t) => t !== v)})} />
 
         <div className="field">
           <span className="field-label">Notes</span>
@@ -200,7 +151,7 @@ export function Drawer({ item, onClose, onUpdate, onAddNote, onDeleteNote, onDel
               value={noteDraft}
               onChange={(e) => setNoteDraft(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
                   e.preventDefault();
                   submitNote();
                 }
@@ -237,28 +188,14 @@ export function Drawer({ item, onClose, onUpdate, onAddNote, onDeleteNote, onDel
   );
 }
 
-function ListEditor({
-  label,
-  values,
-  placeholder,
-  mono,
-  onAdd,
-  onRemove,
-}: {
-  label: string;
-  values: string[];
-  placeholder: string;
-  mono?: boolean;
-  onAdd: (v: string) => void;
-  onRemove: (v: string) => void;
-}) {
-  const [draft, setDraft] = useState('');
+function ListEditor({label, values, placeholder, mono, onAdd, onRemove}: {label: string; values: string[]; placeholder: string; mono?: boolean; onAdd: (v: string) => void; onRemove: (v: string) => void}) {
+  const [draft, setDraft] = useState("");
   return (
     <div className="field">
       <span className="field-label">{label}</span>
       <div className="list-editor">
         {values.map((v) => (
-          <span key={v} className={`list-item${mono ? ' mono' : ''}`}>
+          <span key={v} className={`list-item${mono ? " mono" : ""}`}>
             {v}
             <button className="list-remove" onClick={() => onRemove(v)} aria-label={`Remove ${v}`}>
               ✕
@@ -266,15 +203,15 @@ function ListEditor({
           </span>
         ))}
         <input
-          className={`list-input${mono ? ' mono' : ''}`}
+          className={`list-input${mono ? " mono" : ""}`}
           placeholder={placeholder}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === 'Enter') {
+            if (e.key === "Enter") {
               e.preventDefault();
               onAdd(draft);
-              setDraft('');
+              setDraft("");
             }
           }}
         />

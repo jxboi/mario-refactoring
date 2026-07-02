@@ -1,12 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Board } from './components/Board';
-import { Drawer } from './components/Drawer';
-import { Header } from './components/Header';
-import { ImportModal } from './components/ImportModal';
-import { ToastHost, useToasts } from './components/Toast';
-import { activeProject, useBoard } from './lib/store';
-import type { RefactorItem, Risk, Stage } from './types';
-import { uid } from './types';
+import {useCallback, useEffect, useMemo, useRef, useState} from "react";
+import {Board} from "./components/Board";
+import {Drawer} from "./components/Drawer";
+import {Header} from "./components/Header";
+import {ImportModal} from "./components/ImportModal";
+import {ToastHost, useToasts} from "./components/Toast";
+import {activeProject, useBoard} from "./lib/store";
+import type {RefactorItem, Risk, Stage} from "./types";
+import {uid} from "./types";
 
 export interface Filters {
   query: string;
@@ -14,24 +14,21 @@ export interface Filters {
   blockedOnly: boolean;
 }
 
-const EMPTY_FILTERS: Filters = { query: '', risks: new Set(), blockedOnly: false };
+const EMPTY_FILTERS: Filters = {query: "", risks: new Set(), blockedOnly: false};
 
 export default function App() {
-  const { state, dispatch } = useBoard();
+  const {state, dispatch} = useBoard();
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [importOpen, setImportOpen] = useState(false);
   const [droppedFile, setDroppedFile] = useState<File | null>(null);
   const [fileDragDepth, setFileDragDepth] = useState(0);
-  const { toasts, pushToast, dismissToast } = useToasts();
+  const {toasts, pushToast, dismissToast} = useToasts();
 
   const project = activeProject(state);
   const items = project.items;
 
-  const selected = useMemo(
-    () => items.find((i) => i.id === selectedId) ?? null,
-    [items, selectedId],
-  );
+  const selected = useMemo(() => items.find((i) => i.id === selectedId) ?? null, [items, selectedId]);
 
   const filtered = useMemo(() => {
     const q = filters.query.trim().toLowerCase();
@@ -39,7 +36,7 @@ export default function App() {
       if (filters.blockedOnly && !item.blocked) return false;
       if (filters.risks.size > 0 && !filters.risks.has(item.risk)) return false;
       if (q) {
-        const hay = [item.title, item.description, ...item.files, ...item.tags].join(' ').toLowerCase();
+        const hay = [item.title, item.description, ...item.files, ...item.tags].join(" ").toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
@@ -48,10 +45,10 @@ export default function App() {
 
   const handleImport = useCallback(
     (imported: RefactorItem[]) => {
-      dispatch({ type: 'import', items: imported });
+      dispatch({type: "import", items: imported});
       setImportOpen(false);
       setDroppedFile(null);
-      pushToast(`Imported ${imported.length} refactoring ${imported.length === 1 ? 'item' : 'items'}`, 'success');
+      pushToast(`Imported ${imported.length} refactoring ${imported.length === 1 ? "item" : "items"}`, "success");
     },
     [dispatch, pushToast],
   );
@@ -61,21 +58,21 @@ export default function App() {
       const now = Date.now();
       const item: RefactorItem = {
         id: uid(),
-        title: '',
-        description: '',
+        title: "",
+        description: "",
         files: [],
-        risk: 'medium',
-        effort: 'm',
-        category: 'other',
+        risk: "medium",
+        effort: "medium",
+        category: "other",
         tags: [],
         stage,
         blocked: false,
-        blockReason: '',
+        blockReason: "",
         notes: [],
         createdAt: now,
         updatedAt: now,
       };
-      dispatch({ type: 'add', item });
+      dispatch({type: "add", item});
       setSelectedId(item.id);
     },
     [dispatch],
@@ -84,7 +81,7 @@ export default function App() {
   // Window-level JSON file drag-and-drop: dropping a file anywhere opens the import flow.
   const depthRef = useRef(0);
   useEffect(() => {
-    const isFileDrag = (e: DragEvent) => e.dataTransfer?.types.includes('Files') ?? false;
+    const isFileDrag = (e: DragEvent) => e.dataTransfer?.types.includes("Files") ?? false;
     const onDragEnter = (e: DragEvent) => {
       if (!isFileDrag(e)) return;
       e.preventDefault();
@@ -110,28 +107,28 @@ export default function App() {
         setImportOpen(true);
       }
     };
-    window.addEventListener('dragenter', onDragEnter);
-    window.addEventListener('dragover', onDragOver);
-    window.addEventListener('dragleave', onDragLeave);
-    window.addEventListener('drop', onDrop);
+    window.addEventListener("dragenter", onDragEnter);
+    window.addEventListener("dragover", onDragOver);
+    window.addEventListener("dragleave", onDragLeave);
+    window.addEventListener("drop", onDrop);
     return () => {
-      window.removeEventListener('dragenter', onDragEnter);
-      window.removeEventListener('dragover', onDragOver);
-      window.removeEventListener('dragleave', onDragLeave);
-      window.removeEventListener('drop', onDrop);
+      window.removeEventListener("dragenter", onDragEnter);
+      window.removeEventListener("dragover", onDragOver);
+      window.removeEventListener("dragleave", onDragLeave);
+      window.removeEventListener("drop", onDrop);
     };
   }, []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
+      if (e.key === "Escape") {
         setSelectedId(null);
         setImportOpen(false);
         setDroppedFile(null);
       }
     };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, []);
 
   return (
@@ -144,34 +141,34 @@ export default function App() {
         onFilters={setFilters}
         onImportClick={() => setImportOpen(true)}
         onProjectSwitch={(id) => {
-          dispatch({ type: 'project-switch', id });
+          dispatch({type: "project-switch", id});
           setSelectedId(null);
         }}
         onProjectCreate={(name) => {
-          dispatch({ type: 'project-create', name });
+          dispatch({type: "project-create", name});
           setSelectedId(null);
           setFilters(EMPTY_FILTERS);
-          pushToast(`Project “${name}” created`, 'success');
+          pushToast(`Project “${name}” created`, "success");
         }}
-        onProjectRename={(id, name) => dispatch({ type: 'project-rename', id, name })}
+        onProjectRename={(id, name) => dispatch({type: "project-rename", id, name})}
         onProjectDelete={(id) => {
           const doomed = state.projects.find((p) => p.id === id);
-          dispatch({ type: 'project-delete', id });
+          dispatch({type: "project-delete", id});
           setSelectedId(null);
-          pushToast(`Project “${doomed?.name ?? ''}” deleted`, 'info');
+          pushToast(`Project “${doomed?.name ?? ""}” deleted`, "info");
         }}
       />
       <Board
         items={filtered}
         totalCount={items.length}
-        onMove={(id, stage, beforeId) => dispatch({ type: 'move', id, stage, beforeId })}
+        onMove={(id, stage, beforeId) => dispatch({type: "move", id, stage, beforeId})}
         onSelect={setSelectedId}
         onAddItem={handleAddItem}
         onImportClick={() => setImportOpen(true)}
         onLoadSample={() => {
-          import('./lib/sample').then(({ sampleItems }) => {
-            dispatch({ type: 'import', items: sampleItems() });
-            pushToast('Loaded sample refactoring backlog', 'success');
+          import("./lib/sample").then(({sampleItems}) => {
+            dispatch({type: "import", items: sampleItems()});
+            pushToast("Loaded sample refactoring backlog", "success");
           });
         }}
       />
@@ -179,13 +176,13 @@ export default function App() {
         <Drawer
           item={selected}
           onClose={() => setSelectedId(null)}
-          onUpdate={(patch) => dispatch({ type: 'update', id: selected.id, patch })}
-          onAddNote={(text) => dispatch({ type: 'add-note', id: selected.id, text })}
-          onDeleteNote={(noteId) => dispatch({ type: 'delete-note', id: selected.id, noteId })}
+          onUpdate={(patch) => dispatch({type: "update", id: selected.id, patch})}
+          onAddNote={(text) => dispatch({type: "add-note", id: selected.id, text})}
+          onDeleteNote={(noteId) => dispatch({type: "delete-note", id: selected.id, noteId})}
           onDelete={() => {
-            dispatch({ type: 'delete', id: selected.id });
+            dispatch({type: "delete", id: selected.id});
             setSelectedId(null);
-            pushToast('Item deleted', 'info');
+            pushToast("Item deleted", "info");
           }}
         />
       )}

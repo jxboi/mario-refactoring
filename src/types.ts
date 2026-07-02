@@ -1,19 +1,10 @@
-export type Stage = 'queued' | 'active' | 'reviewing' | 'deployed' | 'deferred';
+export type Stage = "queued" | "active" | "reviewing" | "deployed" | "deferred";
 
-export type Risk = 'low' | 'medium' | 'high';
+export type Risk = "low" | "medium" | "high";
 
-export type Effort = 'xs' | 's' | 'm' | 'l' | 'xl';
+export type Effort = "low" | "medium" | "high";
 
-export type Category =
-  | 'extract'
-  | 'rename'
-  | 'dead-code'
-  | 'dependency'
-  | 'performance'
-  | 'test'
-  | 'architecture'
-  | 'style'
-  | 'other';
+export type Category = "extract" | "rename" | "dead-code" | "dependency" | "performance" | "test" | "architecture" | "style" | "other";
 
 export interface Note {
   id: string;
@@ -38,7 +29,7 @@ export interface RefactorItem {
   updatedAt: number;
 }
 
-export type StageGroup = 'backlog' | 'active' | 'done' | 'deferred';
+export type StageGroup = "backlog" | "active" | "done" | "deferred";
 
 /** How many days a deployed item stays on the board before it drops off. */
 export const DEPLOYED_WINDOW_DAYS = 14;
@@ -55,39 +46,39 @@ export interface StageDef {
 }
 
 export const STAGES: StageDef[] = [
-  { id: 'queued', label: 'Queued', hint: 'Waiting to be picked up', group: 'backlog' },
-  { id: 'active', label: 'Active', hint: 'Actively being reworked', group: 'active' },
-  { id: 'reviewing', label: 'Reviewing', hint: 'Tests, review, canary', group: 'active' },
+  {id: "queued", label: "Queued", hint: "Waiting to be picked up", group: "backlog"},
+  {id: "active", label: "Active", hint: "Actively being reworked", group: "active"},
+  {id: "reviewing", label: "Reviewing", hint: "Tests, review, canary", group: "active"},
   {
-    id: 'deployed',
-    label: 'Deployed',
-    hint: 'Shipped in the last 2 weeks',
-    group: 'done',
+    id: "deployed",
+    label: "Deployed",
+    hint: "Shipped in the last 2 weeks",
+    group: "done",
     recentDays: DEPLOYED_WINDOW_DAYS,
   },
   {
-    id: 'deferred',
-    label: 'Deferred',
-    hint: 'Parked for now — hidden by default',
-    group: 'deferred',
+    id: "deferred",
+    label: "Deferred",
+    hint: "Parked for now — hidden by default",
+    group: "deferred",
     hiddenByDefault: true,
   },
 ];
 
-export const RISKS: Risk[] = ['low', 'medium', 'high'];
+export const RISKS: Risk[] = ["low", "medium", "high"];
 
-export const EFFORTS: Effort[] = ['xs', 's', 'm', 'l', 'xl'];
+export const EFFORTS: Effort[] = ["low", "medium", "high"];
 
-export const CATEGORIES: { id: Category; label: string; glyph: string }[] = [
-  { id: 'extract', label: 'Extract', glyph: '⤴' },
-  { id: 'rename', label: 'Rename', glyph: '✎' },
-  { id: 'dead-code', label: 'Dead code', glyph: '✂' },
-  { id: 'dependency', label: 'Dependency', glyph: '⬡' },
-  { id: 'performance', label: 'Performance', glyph: '⚡' },
-  { id: 'test', label: 'Tests', glyph: '✓' },
-  { id: 'architecture', label: 'Architecture', glyph: '▦' },
-  { id: 'style', label: 'Style', glyph: '❖' },
-  { id: 'other', label: 'Other', glyph: '·' },
+export const CATEGORIES: {id: Category; label: string; glyph: string}[] = [
+  {id: "extract", label: "Extract", glyph: "⤴"},
+  {id: "rename", label: "Rename", glyph: "✎"},
+  {id: "dead-code", label: "Dead code", glyph: "✂"},
+  {id: "dependency", label: "Dependency", glyph: "⬡"},
+  {id: "performance", label: "Performance", glyph: "⚡"},
+  {id: "test", label: "Tests", glyph: "✓"},
+  {id: "architecture", label: "Architecture", glyph: "▦"},
+  {id: "style", label: "Style", glyph: "❖"},
+  {id: "other", label: "Other", glyph: "·"},
 ];
 
 export function categoryMeta(id: Category) {

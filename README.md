@@ -6,7 +6,7 @@ A calm, fast board for steadily chipping away at a codebase. Import a JSON file 
 
 ```sh
 npm install
-npm run dev      # http://localhost:5180
+npm run dev      # https://localhost:5180
 ```
 
 `npm run build` produces a static production build in `dist/`.
@@ -21,7 +21,7 @@ npm run dev      # http://localhost:5180
 | **Verifying**   | Tests, review, canary                    |
 | **Landed**      | Merged and done                          |
 
-Every item carries refactoring-specific metadata: **risk** (low/medium/high), **effort** (XS–XL), **category** (extract, rename, dead code, dependency, performance, tests, architecture, style), affected **files/paths**, **tags**, timestamped **notes**, and a **blocker** flag with a reason — blocked items are flagged on the card itself, not hidden in a column.
+Every item carries refactoring-specific metadata: **risk** (low/medium/high), **effort** (low/medium/high), **category** (extract, rename, dead code, dependency, performance, tests, architecture, style), affected **files/paths**, **tags**, timestamped **notes**, and a **blocker** flag with a reason — blocked items are flagged on the card itself, not hidden in a column.
 
 ## Importing items
 

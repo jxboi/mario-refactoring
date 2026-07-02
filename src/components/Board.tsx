@@ -57,7 +57,7 @@ export function Board({items, totalCount, onMove, onSelect, onAddItem, onImportC
     "description": "Duplicated across three handlers",
     "files": ["src/checkout/card_handler.py"],
     "risk": "high",         // low | medium | high
-    "effort": "l",          // xs | s | m | l | xl
+    "effort": "l",          // low | medium | high
     "category": "extract",  // extract, rename, dead-code, …
     "tags": ["payments"],
     "status": "in-progress"

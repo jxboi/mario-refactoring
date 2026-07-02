@@ -1,0 +1,139 @@
+import type { RefactorItem } from '../types';
+import { uid } from '../types';
+
+const now = Date.now();
+const h = 3600_000;
+
+function make(partial: Partial<RefactorItem> & Pick<RefactorItem, 'title'>): RefactorItem {
+  return {
+    id: uid(),
+    description: '',
+    files: [],
+    risk: 'medium',
+    effort: 'm',
+    category: 'other',
+    tags: [],
+    stage: 'triage',
+    blocked: false,
+    blockReason: '',
+    notes: [],
+    createdAt: now - 72 * h,
+    updatedAt: now - 24 * h,
+    ...partial,
+  };
+}
+
+export function sampleItems(): RefactorItem[] {
+  return [
+    make({
+      title: 'Extract payment retry logic into PaymentRetryService',
+      description:
+        'Retry/backoff logic is duplicated across three checkout handlers with subtle differences. Consolidate into a single service with a configurable policy so future changes happen in one place.',
+      files: ['src/checkout/card_handler.py', 'src/checkout/wallet_handler.py', 'src/checkout/invoice_handler.py'],
+      risk: 'high',
+      effort: 'l',
+      category: 'extract',
+      tags: ['payments', 'duplication'],
+      stage: 'refactor',
+      notes: [
+        { id: uid(), text: 'Card + wallet handlers unified. Invoice handler still has the legacy path behind a flag.', createdAt: now - 5 * h },
+      ],
+    }),
+    make({
+      title: 'Delete legacy CSV export pipeline',
+      description: 'Superseded by the async export worker in Q1. No traffic in 90 days per access logs.',
+      files: ['src/exports/legacy_csv.py', 'src/exports/csv_templates/'],
+      risk: 'low',
+      effort: 's',
+      category: 'dead-code',
+      tags: ['exports'],
+      stage: 'scoped',
+    }),
+    make({
+      title: 'Rename UserManager → AccountService',
+      description: 'The class manages accounts, orgs, and billing profiles — "UserManager" misleads every new hire. Rename plus update ~140 call sites.',
+      files: ['src/accounts/user_manager.py'],
+      risk: 'medium',
+      effort: 'm',
+      category: 'rename',
+      tags: ['naming', 'accounts'],
+      stage: 'triage',
+    }),
+    make({
+      title: 'Upgrade SQLAlchemy 1.4 → 2.0',
+      description: 'Blocking async session support and pinning us to Python 3.11. Query API changes touch most of the data layer.',
+      files: ['src/db/', 'requirements.txt'],
+      risk: 'high',
+      effort: 'xl',
+      category: 'dependency',
+      tags: ['database', 'upgrade'],
+      stage: 'scoped',
+      blocked: true,
+      blockReason: 'Waiting on ORM query audit from the data team — ETA Friday.',
+    }),
+    make({
+      title: 'Replace N+1 queries in dashboard summary endpoint',
+      description: 'The /summary endpoint issues one query per project. P95 latency is 2.3s for large orgs; a single aggregate query brings it under 200ms in testing.',
+      files: ['src/api/dashboard.py', 'src/db/queries/projects.py'],
+      risk: 'medium',
+      effort: 'm',
+      category: 'performance',
+      tags: ['latency', 'database'],
+      stage: 'verify',
+      notes: [{ id: uid(), text: 'Load test passed. Waiting on staging canary before merge.', createdAt: now - 2 * h }],
+    }),
+    make({
+      title: 'Add characterization tests around TaxCalculator before rewrite',
+      description: 'Zero coverage on the module we most want to rewrite. Pin current behavior (including the rounding quirks) before touching it.',
+      files: ['src/billing/tax_calculator.py'],
+      risk: 'low',
+      effort: 'm',
+      category: 'test',
+      tags: ['billing', 'safety-net'],
+      stage: 'refactor',
+    }),
+    make({
+      title: 'Split monolithic settings module by domain',
+      description: 'settings.py is 1,900 lines and every team merges into it. Split into per-domain config modules with a compatibility shim.',
+      files: ['src/config/settings.py'],
+      risk: 'medium',
+      effort: 'l',
+      category: 'architecture',
+      tags: ['config', 'ownership'],
+      stage: 'triage',
+    }),
+    make({
+      title: 'Remove deprecated v1 webhook signatures',
+      description: 'v1 HMAC scheme deprecated 18 months ago. Two external partners still on it — confirm migration, then delete.',
+      files: ['src/webhooks/signing.py'],
+      risk: 'high',
+      effort: 's',
+      category: 'dead-code',
+      tags: ['webhooks', 'security'],
+      stage: 'triage',
+      blocked: true,
+      blockReason: 'Partner "Acme Logistics" has not confirmed v2 migration.',
+    }),
+    make({
+      title: 'Normalize error responses across public API',
+      description: 'Four different error envelope shapes in the public API. Standardize on RFC 7807 problem+json with a translation layer for old clients.',
+      files: ['src/api/errors.py', 'src/api/middleware.py'],
+      risk: 'medium',
+      effort: 'l',
+      category: 'architecture',
+      tags: ['api', 'dx'],
+      stage: 'landed',
+      notes: [{ id: uid(), text: 'Shipped behind api_errors_v2 flag, ramped to 100% on Tuesday.', createdAt: now - 30 * h }],
+    }),
+    make({
+      title: 'Inline single-use OrderDecorator wrappers',
+      description: 'Six decorator classes each used exactly once, adding an indirection layer nobody remembers the reason for. Git archaeology says it was for a 2019 A/B test.',
+      files: ['src/orders/decorators.py'],
+      risk: 'low',
+      effort: 'xs',
+      category: 'dead-code',
+      tags: ['orders'],
+      stage: 'landed',
+    }),
+  ];
+}

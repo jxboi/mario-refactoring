@@ -1,0 +1,77 @@
+{
+  "project": "orion-api",
+  "generated_by": "code-audit v2.1",
+  "items": [
+    {
+      "title": "Extract auth token validation into middleware",
+      "description": "Token validation is copy-pasted in 11 route handlers with drift between them. Two handlers skip expiry checks entirely.",
+      "files": ["src/routes/users.ts", "src/routes/orders.ts", "src/routes/admin.ts"],
+      "risk": "high",
+      "effort": "m",
+      "category": "extract",
+      "tags": ["auth", "security"],
+      "status": "todo"
+    },
+    {
+      "name": "Remove unused GraphQL resolvers",
+      "details": "14 resolvers with zero traffic in the last 6 months per Apollo metrics.",
+      "paths": ["src/graphql/resolvers/legacy/"],
+      "severity": "low",
+      "size": "small",
+      "type": "dead code",
+      "labels": ["graphql"],
+      "state": "ready"
+    },
+    {
+      "title": "Rename ctx.db2 to ctx.analyticsDb",
+      "description": "db2 is not IBM DB2 — it is the analytics replica. Confuses everyone.",
+      "file": "src/context.ts",
+      "risk": 1,
+      "effort": 1,
+      "category": "rename",
+      "status": "in-progress"
+    },
+    {
+      "title": "Upgrade Express 4 to 5",
+      "description": "Blocking async error handling cleanup across all routes.",
+      "files": ["package.json", "src/app.ts"],
+      "risk": "high",
+      "effort": "xl",
+      "category": "dependency",
+      "tags": ["upgrade"],
+      "blocked": true,
+      "blocked_reason": "Waiting on express-session v5 compatibility release"
+    },
+    {
+      "title": "Memoize permission tree computation",
+      "description": "Recomputed on every request; profiling shows 18% of request time for org admins.",
+      "files": ["src/permissions/tree.ts"],
+      "severity": "medium",
+      "estimate": 3,
+      "kind": "perf",
+      "tags": ["hot-path"],
+      "status": "review"
+    },
+    {
+      "title": "Add contract tests for billing webhooks",
+      "files": ["src/webhooks/billing.ts"],
+      "risk": "low",
+      "effort": "m",
+      "category": "test",
+      "status": "done"
+    },
+    {
+      "description": "This one has no title and should be skipped by the importer",
+      "risk": "low"
+    },
+    {
+      "title": "Collapse three date-formatting helpers into one",
+      "description": "formatDate, dateToString and prettyDate disagree on timezones.",
+      "files": ["src/utils/dates.ts"],
+      "risk": "medium",
+      "effort": "s",
+      "category": "consolidation",
+      "tags": ["utils", "timezones"]
+    }
+  ]
+}

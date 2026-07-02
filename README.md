@@ -46,5 +46,3 @@ Only a title is required — everything else gets sensible defaults.
 - State persists in `localStorage` — no backend, nothing leaves your machine.
 
 Built with React + TypeScript + Vite. No UI framework, no state library — one reducer, one stylesheet.
-
-TESTING

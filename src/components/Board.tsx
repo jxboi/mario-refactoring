@@ -117,11 +117,9 @@ export function Board({items, totalCount, onMove, onSelect, onAddItem, onImportC
         // Recency-windowed columns (Deployed) only surface recent items; older
         // ones drop off the board but are still counted so nothing looks lost.
         let colItems = stageItems;
-        let hiddenOlder = 0;
         if (stage.recentDays != null) {
           const cutoff = now - stage.recentDays * 86_400_000;
           colItems = stageItems.filter((i) => i.updatedAt >= cutoff);
-          hiddenOlder = stageItems.length - colItems.length;
         }
 
         return (
@@ -171,11 +169,6 @@ export function Board({items, totalCount, onMove, onSelect, onAddItem, onImportC
                 />
               ))}
               {colItems.length === 0 && <div className="column-placeholder">Empty</div>}
-              {hiddenOlder > 0 && (
-                <div className="column-archived-note">
-                  {hiddenOlder} older deploy{hiddenOlder === 1 ? "" : "s"} archived
-                </div>
-              )}
             </div>
           </section>
         );

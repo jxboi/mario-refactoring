@@ -78,11 +78,11 @@ function normalizeCategory(v: unknown): Category | undefined {
 function normalizeStage(v: unknown): Stage | undefined {
   if (typeof v !== 'string') return undefined;
   const s = v.toLowerCase().trim().replace(/[\s_]+/g, '-');
-  if (['triage', 'new', 'inbox', 'backlog', 'todo', 'open', 'pending'].includes(s)) return 'triage';
-  if (['scoped', 'ready', 'planned', 'analyzed', 'groomed', 'assessed'].includes(s)) return 'scoped';
-  if (['refactor', 'refactoring', 'in-progress', 'inprogress', 'doing', 'active', 'started', 'wip'].includes(s)) return 'refactor';
-  if (['verify', 'verifying', 'review', 'in-review', 'testing', 'qa', 'validation'].includes(s)) return 'verify';
-  if (['landed', 'done', 'complete', 'completed', 'merged', 'closed', 'shipped', 'finished'].includes(s)) return 'landed';
+  if (['queued', 'triage', 'new', 'inbox', 'backlog', 'todo', 'open', 'pending', 'scoped', 'ready', 'planned', 'analyzed', 'groomed', 'assessed'].includes(s)) return 'queued';
+  if (['active', 'refactor', 'refactoring', 'in-progress', 'inprogress', 'doing', 'started', 'wip'].includes(s)) return 'active';
+  if (['reviewing', 'review', 'in-review', 'verify', 'verifying', 'testing', 'qa', 'validation'].includes(s)) return 'reviewing';
+  if (['deployed', 'landed', 'done', 'complete', 'completed', 'merged', 'closed', 'shipped', 'finished', 'released'].includes(s)) return 'deployed';
+  if (['deferred', 'parked', 'on-hold', 'hold', 'wontfix', 'icebox', 'later', 'someday', 'shelved'].includes(s)) return 'deferred';
   return undefined;
 }
 
@@ -172,7 +172,7 @@ export function parseRefactorJson(text: string): ParseResult {
       category = 'other';
     }
 
-    const stage = normalizeStage(obj.status ?? obj.stage ?? obj.state) ?? 'triage';
+    const stage = normalizeStage(obj.status ?? obj.stage ?? obj.state) ?? 'queued';
 
     const tags = [...toStringArray(obj.tags), ...toStringArray(obj.labels)].map((t) =>
       t.toLowerCase().replace(/\s+/g, '-'),

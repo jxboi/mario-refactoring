@@ -18,6 +18,7 @@ const DRAG_MIME = 'application/x-chisel-item';
 export function Board({ items, totalCount, onMove, onSelect, onAddItem, onImportClick, onLoadSample }: BoardProps) {
   const [dragId, setDragId] = useState<string | null>(null);
   const [overStage, setOverStage] = useState<Stage | null>(null);
+  const [showHidden, setShowHidden] = useState(false);
 
   if (totalCount === 0) {
     return (
@@ -30,14 +31,14 @@ export function Board({ items, totalCount, onMove, onSelect, onAddItem, onImport
           <h1>A calm place to chip away at your codebase</h1>
           <p>
             Drop a JSON file of refactoring items anywhere on this page — Chisel parses it, previews
-            what it found, and files everything into a workflow built for refactoring: triage, scope,
-            refactor, verify, land.
+            what it found, and files everything into a workflow built for refactoring: queued,
+            active, reviewing, deployed.
           </p>
           <div className="empty-actions">
             <button className="btn btn-primary" onClick={onImportClick}>
               <span className="btn-icon">⇡</span> Import JSON
             </button>
-            <button className="btn btn-ghost" onClick={() => onAddItem('triage')}>
+            <button className="btn btn-ghost" onClick={() => onAddItem('queued')}>
               ＋ New item
             </button>
             <button className="btn btn-ghost" onClick={onLoadSample}>
@@ -70,10 +71,53 @@ export function Board({ items, totalCount, onMove, onSelect, onAddItem, onImport
     setOverStage(null);
   };
 
+  const now = Date.now();
+
   return (
     <main className="board">
       {STAGES.map((stage) => {
-        const colItems = items.filter((i) => i.stage === stage.id);
+        const stageItems = items.filter((i) => i.stage === stage.id);
+
+        // Hidden-by-default columns (Deferred) show as a slim, collapsed strip
+        // until the user opts to reveal them. Dropping a card on the strip still
+        // moves it into the stage without expanding.
+        if (stage.hiddenByDefault && !showHidden) {
+          return (
+            <button
+              key={stage.id}
+              type="button"
+              className={`column-collapsed${overStage === stage.id ? ' drag-over' : ''}`}
+              title={`${stage.label} — ${stage.hint}. Click to show.`}
+              onClick={() => setShowHidden(true)}
+              onDragOver={(e) => {
+                if (e.dataTransfer.types.includes(DRAG_MIME)) {
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = 'move';
+                  setOverStage(stage.id);
+                }
+              }}
+              onDragLeave={(e) => {
+                if (e.currentTarget === e.target) setOverStage(null);
+              }}
+              onDrop={(e) => handleDrop(e, stage.id)}
+            >
+              <span className="column-collapsed-label">{stage.label}</span>
+              <span className="column-count">{stageItems.length}</span>
+              <span className="column-collapsed-hint">show</span>
+            </button>
+          );
+        }
+
+        // Recency-windowed columns (Deployed) only surface recent items; older
+        // ones drop off the board but are still counted so nothing looks lost.
+        let colItems = stageItems;
+        let hiddenOlder = 0;
+        if (stage.recentDays != null) {
+          const cutoff = now - stage.recentDays * 86_400_000;
+          colItems = stageItems.filter((i) => i.updatedAt >= cutoff);
+          hiddenOlder = stageItems.length - colItems.length;
+        }
+
         return (
           <section
             key={stage.id}
@@ -95,13 +139,23 @@ export function Board({ items, totalCount, onMove, onSelect, onAddItem, onImport
               {stage.group === 'done' && <span className="column-done-check" aria-hidden="true">✓</span>}
               <span className="column-title">{stage.label}</span>
               <span className="column-count">{colItems.length}</span>
-              <button
-                className="col-add"
-                title={`New item in ${stage.label}`}
-                onClick={() => onAddItem(stage.id)}
-              >
-                ＋
-              </button>
+              {stage.hiddenByDefault ? (
+                <button
+                  className="col-collapse"
+                  title={`Hide ${stage.label}`}
+                  onClick={() => setShowHidden(false)}
+                >
+                  ✕
+                </button>
+              ) : (
+                <button
+                  className="col-add"
+                  title={`New item in ${stage.label}`}
+                  onClick={() => onAddItem(stage.id)}
+                >
+                  ＋
+                </button>
+              )}
             </header>
             <div className="column-body">
               {colItems.map((item) => (
@@ -123,6 +177,11 @@ export function Board({ items, totalCount, onMove, onSelect, onAddItem, onImport
                 />
               ))}
               {colItems.length === 0 && <div className="column-placeholder">Empty</div>}
+              {hiddenOlder > 0 && (
+                <div className="column-archived-note">
+                  {hiddenOlder} older deploy{hiddenOlder === 1 ? '' : 's'} archived
+                </div>
+              )}
             </div>
           </section>
         );
@@ -144,7 +203,7 @@ function Card({ item, dragging, onSelect, onDragStart, onDragEnd, onDropBefore }
   const cat = categoryMeta(item.category);
   return (
     <article
-      className={`card${dragging ? ' dragging' : ''}${item.blocked ? ' card-blocked' : ''}${item.stage === 'landed' ? ' card-landed' : ''}`}
+      className={`card${dragging ? ' dragging' : ''}${item.blocked ? ' card-blocked' : ''}${item.stage === 'deployed' ? ' card-landed' : ''}`}
       draggable
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}

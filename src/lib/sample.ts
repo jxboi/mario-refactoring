@@ -3,6 +3,7 @@ import { uid } from '../types';
 
 const now = Date.now();
 const h = 3600_000;
+const d = 24 * h;
 
 function make(partial: Partial<RefactorItem> & Pick<RefactorItem, 'title'>): RefactorItem {
   return {
@@ -13,7 +14,7 @@ function make(partial: Partial<RefactorItem> & Pick<RefactorItem, 'title'>): Ref
     effort: 'm',
     category: 'other',
     tags: [],
-    stage: 'triage',
+    stage: 'queued',
     blocked: false,
     blockReason: '',
     notes: [],
@@ -34,7 +35,7 @@ export function sampleItems(): RefactorItem[] {
       effort: 'l',
       category: 'extract',
       tags: ['payments', 'duplication'],
-      stage: 'refactor',
+      stage: 'active',
       notes: [
         { id: uid(), text: 'Card + wallet handlers unified. Invoice handler still has the legacy path behind a flag.', createdAt: now - 5 * h },
       ],
@@ -47,7 +48,7 @@ export function sampleItems(): RefactorItem[] {
       effort: 's',
       category: 'dead-code',
       tags: ['exports'],
-      stage: 'scoped',
+      stage: 'queued',
     }),
     make({
       title: 'Rename UserManager → AccountService',
@@ -57,7 +58,7 @@ export function sampleItems(): RefactorItem[] {
       effort: 'm',
       category: 'rename',
       tags: ['naming', 'accounts'],
-      stage: 'triage',
+      stage: 'queued',
     }),
     make({
       title: 'Upgrade SQLAlchemy 1.4 → 2.0',
@@ -67,7 +68,7 @@ export function sampleItems(): RefactorItem[] {
       effort: 'xl',
       category: 'dependency',
       tags: ['database', 'upgrade'],
-      stage: 'scoped',
+      stage: 'deferred',
       blocked: true,
       blockReason: 'Waiting on ORM query audit from the data team — ETA Friday.',
     }),
@@ -79,7 +80,7 @@ export function sampleItems(): RefactorItem[] {
       effort: 'm',
       category: 'performance',
       tags: ['latency', 'database'],
-      stage: 'verify',
+      stage: 'reviewing',
       notes: [{ id: uid(), text: 'Load test passed. Waiting on staging canary before merge.', createdAt: now - 2 * h }],
     }),
     make({
@@ -90,7 +91,7 @@ export function sampleItems(): RefactorItem[] {
       effort: 'm',
       category: 'test',
       tags: ['billing', 'safety-net'],
-      stage: 'refactor',
+      stage: 'active',
     }),
     make({
       title: 'Split monolithic settings module by domain',
@@ -100,7 +101,7 @@ export function sampleItems(): RefactorItem[] {
       effort: 'l',
       category: 'architecture',
       tags: ['config', 'ownership'],
-      stage: 'triage',
+      stage: 'queued',
     }),
     make({
       title: 'Remove deprecated v1 webhook signatures',
@@ -110,7 +111,7 @@ export function sampleItems(): RefactorItem[] {
       effort: 's',
       category: 'dead-code',
       tags: ['webhooks', 'security'],
-      stage: 'triage',
+      stage: 'queued',
       blocked: true,
       blockReason: 'Partner "Acme Logistics" has not confirmed v2 migration.',
     }),
@@ -122,7 +123,8 @@ export function sampleItems(): RefactorItem[] {
       effort: 'l',
       category: 'architecture',
       tags: ['api', 'dx'],
-      stage: 'landed',
+      stage: 'deployed',
+      updatedAt: now - 2 * d,
       notes: [{ id: uid(), text: 'Shipped behind api_errors_v2 flag, ramped to 100% on Tuesday.', createdAt: now - 30 * h }],
     }),
     make({
@@ -133,7 +135,8 @@ export function sampleItems(): RefactorItem[] {
       effort: 'xs',
       category: 'dead-code',
       tags: ['orders'],
-      stage: 'landed',
+      stage: 'deployed',
+      updatedAt: now - 23 * d,
     }),
   ];
 }

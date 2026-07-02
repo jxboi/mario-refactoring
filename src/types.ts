@@ -1,4 +1,4 @@
-export type Stage = 'triage' | 'scoped' | 'refactor' | 'verify' | 'landed';
+export type Stage = 'queued' | 'active' | 'reviewing' | 'deployed' | 'deferred';
 
 export type Risk = 'low' | 'medium' | 'high';
 
@@ -38,14 +38,40 @@ export interface RefactorItem {
   updatedAt: number;
 }
 
-export type StageGroup = 'backlog' | 'active' | 'done';
+export type StageGroup = 'backlog' | 'active' | 'done' | 'deferred';
 
-export const STAGES: { id: Stage; label: string; hint: string; group: StageGroup }[] = [
-  { id: 'triage', label: 'Triage', hint: 'Imported, not yet assessed', group: 'backlog' },
-  { id: 'scoped', label: 'Scoped', hint: 'Risk assessed, ready to start', group: 'backlog' },
-  { id: 'refactor', label: 'Refactoring', hint: 'Actively being reworked', group: 'active' },
-  { id: 'verify', label: 'Verifying', hint: 'Tests, review, canary', group: 'active' },
-  { id: 'landed', label: 'Landed', hint: 'Merged and done', group: 'done' },
+/** How many days a deployed item stays on the board before it drops off. */
+export const DEPLOYED_WINDOW_DAYS = 14;
+
+export interface StageDef {
+  id: Stage;
+  label: string;
+  hint: string;
+  group: StageGroup;
+  /** Only surface items updated within this many days (older ones are hidden). */
+  recentDays?: number;
+  /** Collapse this column until the user opts to reveal it. */
+  hiddenByDefault?: boolean;
+}
+
+export const STAGES: StageDef[] = [
+  { id: 'queued', label: 'Queued', hint: 'Waiting to be picked up', group: 'backlog' },
+  { id: 'active', label: 'Active', hint: 'Actively being reworked', group: 'active' },
+  { id: 'reviewing', label: 'Reviewing', hint: 'Tests, review, canary', group: 'active' },
+  {
+    id: 'deployed',
+    label: 'Deployed',
+    hint: 'Shipped in the last 2 weeks',
+    group: 'done',
+    recentDays: DEPLOYED_WINDOW_DAYS,
+  },
+  {
+    id: 'deferred',
+    label: 'Deferred',
+    hint: 'Parked for now — hidden by default',
+    group: 'deferred',
+    hiddenByDefault: true,
+  },
 ];
 
 export const RISKS: Risk[] = ['low', 'medium', 'high'];

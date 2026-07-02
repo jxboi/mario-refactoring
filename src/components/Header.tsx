@@ -30,10 +30,10 @@ export function Header({
   onProjectDelete,
 }: Props) {
   const total = items.length;
-  const landed = items.filter((i) => i.stage === 'landed').length;
-  const inFlight = items.filter((i) => i.stage === 'refactor' || i.stage === 'verify').length;
-  const blocked = items.filter((i) => i.blocked && i.stage !== 'landed').length;
-  const pct = total === 0 ? 0 : Math.round((landed / total) * 100);
+  const deployed = items.filter((i) => i.stage === 'deployed').length;
+  const inFlight = items.filter((i) => i.stage === 'active' || i.stage === 'reviewing').length;
+  const blocked = items.filter((i) => i.blocked && i.stage !== 'deployed' && i.stage !== 'deferred').length;
+  const pct = total === 0 ? 0 : Math.round((deployed / total) * 100);
 
   const toggleRisk = (r: Risk) => {
     const next = new Set(filters.risks);
@@ -66,12 +66,12 @@ export function Header({
 
         {total > 0 && (
           <div className="progress-cluster">
-            <div className="progress-track" title={`${pct}% landed`}>
+            <div className="progress-track" title={`${pct}% deployed`}>
               <div className="progress-fill" style={{ width: `${pct}%` }} />
             </div>
             <span className="progress-label">
-              <strong>{landed}/{total}</strong> landed
-              <span className="stat-inflight" title="In Refactoring or Verifying">
+              <strong>{deployed}/{total}</strong> deployed
+              <span className="stat-inflight" title="In Active or Reviewing">
                 {' '}· {inFlight} in flight
               </span>
               {blocked > 0 && (

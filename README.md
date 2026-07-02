@@ -11,6 +11,16 @@ npm run dev      # https://localhost:5180
 
 `npm run build` produces a static production build in `dist/`.
 
+## Sign in with GitHub
+
+Chisel gates the board behind a GitHub sign-in and keeps each account's boards separate.
+
+1. Create an OAuth App at **GitHub → Settings → Developer settings → OAuth Apps**, and enable **Device Flow**.
+2. Copy `.env.example` to `.env` and set `VITE_GITHUB_CLIENT_ID` to the app's Client ID.
+3. Restart `npm run dev` and click **Sign in with GitHub** — you'll get a short code to enter at github.com/login/device.
+
+Sign-in uses the [OAuth Device Flow](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps#device-flow), so no client secret is needed. GitHub's device/token endpoints don't send CORS headers, so the dev server proxies them (the `/gh` entry in [vite.config.ts](vite.config.ts)). A production deployment needs the same proxy in front of `github.com`.
+
 ## The workflow
 
 | Stage           | Meaning                                  |

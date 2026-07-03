@@ -1,12 +1,12 @@
 import type {RefactorItem} from "../types";
-import {uid} from "../types";
+import {blockedFrom, uid} from "../types";
 
 const now = Date.now();
 const h = 3600_000;
 const d = 24 * h;
 
 function make(partial: Partial<RefactorItem> & Pick<RefactorItem, "title">): RefactorItem {
-  return {
+  const item = {
     id: uid(),
     description: "",
     files: [],
@@ -21,7 +21,8 @@ function make(partial: Partial<RefactorItem> & Pick<RefactorItem, "title">): Ref
     createdAt: now - 72 * h,
     updatedAt: now - 24 * h,
     ...partial,
-  };
+  } as RefactorItem;
+  return {...item, ...blockedFrom(item.notes)};
 }
 
 export function sampleItems(): RefactorItem[] {
@@ -66,8 +67,7 @@ export function sampleItems(): RefactorItem[] {
       category: "dependency",
       tags: ["database", "upgrade"],
       stage: "deferred",
-      blocked: true,
-      blockReason: "Waiting on ORM query audit from the data team — ETA Friday.",
+      notes: [{id: uid(), text: "Waiting on ORM query audit from the data team — ETA Friday.", createdAt: now - 6 * h, blocked: true}],
     }),
     make({
       title: "Replace N+1 queries in dashboard summary endpoint",
@@ -109,8 +109,7 @@ export function sampleItems(): RefactorItem[] {
       category: "dead-code",
       tags: ["webhooks", "security"],
       stage: "queued",
-      blocked: true,
-      blockReason: 'Partner "Acme Logistics" has not confirmed v2 migration.',
+      notes: [{id: uid(), text: 'Partner "Acme Logistics" has not confirmed v2 migration.', createdAt: now - 8 * h, blocked: true}],
     }),
     make({
       title: "Normalize error responses across public API",

@@ -1,6 +1,6 @@
 import {useEffect, useReducer} from "react";
 import type {Note, RefactorItem, Stage} from "../types";
-import {uid} from "../types";
+import {blockedFrom, uid} from "../types";
 
 const STORAGE_KEY = "chisel.projects.v2";
 const LEGACY_KEY = "chisel.board.v1";
@@ -17,7 +17,7 @@ export interface BoardState {
   activeId: string;
 }
 
-export type Action = {type: "import"; items: RefactorItem[]} | {type: "move"; id: string; stage: Stage; beforeId?: string} | {type: "update"; id: string; patch: Partial<Omit<RefactorItem, "id" | "notes">>} | {type: "add-note"; id: string; text: string} | {type: "delete-note"; id: string; noteId: string} | {type: "delete"; id: string} | {type: "add"; item: RefactorItem} | {type: "project-create"; name: string} | {type: "project-rename"; id: string; name: string} | {type: "project-delete"; id: string} | {type: "project-switch"; id: string};
+export type Action = {type: "import"; items: RefactorItem[]} | {type: "move"; id: string; stage: Stage; beforeId?: string} | {type: "update"; id: string; patch: Partial<Omit<RefactorItem, "id" | "notes">>} | {type: "add-note"; id: string; text: string} | {type: "edit-note"; id: string; noteId: string; text: string} | {type: "delete-note"; id: string; noteId: string} | {type: "toggle-note-block"; id: string; noteId: string} | {type: "delete"; id: string} | {type: "add"; item: RefactorItem} | {type: "project-create"; name: string} | {type: "project-rename"; id: string; name: string} | {type: "project-delete"; id: string} | {type: "project-switch"; id: string};
 
 function newProject(name: string): Project {
   return {id: uid(), name, createdAt: Date.now(), items: []};
@@ -25,6 +25,11 @@ function newProject(name: string): Project {
 
 function touch(item: RefactorItem): RefactorItem {
   return {...item, updatedAt: Date.now()};
+}
+
+/** Keep the cached blocked/blockReason fields in sync with the item's notes. */
+function syncBlocked(item: RefactorItem): RefactorItem {
+  return {...item, ...blockedFrom(item.notes)};
 }
 
 /** Apply a transform to the active project's items. */
@@ -57,10 +62,14 @@ export function reducer(state: BoardState, action: Action): BoardState {
       return mapActive(state, (items) => items.map((i) => (i.id === action.id ? touch({...i, ...action.patch}) : i)));
     case "add-note": {
       const note: Note = {id: uid(), text: action.text, createdAt: Date.now()};
-      return mapActive(state, (items) => items.map((i) => (i.id === action.id ? touch({...i, notes: [...i.notes, note]}) : i)));
+      return mapActive(state, (items) => items.map((i) => (i.id === action.id ? touch(syncBlocked({...i, notes: [...i.notes, note]})) : i)));
     }
+    case "edit-note":
+      return mapActive(state, (items) => items.map((i) => (i.id === action.id ? touch(syncBlocked({...i, notes: i.notes.map((n) => (n.id === action.noteId ? {...n, text: action.text} : n))})) : i)));
     case "delete-note":
-      return mapActive(state, (items) => items.map((i) => (i.id === action.id ? touch({...i, notes: i.notes.filter((n) => n.id !== action.noteId)}) : i)));
+      return mapActive(state, (items) => items.map((i) => (i.id === action.id ? touch(syncBlocked({...i, notes: i.notes.filter((n) => n.id !== action.noteId)})) : i)));
+    case "toggle-note-block":
+      return mapActive(state, (items) => items.map((i) => (i.id === action.id ? touch(syncBlocked({...i, notes: i.notes.map((n) => (n.id === action.noteId ? {...n, blocked: !n.blocked, resolved: n.blocked} : n))})) : i)));
     case "delete":
       return mapActive(state, (items) => items.filter((i) => i.id !== action.id));
 

@@ -1,5 +1,5 @@
 import {useEffect, useRef, useState} from "react";
-import type {RefactorItem} from "../types";
+import type {Note, RefactorItem} from "../types";
 import {CATEGORIES, EFFORTS, RISKS, STAGES} from "../types";
 import {timeAgo} from "./ui";
 
@@ -9,10 +9,12 @@ interface Props {
   onUpdate: (patch: Partial<Omit<RefactorItem, "id" | "notes">>) => void;
   onAddNote: (text: string) => void;
   onDeleteNote: (noteId: string) => void;
+  onEditNote: (noteId: string, text: string) => void;
+  onToggleNoteBlock: (noteId: string) => void;
   onDelete: () => void;
 }
 
-export function Drawer({item, onClose, onUpdate, onAddNote, onDeleteNote, onDelete}: Props) {
+export function Drawer({item, onClose, onUpdate, onAddNote, onDeleteNote, onEditNote, onToggleNoteBlock, onDelete}: Props) {
   const [noteDraft, setNoteDraft] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [closing, setClosing] = useState(false);
@@ -77,14 +79,6 @@ export function Drawer({item, onClose, onUpdate, onAddNote, onDeleteNote, onDele
 
         <textarea ref={titleRef} className="drawer-title" value={item.title} rows={1} onChange={(e) => onUpdate({title: e.target.value})} />
 
-        <div className={`block-panel${item.blocked ? " on" : ""}`}>
-          <label className="block-toggle">
-            <input type="checkbox" checked={item.blocked} onChange={(e) => onUpdate({blocked: e.target.checked})} />
-            <span>⛔ Blocked</span>
-          </label>
-          {item.blocked && <input className="block-reason" placeholder="What is it waiting on?" value={item.blockReason} onChange={(e) => onUpdate({blockReason: e.target.value})} />}
-        </div>
-
         <div className="drawer-grid">
           <label className="field">
             <span className="field-label">Risk</span>
@@ -132,15 +126,7 @@ export function Drawer({item, onClose, onUpdate, onAddNote, onDeleteNote, onDele
           <div className="notes">
             {item.notes.length === 0 && <div className="notes-empty">No notes yet — findings, gotchas, links to PRs.</div>}
             {item.notes.map((n) => (
-              <div key={n.id} className="note">
-                <div className="note-text">{n.text}</div>
-                <div className="note-foot">
-                  <span>{timeAgo(n.createdAt)}</span>
-                  <button className="note-delete" onClick={() => onDeleteNote(n.id)}>
-                    remove
-                  </button>
-                </div>
-              </div>
+              <NoteRow key={n.id} note={n} onToggleBlock={() => onToggleNoteBlock(n.id)} onDelete={() => onDeleteNote(n.id)} onEdit={(text) => onEditNote(n.id, text)} />
             ))}
           </div>
           <div className="note-composer">
@@ -184,6 +170,133 @@ export function Drawer({item, onClose, onUpdate, onAddNote, onDeleteNote, onDele
           )}
         </div>
       </aside>
+    </div>
+  );
+}
+
+function NoteRow({note, onToggleBlock, onDelete, onEdit}: {note: Note; onToggleBlock: () => void; onDelete: () => void; onEdit: (text: string) => void}) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [confirmRemove, setConfirmRemove] = useState(false);
+  const [draft, setDraft] = useState(note.text);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const editRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (!rootRef.current?.contains(e.target as Node)) setMenuOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMenuOpen(false);
+    };
+    window.addEventListener("mousedown", onDown);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("mousedown", onDown);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [menuOpen]);
+
+  useEffect(() => {
+    if (!menuOpen) setConfirmRemove(false);
+  }, [menuOpen]);
+
+  const startEdit = () => {
+    setDraft(note.text);
+    setEditing(true);
+    setMenuOpen(false);
+    requestAnimationFrame(() => editRef.current?.focus());
+  };
+
+  const saveEdit = () => {
+    const text = draft.trim();
+    if (!text) return;
+    if (text !== note.text) onEdit(text);
+    setEditing(false);
+  };
+
+  const cancelEdit = () => {
+    setDraft(note.text);
+    setEditing(false);
+  };
+
+  if (editing) {
+    return (
+      <div className={`note${note.blocked ? " note-blocked" : note.resolved ? " note-resolved" : ""}`} ref={rootRef}>
+        <textarea
+          ref={editRef}
+          className="input note-edit"
+          rows={2}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+              e.preventDefault();
+              saveEdit();
+            } else if (e.key === "Escape") {
+              e.preventDefault();
+              cancelEdit();
+            }
+          }}
+        />
+        <div className="note-edit-actions">
+          <button className="btn btn-ghost btn-sm" onClick={cancelEdit}>
+            Cancel
+          </button>
+          <button className="btn btn-sm" onClick={saveEdit} disabled={!draft.trim()}>
+            Save
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className={`note${note.blocked ? " note-blocked" : note.resolved ? " note-resolved" : ""}`} ref={rootRef}>
+      <div className="note-text">{note.text}</div>
+      <div className="note-foot">
+        <span>{timeAgo(note.createdAt)}</span>
+        {note.blocked && <span className="note-blocked-tag">· Blocker</span>}
+        <div className="note-menu">
+          <button className="note-menu-btn" onClick={() => setMenuOpen((o) => !o)} aria-haspopup="menu" aria-expanded={menuOpen} aria-label="Note actions">
+            ⋯
+          </button>
+          {menuOpen && (
+            <div className="note-menu-pop" role="menu">
+              <button className="note-menu-item" role="menuitem" onClick={startEdit}>
+                Edit note
+              </button>
+              <button
+                className={`note-menu-item${note.blocked ? " resolve" : ""}`}
+                role="menuitem"
+                onClick={() => {
+                  onToggleBlock();
+                  setMenuOpen(false);
+                }}
+              >
+                {note.blocked ? "Resolve" : "Mark as blocker"}
+              </button>
+              {confirmRemove ? (
+                <button
+                  className="note-menu-item danger"
+                  role="menuitem"
+                  onClick={() => {
+                    onDelete();
+                    setMenuOpen(false);
+                  }}
+                >
+                  Confirm remove
+                </button>
+              ) : (
+                <button className="note-menu-item danger" role="menuitem" onClick={() => setConfirmRemove(true)}>
+                  Remove
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

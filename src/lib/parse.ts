@@ -1,5 +1,5 @@
-import type {Category, Effort, RefactorItem, Risk, Stage} from "../types";
-import {CATEGORIES, uid} from "../types";
+import type {Category, Effort, Note, RefactorItem, Risk, Stage} from "../types";
+import {blockedFrom, CATEGORIES, uid} from "../types";
 
 export interface ParsedRow {
   ok: boolean;
@@ -169,8 +169,9 @@ export function parseRefactorJson(text: string): ParseResult {
 
     const tags = [...toStringArray(obj.tags), ...toStringArray(obj.labels)].map((t) => t.toLowerCase().replace(/\s+/g, "-"));
 
-    const blockReason = firstString(obj, ["blocked_reason", "blockReason", "blocker"]) ?? "";
-    const blocked = obj.blocked === true || blockReason !== "";
+    const importedReason = firstString(obj, ["blocked_reason", "blockReason", "blocker"]) ?? "";
+    const importedBlocked = obj.blocked === true || importedReason !== "";
+    const notes: Note[] = importedBlocked ? [{id: uid(), text: importedReason || "Blocked", createdAt: now, blocked: true}] : [];
 
     if (errors.length > 0) return {ok: false, index, errors, warnings};
 
@@ -184,9 +185,8 @@ export function parseRefactorJson(text: string): ParseResult {
       category,
       tags: [...new Set(tags)],
       stage,
-      blocked,
-      blockReason,
-      notes: [],
+      ...blockedFrom(notes),
+      notes,
       createdAt: now,
       updatedAt: now,
     };

@@ -1193,54 +1193,6 @@ code,
   background: var(--surface);
 }
 
-.block-panel {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 10px 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  transition: all 0.2s;
-}
-
-.block-panel.on {
-  border-color: rgba(226, 105, 95, 0.4);
-  background: var(--red-soft);
-}
-
-.block-toggle {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  font-weight: 550;
-  cursor: pointer;
-  user-select: none;
-}
-
-.block-panel.on .block-toggle {
-  color: var(--red);
-}
-
-.block-toggle input {
-  accent-color: var(--red);
-}
-
-.block-reason {
-  font: inherit;
-  font-size: 13px;
-  color: var(--text);
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 6px 10px;
-  outline: none;
-}
-
-.block-reason:focus {
-  border-color: var(--red);
-}
-
 .drawer-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1489,6 +1441,14 @@ code,
   animation: card-in 0.2s var(--ease);
 }
 
+.note.note-blocked {
+  border-left-color: var(--red);
+}
+
+.note.note-resolved {
+  border-left-color: var(--green);
+}
+
 .note-text {
   font-size: 13px;
   white-space: pre-wrap;
@@ -1497,26 +1457,90 @@ code,
 .note-foot {
   margin-top: 5px;
   display: flex;
-  justify-content: space-between;
+  align-items: center;
+  gap: 6px;
   font-size: 11px;
   color: var(--text-faint);
 }
 
-.note-delete {
-  color: var(--text-faint);
+.note-blocked-tag {
   font-size: 11px;
+  font-weight: 550;
+  color: var(--red);
+}
+
+.note-menu {
+  position: relative;
+  margin-left: auto;
+}
+
+.note-menu-btn {
+  color: var(--text-faint);
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 4px;
   opacity: 0;
   transition:
     opacity 0.15s,
     color 0.15s;
 }
 
-.note:hover .note-delete {
+.note:hover .note-menu-btn,
+.note-menu-btn[aria-expanded="true"] {
   opacity: 1;
 }
 
-.note-delete:hover {
+.note-menu-btn:hover {
+  color: var(--text);
+}
+
+.note-menu-pop {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 10;
+  min-width: 148px;
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+  animation: card-in 0.12s var(--ease);
+}
+
+.note-menu-item {
+  text-align: left;
+  font-size: 12.5px;
+  color: var(--text);
+  padding: 6px 9px;
+  border-radius: 6px;
+  transition: background 0.12s;
+}
+
+.note-menu-item:hover {
+  background: var(--surface);
+}
+
+.note-menu-item.danger {
   color: var(--red);
+}
+
+.note-menu-item.resolve {
+  color: var(--green);
+}
+
+.note-edit {
+  width: 100%;
+  resize: vertical;
+}
+
+.note-edit-actions {
+  margin-top: 8px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 .note-composer {

@@ -10,6 +10,8 @@ export interface Note {
   id: string;
   text: string;
   createdAt: number;
+  blocked?: boolean;
+  resolved?: boolean;
 }
 
 export interface RefactorItem {
@@ -87,4 +89,10 @@ export function categoryMeta(id: Category) {
 
 export function uid(): string {
   return Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-4);
+}
+
+/** Derive an item's blocked state from its notes: blocked if any note is tagged blocked. */
+export function blockedFrom(notes: Note[]): {blocked: boolean; blockReason: string} {
+  const blocked = notes.filter((n) => n.blocked);
+  return {blocked: blocked.length > 0, blockReason: blocked.map((n) => n.text).join(" · ")};
 }

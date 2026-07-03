@@ -190,6 +190,8 @@ function BoardApp({session, onSignOut}: {session: Session; onSignOut: () => void
           onUpdate={(patch) => dispatch({type: "update", id: selected.id, patch})}
           onAddNote={(text) => dispatch({type: "add-note", id: selected.id, text})}
           onDeleteNote={(noteId) => dispatch({type: "delete-note", id: selected.id, noteId})}
+          onEditNote={(noteId, text) => dispatch({type: "edit-note", id: selected.id, noteId, text})}
+          onToggleNoteBlock={(noteId) => dispatch({type: "toggle-note-block", id: selected.id, noteId})}
           onDelete={() => {
             dispatch({type: "delete", id: selected.id});
             setSelectedId(null);

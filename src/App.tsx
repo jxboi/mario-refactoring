@@ -3,7 +3,9 @@ import {Board} from "./components/Board";
 import {Drawer} from "./components/Drawer";
 import {Header} from "./components/Header";
 import {ImportModal} from "./components/ImportModal";
+import {SignInScreen} from "./components/SignIn";
 import {ToastHost, useToasts} from "./components/Toast";
+import {useAuth, boardScope, type Session} from "./lib/auth";
 import {activeProject, useBoard} from "./lib/store";
 import type {RefactorItem, Risk, Stage} from "./types";
 import {uid} from "./types";
@@ -17,7 +19,13 @@ export interface Filters {
 const EMPTY_FILTERS: Filters = {query: "", risks: new Set(), blockedOnly: false};
 
 export default function App() {
-  const {state, dispatch} = useBoard();
+  const {session, signIn, signOut} = useAuth();
+  if (!session) return <SignInScreen onSignedIn={signIn} />;
+  return <BoardApp session={session} onSignOut={signOut} />;
+}
+
+function BoardApp({session, onSignOut}: {session: Session; onSignOut: () => void}) {
+  const {state, dispatch} = useBoard(boardScope(session));
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [importOpen, setImportOpen] = useState(false);
@@ -140,6 +148,9 @@ export default function App() {
         filters={filters}
         onFilters={setFilters}
         onImportClick={() => setImportOpen(true)}
+        user={session.user}
+        isGuest={session.kind === "guest"}
+        onSignOut={onSignOut}
         onProjectSwitch={(id) => {
           dispatch({type: "project-switch", id});
           setSelectedId(null);

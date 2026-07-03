@@ -1,4 +1,5 @@
 import type {Filters} from "../App";
+import type {GitHubUser} from "../lib/auth";
 import type {Project} from "../lib/store";
 import type {RefactorItem, Risk} from "../types";
 import {RISKS} from "../types";
@@ -15,9 +16,12 @@ interface Props {
   onProjectCreate: (name: string) => void;
   onProjectRename: (id: string, name: string) => void;
   onProjectDelete: (id: string) => void;
+  user: GitHubUser;
+  isGuest: boolean;
+  onSignOut: () => void;
 }
 
-export function Header({items, projects, activeId, filters, onFilters, onImportClick, onProjectSwitch, onProjectCreate, onProjectRename, onProjectDelete}: Props) {
+export function Header({items, projects, activeId, filters, onFilters, onImportClick, onProjectSwitch, onProjectCreate, onProjectRename, onProjectDelete, user, isGuest, onSignOut}: Props) {
   const total = items.length;
   const deployed = items.filter((i) => i.stage === "deployed").length;
   const pct = total === 0 ? 0 : Math.round((deployed / total) * 100);
@@ -62,6 +66,25 @@ export function Header({items, projects, activeId, filters, onFilters, onImportC
             </button>
           </div>
         )}
+
+        <div className={`account${total > 0 ? "" : " account-solo"}`}>
+          {isGuest ? (
+            <span className="account-user account-guest" title="Local-only guest session">
+              <span className="account-avatar account-avatar-guest" aria-hidden="true">
+                ᴳ
+              </span>
+              <span className="account-name">Guest</span>
+            </span>
+          ) : (
+            <a className="account-user" href={user.htmlUrl} target="_blank" rel="noreferrer" title={`@${user.login} on GitHub`}>
+              <img className="account-avatar" src={user.avatarUrl} alt="" width={26} height={26} />
+              <span className="account-name">{user.name || user.login}</span>
+            </a>
+          )}
+          <button className="btn btn-ghost btn-sm" onClick={onSignOut}>
+            {isGuest ? "Exit" : "Sign out"}
+          </button>
+        </div>
       </div>
 
       {total > 0 && (

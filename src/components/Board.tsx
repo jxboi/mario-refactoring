@@ -1,12 +1,13 @@
 import {useEffect, useRef, useState} from "react";
-import type {CategoryDef, RefactorItem, Stage} from "../types";
-import {STAGES, categoryMeta} from "../types";
+import type {CategoryDef, RefactorItem, Stage, TypeConfig} from "../types";
+import {categoryMeta} from "../types";
 import {EffortDots, RiskPill} from "./ui";
 
 interface BoardProps {
   items: RefactorItem[];
   totalCount: number;
   categories: CategoryDef[];
+  config: TypeConfig;
   onMove: (id: string, stage: Stage, beforeId?: string) => void;
   onSelect: (id: string) => void;
   onAddItem: (stage: Stage) => void;
@@ -16,12 +17,12 @@ interface BoardProps {
 
 const DRAG_MIME = "application/x-chisel-item";
 
-export function Board({items, totalCount, categories, onMove, onSelect, onAddItem, onImportClick, onLoadSample}: BoardProps) {
+export function Board({items, totalCount, categories, config, onMove, onSelect, onAddItem, onImportClick, onLoadSample}: BoardProps) {
   const [dragId, setDragId] = useState<string | null>(null);
   const [overStage, setOverStage] = useState<Stage | null>(null);
   // Columns the user has collapsed. Seeded with any stage marked hiddenByDefault
   // (e.g. Deferred) so those start collapsed, but every column can be toggled.
-  const [collapsed, setCollapsed] = useState<Set<Stage>>(() => new Set(STAGES.filter((s) => s.hiddenByDefault).map((s) => s.id)));
+  const [collapsed, setCollapsed] = useState<Set<Stage>>(() => new Set(config.stages.filter((s) => s.hiddenByDefault).map((s) => s.id)));
 
   const setStageCollapsed = (stage: Stage, value: boolean) =>
     setCollapsed((prev) => {
@@ -39,8 +40,8 @@ export function Board({items, totalCount, categories, onMove, onSelect, onAddIte
             <rect width="32" height="32" rx="7" fill="var(--brand-bg)" />
             <path d="M9 23 L20 12 L23 15 L12 26 Z M21.5 10.5 L24.5 7.5 L27.5 10.5 L24.5 13.5 Z" fill="var(--accent)" />
           </svg>
-          <h1>A calm place to chip away at your codebase</h1>
-          <p>Drop a JSON file of refactoring items anywhere on this page — Chisel parses it, previews what it found, and files everything into a workflow built for refactoring: queued, active, reviewing, deployed.</p>
+          <h1>{config.tagline}</h1>
+          <p>{config.blurb}</p>
           <div className="empty-actions">
             <button className="btn btn-primary" onClick={onImportClick}>
               <span className="btn-icon">⇡</span> Import JSON
@@ -52,18 +53,7 @@ export function Board({items, totalCount, categories, onMove, onSelect, onAddIte
               Explore with sample data
             </button>
           </div>
-          <pre className="empty-schema">{`[
-  {
-    "title": "Extract retry logic into a service",
-    "description": "Duplicated across three handlers",
-    "files": ["src/checkout/card_handler.py"],
-    "risk": "high",         // low | medium | high
-    "effort": "l",          // low | medium | high
-    "category": "extract",  // extract, rename, dead-code, …
-    "tags": ["payments"],
-    "status": "in-progress"
-  }
-]`}</pre>
+          <pre className="empty-schema">{config.schema}</pre>
         </div>
       </main>
     );
@@ -82,7 +72,7 @@ export function Board({items, totalCount, categories, onMove, onSelect, onAddIte
 
   return (
     <main className="board">
-      {STAGES.map((stage) => {
+      {config.stages.map((stage) => {
         const stageItems = items.filter((i) => i.stage === stage.id);
 
         // Any collapsed column shows as a slim strip until the user reveals it.
@@ -156,6 +146,7 @@ export function Board({items, totalCount, categories, onMove, onSelect, onAddIte
                   key={item.id}
                   item={item}
                   categories={categories}
+                  showFiles={config.showFiles}
                   dragging={dragId === item.id}
                   onSelect={() => onSelect(item.id)}
                   onDragStart={(e) => {
@@ -237,6 +228,7 @@ function ColumnMenu({label, canAdd, onAdd, onCollapse}: ColumnMenuProps) {
 interface CardProps {
   item: RefactorItem;
   categories: CategoryDef[];
+  showFiles: boolean;
   dragging: boolean;
   onSelect: () => void;
   onDragStart: (e: React.DragEvent) => void;
@@ -244,7 +236,7 @@ interface CardProps {
   onDropBefore: (e: React.DragEvent) => void;
 }
 
-function Card({item, categories, dragging, onSelect, onDragStart, onDragEnd, onDropBefore}: CardProps) {
+function Card({item, categories, showFiles, dragging, onSelect, onDragStart, onDragEnd, onDropBefore}: CardProps) {
   const cat = categoryMeta(item.category, categories);
   return (
     <article
@@ -271,7 +263,7 @@ function Card({item, categories, dragging, onSelect, onDragStart, onDragEnd, onD
         )}
       </div>
       <div className={`card-title${item.title ? "" : " untitled"}`}>{item.title || "Untitled"}</div>
-      {item.files.length > 0 && (
+      {showFiles && item.files.length > 0 && (
         <div className="card-file">
           <code>{item.files[0]}</code>
           {item.files.length > 1 && <span className="card-file-more">+{item.files.length - 1}</span>}

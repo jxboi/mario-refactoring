@@ -1,18 +1,19 @@
 import {useEffect, useRef, useState} from "react";
 import type {ParseResult} from "../lib/parse";
 import {parseRefactorJson} from "../lib/parse";
-import type {CategoryDef, RefactorItem} from "../types";
-import {STAGES, categoryMeta} from "../types";
+import type {CategoryDef, RefactorItem, TypeConfig} from "../types";
+import {categoryMeta} from "../types";
 import {RiskPill} from "./ui";
 
 interface Props {
   initialFile: File | null;
   categories: CategoryDef[];
+  config: TypeConfig;
   onClose: () => void;
   onImport: (items: RefactorItem[]) => void;
 }
 
-export function ImportModal({initialFile, categories, onClose, onImport}: Props) {
+export function ImportModal({initialFile, categories, config, onClose, onImport}: Props) {
   const [fileName, setFileName] = useState<string | null>(null);
   const [result, setResult] = useState<ParseResult | null>(null);
   const [excluded, setExcluded] = useState<Set<number>>(new Set());
@@ -51,7 +52,7 @@ export function ImportModal({initialFile, categories, onClose, onImport}: Props)
     <div className="modal-veil" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className="modal">
         <div className="modal-head">
-          <h2>{result ? "Review import" : "Import refactoring items"}</h2>
+          <h2>{result ? "Review import" : `Import ${config.itemNounPlural}`}</h2>
           <button className="icon-btn" onClick={onClose} aria-label="Close">
             ✕
           </button>
@@ -126,8 +127,8 @@ export function ImportModal({initialFile, categories, onClose, onImport}: Props)
                       </div>
                       <div className="import-row-meta">
                         <RiskPill risk={row.item.risk} />
-                        <span className="import-stage">→ {STAGES.find((s) => s.id === row.item!.stage)?.label}</span>
-                        {row.item.files[0] && <code className="import-path">{row.item.files[0]}</code>}
+                        <span className="import-stage">→ {config.stages.find((s) => s.id === row.item!.stage)?.label}</span>
+                        {config.showFiles && row.item.files[0] && <code className="import-path">{row.item.files[0]}</code>}
                         {row.item.blocked && <span className="import-blocked">⛔ blocked</span>}
                       </div>
                       {row.warnings.map((w, i) => (

@@ -1,11 +1,12 @@
 import {useEffect, useRef, useState} from "react";
-import type {CategoryDef, Note, RefactorItem} from "../types";
-import {EFFORTS, RISKS, STAGES} from "../types";
+import type {CategoryDef, Note, RefactorItem, TypeConfig} from "../types";
+import {EFFORTS, EFFORT_LABELS, RISKS, RISK_LABELS} from "../types";
 import {timeAgo} from "./ui";
 
 interface Props {
   item: RefactorItem;
   categories: CategoryDef[];
+  config: TypeConfig;
   onClose: () => void;
   onUpdate: (patch: Partial<Omit<RefactorItem, "id" | "notes">>) => void;
   onAddNote: (text: string) => void;
@@ -15,7 +16,7 @@ interface Props {
   onDelete: () => void;
 }
 
-export function Drawer({item, categories, onClose, onUpdate, onAddNote, onDeleteNote, onEditNote, onToggleNoteBlock, onDelete}: Props) {
+export function Drawer({item, categories, config, onClose, onUpdate, onAddNote, onDeleteNote, onEditNote, onToggleNoteBlock, onDelete}: Props) {
   const [noteDraft, setNoteDraft] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [closing, setClosing] = useState(false);
@@ -67,7 +68,7 @@ export function Drawer({item, categories, onClose, onUpdate, onAddNote, onDelete
       <aside className={`drawer${closing ? " closing" : ""}`} ref={panelRef}>
         <div className="drawer-top">
           <select className="stage-select" value={item.stage} onChange={(e) => onUpdate({stage: e.target.value as RefactorItem["stage"]})}>
-            {STAGES.map((s) => (
+            {config.stages.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.label}
               </option>
@@ -82,11 +83,11 @@ export function Drawer({item, categories, onClose, onUpdate, onAddNote, onDelete
 
         <div className="drawer-grid">
           <label className="field">
-            <span className="field-label">Risk</span>
+            <span className="field-label">{config.metricLabel}</span>
             <div className="seg">
               {RISKS.map((r) => (
                 <button key={r} className={`seg-btn seg-${r}${item.risk === r ? " active" : ""}`} onClick={() => onUpdate({risk: r})}>
-                  {r}
+                  {RISK_LABELS[r]}
                 </button>
               ))}
             </div>
@@ -96,7 +97,7 @@ export function Drawer({item, categories, onClose, onUpdate, onAddNote, onDelete
             <div className="seg">
               {EFFORTS.map((e) => (
                 <button key={e} className={`seg-btn seg-${e}${item.effort === e ? " active" : ""}`} onClick={() => onUpdate({effort: e})}>
-                  {e}
+                  {EFFORT_LABELS[e]}
                 </button>
               ))}
             </div>
@@ -114,11 +115,11 @@ export function Drawer({item, categories, onClose, onUpdate, onAddNote, onDelete
         </div>
 
         <label className="field">
-          <span className="field-label">Why this refactor</span>
-          <textarea className="input drawer-desc" rows={4} placeholder="What's wrong today, and what better looks like…" value={item.description} onChange={(e) => onUpdate({description: e.target.value})} />
+          <span className="field-label">{config.descriptionLabel}</span>
+          <textarea className="input drawer-desc" rows={4} placeholder={config.descriptionPlaceholder} value={item.description} onChange={(e) => onUpdate({description: e.target.value})} />
         </label>
 
-        <ListEditor label="Files & paths" mono values={item.files} placeholder="src/module/file.py — press Enter" onAdd={(v) => addListItem("files", v)} onRemove={(v) => onUpdate({files: item.files.filter((f) => f !== v)})} />
+        {config.showFiles && <ListEditor label="Files & paths" mono values={item.files} placeholder="src/module/file.py — press Enter" onAdd={(v) => addListItem("files", v)} onRemove={(v) => onUpdate({files: item.files.filter((f) => f !== v)})} />}
 
         <ListEditor label="Tags" values={item.tags} placeholder="add tag — press Enter" onAdd={(v) => addListItem("tags", v)} onRemove={(v) => onUpdate({tags: item.tags.filter((t) => t !== v)})} />
 

@@ -9,7 +9,7 @@ import {ToastHost, useToasts} from "./components/Toast";
 import {useAuth, boardScope, type Session} from "./lib/auth";
 import {activeProject, useBoard} from "./lib/store";
 import type {RefactorItem, Risk, Stage} from "./types";
-import {uid} from "./types";
+import {typeConfig, uid} from "./types";
 
 export interface Filters {
   query: string;
@@ -37,16 +37,18 @@ function BoardApp({session, onSignOut}: {session: Session; onSignOut: () => void
 
   const project = activeProject(state);
   const items = project.items;
-  const categories = state.categories;
+  const config = typeConfig(project.type);
+  const categories = state.categories[project.type];
 
-  // How many items across every project use each category (for the manager).
+  // How many items across every project of the same type use each category (for the manager).
   const categoryCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     for (const p of state.projects) {
+      if (p.type !== project.type) continue;
       for (const i of p.items) counts[i.category] = (counts[i.category] ?? 0) + 1;
     }
     return counts;
-  }, [state.projects]);
+  }, [state.projects, project.type]);
 
   const selected = useMemo(() => items.find((i) => i.id === selectedId) ?? null, [items, selectedId]);
 
@@ -68,9 +70,9 @@ function BoardApp({session, onSignOut}: {session: Session; onSignOut: () => void
       dispatch({type: "import", items: imported});
       setImportOpen(false);
       setDroppedFile(null);
-      pushToast(`Imported ${imported.length} refactoring ${imported.length === 1 ? "item" : "items"}`, "success");
+      pushToast(`Imported ${imported.length} ${imported.length === 1 ? config.itemNoun : config.itemNounPlural}`, "success");
     },
-    [dispatch, pushToast],
+    [dispatch, pushToast, config],
   );
 
   const handleAddItem = useCallback(
@@ -158,6 +160,8 @@ function BoardApp({session, onSignOut}: {session: Session; onSignOut: () => void
         items={items}
         projects={state.projects}
         activeId={state.activeId}
+        metricLabel={config.metricLabel}
+        showFiles={config.showFiles}
         filters={filters}
         onFilters={setFilters}
         onImportClick={() => setImportOpen(true)}
@@ -169,8 +173,8 @@ function BoardApp({session, onSignOut}: {session: Session; onSignOut: () => void
           dispatch({type: "project-switch", id});
           setSelectedId(null);
         }}
-        onProjectCreate={(name) => {
-          dispatch({type: "project-create", name});
+        onProjectCreate={(name, projectType) => {
+          dispatch({type: "project-create", name, projectType});
           setSelectedId(null);
           setFilters(EMPTY_FILTERS);
           pushToast(`Project “${name}” created`, "success");
@@ -187,21 +191,30 @@ function BoardApp({session, onSignOut}: {session: Session; onSignOut: () => void
         items={filtered}
         totalCount={items.length}
         categories={categories}
+        config={config}
         onMove={(id, stage, beforeId) => dispatch({type: "move", id, stage, beforeId})}
         onSelect={setSelectedId}
         onAddItem={handleAddItem}
         onImportClick={() => setImportOpen(true)}
         onLoadSample={() => {
-          import("./lib/sample").then(({sampleItems}) => {
-            dispatch({type: "import", items: sampleItems()});
-            pushToast("Loaded sample refactoring backlog", "success");
-          });
+          if (project.type === "task") {
+            import("./lib/sample").then(({sampleTasks}) => {
+              dispatch({type: "import", items: sampleTasks()});
+              pushToast("Loaded sample task list", "success");
+            });
+          } else {
+            import("./lib/sample").then(({sampleItems}) => {
+              dispatch({type: "import", items: sampleItems()});
+              pushToast("Loaded sample refactoring backlog", "success");
+            });
+          }
         }}
       />
       {selected && (
         <Drawer
           item={selected}
           categories={categories}
+          config={config}
           onClose={() => setSelectedId(null)}
           onUpdate={(patch) => dispatch({type: "update", id: selected.id, patch})}
           onAddNote={(text) => dispatch({type: "add-note", id: selected.id, text})}
@@ -219,6 +232,7 @@ function BoardApp({session, onSignOut}: {session: Session; onSignOut: () => void
         <ImportModal
           initialFile={droppedFile}
           categories={categories}
+          config={config}
           onClose={() => {
             setImportOpen(false);
             setDroppedFile(null);
@@ -230,6 +244,7 @@ function BoardApp({session, onSignOut}: {session: Session; onSignOut: () => void
         <CategoryManager
           categories={categories}
           counts={categoryCounts}
+          typeLabel={config.label}
           onAdd={(label) => dispatch({type: "category-add", label})}
           onRename={(id, label) => dispatch({type: "category-rename", id, label})}
           onDelete={(id) => {
@@ -243,7 +258,7 @@ function BoardApp({session, onSignOut}: {session: Session; onSignOut: () => void
         <div className="drop-veil">
           <div className="drop-veil-inner">
             <span className="drop-veil-icon">⇣</span>
-            Drop your JSON file to import refactoring items
+            Drop your JSON file to import {config.itemNounPlural}
           </div>
         </div>
       )}

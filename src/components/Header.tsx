@@ -1,20 +1,22 @@
 import type {Filters} from "../App";
 import type {GitHubUser} from "../lib/auth";
 import type {Project} from "../lib/store";
-import type {RefactorItem, Risk} from "../types";
-import {RISKS} from "../types";
+import type {ProjectType, RefactorItem, Risk} from "../types";
+import {RISKS, RISK_LABELS} from "../types";
 import {ProjectMenu} from "./ProjectMenu";
 
 interface Props {
   items: RefactorItem[];
   projects: Project[];
   activeId: string;
+  metricLabel: string;
+  showFiles: boolean;
   filters: Filters;
   onFilters: (f: Filters) => void;
   onImportClick: () => void;
   onManageCategories: () => void;
   onProjectSwitch: (id: string) => void;
-  onProjectCreate: (name: string) => void;
+  onProjectCreate: (name: string, projectType: ProjectType) => void;
   onProjectRename: (id: string, name: string) => void;
   onProjectDelete: (id: string) => void;
   user: GitHubUser;
@@ -22,7 +24,7 @@ interface Props {
   onSignOut: () => void;
 }
 
-export function Header({items, projects, activeId, filters, onFilters, onImportClick, onManageCategories, onProjectSwitch, onProjectCreate, onProjectRename, onProjectDelete, user, isGuest, onSignOut}: Props) {
+export function Header({items, projects, activeId, metricLabel, showFiles, filters, onFilters, onImportClick, onManageCategories, onProjectSwitch, onProjectCreate, onProjectRename, onProjectDelete, user, isGuest, onSignOut}: Props) {
   const total = items.length;
   const deployed = items.filter((i) => i.stage === "deployed").length;
   const pct = total === 0 ? 0 : Math.round((deployed / total) * 100);
@@ -93,11 +95,11 @@ export function Header({items, projects, activeId, filters, onFilters, onImportC
 
       {total > 0 && (
         <div className="header-row filter-row">
-          <input className="search-input" type="search" placeholder="Search titles, files, tags…" value={filters.query} onChange={(e) => onFilters({...filters, query: e.target.value})} />
+          <input className="search-input" type="search" placeholder={showFiles ? "Search titles, files, tags…" : "Search titles, tags…"} value={filters.query} onChange={(e) => onFilters({...filters, query: e.target.value})} />
           <div className="filter-chips">
             {RISKS.map((r) => (
               <button key={r} className={`chip chip-${r}${filters.risks.has(r) ? " active" : ""}`} onClick={() => toggleRisk(r)}>
-                {r} risk
+                {RISK_LABELS[r]} {metricLabel.toLowerCase()}
               </button>
             ))}
             <button className={`chip chip-blocked${filters.blockedOnly ? " active" : ""}`} onClick={() => onFilters({...filters, blockedOnly: !filters.blockedOnly})}>

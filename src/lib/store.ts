@@ -1,6 +1,6 @@
 import {useEffect, useReducer} from "react";
-import type {CategoryDef, Note, RefactorItem, Stage} from "../types";
-import {blockedFrom, DEFAULT_CATEGORIES, FALLBACK_CATEGORY_ID, slugifyCategory, uid} from "../types";
+import type {CategoryDef, Note, ProjectType, RefactorItem, Stage} from "../types";
+import {blockedFrom, defaultCategoriesFor, FALLBACK_CATEGORY_ID, PROJECT_TYPES, slugifyCategory, uid} from "../types";
 
 const STORAGE_KEY = "chisel.projects.v2";
 const LEGACY_KEY = "chisel.board.v1";
@@ -8,21 +8,25 @@ const LEGACY_KEY = "chisel.board.v1";
 export interface Project {
   id: string;
   name: string;
+  type: ProjectType;
   createdAt: number;
   items: RefactorItem[];
 }
 
+/** Categories are shared across a user's projects of the same type. */
+export type CategoriesByType = Record<ProjectType, CategoryDef[]>;
+
 export interface BoardState {
   projects: Project[];
   activeId: string;
-  /** Categories are shared across all of a user's projects. */
-  categories: CategoryDef[];
+  /** Category lists keyed by project type (refactoring vs. task). */
+  categories: CategoriesByType;
 }
 
-export type Action = {type: "import"; items: RefactorItem[]} | {type: "move"; id: string; stage: Stage; beforeId?: string} | {type: "update"; id: string; patch: Partial<Omit<RefactorItem, "id" | "notes">>} | {type: "add-note"; id: string; text: string} | {type: "edit-note"; id: string; noteId: string; text: string} | {type: "delete-note"; id: string; noteId: string} | {type: "toggle-note-block"; id: string; noteId: string} | {type: "delete"; id: string} | {type: "add"; item: RefactorItem} | {type: "project-create"; name: string} | {type: "project-rename"; id: string; name: string} | {type: "project-delete"; id: string} | {type: "project-switch"; id: string} | {type: "category-add"; label: string} | {type: "category-rename"; id: string; label: string} | {type: "category-delete"; id: string};
+export type Action = {type: "import"; items: RefactorItem[]} | {type: "move"; id: string; stage: Stage; beforeId?: string} | {type: "update"; id: string; patch: Partial<Omit<RefactorItem, "id" | "notes">>} | {type: "add-note"; id: string; text: string} | {type: "edit-note"; id: string; noteId: string; text: string} | {type: "delete-note"; id: string; noteId: string} | {type: "toggle-note-block"; id: string; noteId: string} | {type: "delete"; id: string} | {type: "add"; item: RefactorItem} | {type: "project-create"; name: string; projectType: ProjectType} | {type: "project-rename"; id: string; name: string} | {type: "project-delete"; id: string} | {type: "project-switch"; id: string} | {type: "category-add"; label: string} | {type: "category-rename"; id: string; label: string} | {type: "category-delete"; id: string};
 
-function newProject(name: string): Project {
-  return {id: uid(), name, createdAt: Date.now(), items: []};
+function newProject(name: string, projectType: ProjectType = "refactoring"): Project {
+  return {id: uid(), name, type: projectType, createdAt: Date.now(), items: []};
 }
 
 function touch(item: RefactorItem): RefactorItem {
@@ -77,7 +81,7 @@ export function reducer(state: BoardState, action: Action): BoardState {
 
     case "project-create": {
       const name = action.name.trim() || "Untitled project";
-      const project = newProject(name);
+      const project = newProject(name, action.projectType);
       return {...state, projects: [...state.projects, project], activeId: project.id};
     }
     case "project-rename":
@@ -100,30 +104,39 @@ export function reducer(state: BoardState, action: Action): BoardState {
     case "category-add": {
       const label = action.label.trim();
       if (!label) return state;
+      const type = activeType(state);
+      const list = state.categories[type];
       const base = slugifyCategory(label);
-      const existing = new Set(state.categories.map((c) => c.id));
+      const existing = new Set(list.map((c) => c.id));
       let id = base;
       for (let n = 2; existing.has(id); n++) id = `${base}-${n}`;
       const def: CategoryDef = {id, label, glyph: "\u00B7"};
       // Keep the "Other" fallback last so new categories slot in above it.
-      const at = state.categories.findIndex((c) => c.id === FALLBACK_CATEGORY_ID);
-      const categories = at >= 0 ? [...state.categories.slice(0, at), def, ...state.categories.slice(at)] : [...state.categories, def];
-      return {...state, categories};
+      const at = list.findIndex((c) => c.id === FALLBACK_CATEGORY_ID);
+      const next = at >= 0 ? [...list.slice(0, at), def, ...list.slice(at)] : [...list, def];
+      return {...state, categories: {...state.categories, [type]: next}};
     }
     case "category-rename": {
       const label = action.label.trim();
       if (!label) return state;
-      return {...state, categories: state.categories.map((c) => (c.id === action.id ? {...c, label} : c))};
+      const type = activeType(state);
+      const next = state.categories[type].map((c) => (c.id === action.id ? {...c, label} : c));
+      return {...state, categories: {...state.categories, [type]: next}};
     }
     case "category-delete": {
       if (action.id === FALLBACK_CATEGORY_ID) return state;
-      const categories = state.categories.filter((c) => c.id !== action.id);
-      // Reassign any orphaned items (across every project) to the fallback.
-      const projects = state.projects.map((p) => ({
-        ...p,
-        items: p.items.map((i) => (i.category === action.id ? {...i, category: FALLBACK_CATEGORY_ID} : i)),
-      }));
-      return {...state, categories, projects};
+      const type = activeType(state);
+      const next = state.categories[type].filter((c) => c.id !== action.id);
+      // Reassign any orphaned items (only within projects of this type) to the fallback.
+      const projects = state.projects.map((p) =>
+        p.type === type
+          ? {
+              ...p,
+              items: p.items.map((i) => (i.category === action.id ? {...i, category: FALLBACK_CATEGORY_ID} : i)),
+            }
+          : p,
+      );
+      return {...state, categories: {...state.categories, [type]: next}, projects};
     }
   }
 }
@@ -132,16 +145,34 @@ export function activeProject(state: BoardState): Project {
   return state.projects.find((p) => p.id === state.activeId) ?? state.projects[0];
 }
 
+/** The project type of the currently active board (defaults to refactoring). */
+export function activeType(state: BoardState): ProjectType {
+  return activeProject(state)?.type ?? "refactoring";
+}
+
 /** localStorage key for a given board scope (e.g. a signed-in user's id). */
 function storageKey(scope?: string): string {
   return scope ? `${STORAGE_KEY}.${scope}` : STORAGE_KEY;
 }
 
-/** Ensure a loaded/migrated state always has a usable category list. */
-function ensureCategories(state: BoardState): BoardState {
-  const list = Array.isArray(state.categories) && state.categories.length > 0 ? state.categories : DEFAULT_CATEGORIES.map((c) => ({...c}));
-  const categories = list.some((c) => c.id === FALLBACK_CATEGORY_ID) ? list : [...list, {id: FALLBACK_CATEGORY_ID, label: "Other", glyph: "\u00B7"}];
-  return {...state, categories};
+/** Fill in defaults + guarantee the "Other" fallback for one type's category list. */
+function fillCategories(list: unknown, type: ProjectType): CategoryDef[] {
+  const base = Array.isArray(list) && list.length > 0 ? (list as CategoryDef[]).map((c) => ({...c})) : defaultCategoriesFor(type);
+  return base.some((c) => c.id === FALLBACK_CATEGORY_ID) ? base : [...base, {id: FALLBACK_CATEGORY_ID, label: "Other", glyph: "\u00B7"}];
+}
+
+/**
+ * Normalize a loaded/migrated state so it always has per-type category lists and
+ * a type on every project. Accepts the legacy shared-array `categories` shape too.
+ */
+function normalize(state: {projects: Project[]; activeId: string; categories: unknown}): BoardState {
+  const raw = state.categories;
+  const source: Partial<Record<ProjectType, CategoryDef[]>> = Array.isArray(raw) ? {refactoring: raw as CategoryDef[]} : ((raw ?? {}) as Partial<Record<ProjectType, CategoryDef[]>>);
+  const categories = {} as CategoriesByType;
+  for (const type of PROJECT_TYPES) categories[type] = fillCategories(source[type], type);
+  const projects = state.projects.map((p) => (p.type ? p : {...p, type: "refactoring" as ProjectType}));
+  const activeId = projects.some((p) => p.id === state.activeId) ? state.activeId : projects[0].id;
+  return {projects, activeId, categories};
 }
 
 function load(scope?: string): BoardState {
@@ -150,9 +181,7 @@ function load(scope?: string): BoardState {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (parsed && Array.isArray(parsed.projects) && parsed.projects.length > 0) {
-        const state = parsed as BoardState;
-        if (!state.projects.some((p) => p.id === state.activeId)) state.activeId = state.projects[0].id;
-        return ensureCategories(state);
+        return normalize(parsed);
       }
     }
     // migrate the single-board v1 format into a default project (unscoped only)
@@ -162,7 +191,7 @@ function load(scope?: string): BoardState {
         const parsed = JSON.parse(legacy);
         if (parsed && Array.isArray(parsed.items)) {
           const project = {...newProject("My refactors"), items: parsed.items as RefactorItem[]};
-          return ensureCategories({projects: [project], activeId: project.id, categories: []});
+          return normalize({projects: [project], activeId: project.id, categories: []});
         }
       }
     }
@@ -170,7 +199,7 @@ function load(scope?: string): BoardState {
     /* corrupted storage — start fresh */
   }
   const project = newProject("My refactors");
-  return ensureCategories({projects: [project], activeId: project.id, categories: []});
+  return normalize({projects: [project], activeId: project.id, categories: []});
 }
 
 export function useBoard(scope?: string) {

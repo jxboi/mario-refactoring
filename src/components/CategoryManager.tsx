@@ -6,13 +6,15 @@ interface Props {
   categories: CategoryDef[];
   /** How many items currently use each category, keyed by category id. */
   counts: Record<string, number>;
+  /** Label of the project type these categories belong to (e.g. "Task"). */
+  typeLabel: string;
   onAdd: (label: string) => void;
   onRename: (id: string, label: string) => void;
   onDelete: (id: string) => void;
   onClose: () => void;
 }
 
-export function CategoryManager({categories, counts, onAdd, onRename, onDelete, onClose}: Props) {
+export function CategoryManager({categories, counts, typeLabel, onAdd, onRename, onDelete, onClose}: Props) {
   const [addDraft, setAddDraft] = useState("");
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
@@ -41,7 +43,7 @@ export function CategoryManager({categories, counts, onAdd, onRename, onDelete, 
           </button>
         </div>
 
-        <p className="modal-intro">Categories are shared across all your projects. Removing one files its items under “Other”.</p>
+        <p className="modal-intro">Categories are shared across all your {typeLabel} projects. Removing one files its items under “Other”.</p>
 
         <div className="cat-manage-list">
           {categories.map((c) => {

@@ -41,17 +41,18 @@ function normalizeRisk(v: unknown): Risk | undefined {
   const s = v.toLowerCase().trim();
   if (["low", "l", "minor", "safe", "green", "1"].includes(s)) return "low";
   if (["medium", "med", "m", "moderate", "yellow", "amber", "2"].includes(s)) return "medium";
-  if (["high", "h", "critical", "severe", "major", "red", "risky", "dangerous", "3", "4", "5"].includes(s)) return "high";
+  if (["high", "h", "critical", "severe", "major", "urgent", "red", "risky", "dangerous", "3", "4", "5"].includes(s)) return "high";
   return undefined;
 }
 
 function normalizeEffort(v: unknown): Effort | undefined {
-  if (typeof v === "number") return v <= 1 ? "low" : v === 2 ? "medium" : "high";
+  if (typeof v === "number") return v <= 1 ? "low" : v === 2 ? "medium" : v === 3 ? "high" : "xhigh";
   if (typeof v !== "string") return undefined;
   const s = v.toLowerCase().trim();
   if (["low", "l", "xs", "s", "small", "trivial", "tiny", "easy", "minor", "hours", "hour", "day", "1"].includes(s)) return "low";
   if (["medium", "med", "m", "moderate", "days", "2"].includes(s)) return "medium";
-  if (["high", "h", "l", "xl", "xxl", "large", "huge", "hard", "epic", "week", "weeks", "month", "3", "4", "5"].includes(s)) return "high";
+  if (["high", "h", "large", "hard", "week", "weeks", "3"].includes(s)) return "high";
+  if (["xhigh", "x-high", "xl", "xxl", "huge", "epic", "month", "months", "4", "5"].includes(s)) return "xhigh";
   return undefined;
 }
 
@@ -146,16 +147,16 @@ export function parseRefactorJson(text: string, categories: CategoryDef[] = DEFA
 
     const files = [...toStringArray(obj.files), ...toStringArray(obj.file), ...toStringArray(obj.paths), ...toStringArray(obj.path), ...toStringArray(obj.locations), ...toStringArray(obj.modules)];
 
-    let risk = normalizeRisk(obj.risk ?? obj.severity ?? obj.danger ?? obj.impact);
+    let risk = normalizeRisk(obj.risk ?? obj.severity ?? obj.danger ?? obj.impact ?? obj.priority);
     if (!risk) {
       risk = "medium";
-      if (obj.risk !== undefined || obj.severity !== undefined) {
-        warnings.push(`Unrecognized risk value ${JSON.stringify(obj.risk ?? obj.severity)} — defaulted to medium`);
+      if (obj.risk !== undefined || obj.severity !== undefined || obj.priority !== undefined) {
+        warnings.push(`Unrecognized risk/priority value ${JSON.stringify(obj.risk ?? obj.severity ?? obj.priority)} — defaulted to medium`);
       }
     }
 
     let effort = normalizeEffort(obj.effort ?? obj.size ?? obj.estimate ?? obj.points ?? obj.complexity);
-    if (!effort) effort = "m";
+    if (!effort) effort = "medium";
 
     let category = normalizeCategory(obj.category ?? obj.type ?? obj.kind ?? obj.refactor_type, categories);
     if (!category) {

@@ -1,11 +1,12 @@
 import {useEffect, useRef, useState} from "react";
-import type {RefactorItem, Stage} from "../types";
+import type {CategoryDef, RefactorItem, Stage} from "../types";
 import {STAGES, categoryMeta} from "../types";
 import {EffortDots, RiskPill} from "./ui";
 
 interface BoardProps {
   items: RefactorItem[];
   totalCount: number;
+  categories: CategoryDef[];
   onMove: (id: string, stage: Stage, beforeId?: string) => void;
   onSelect: (id: string) => void;
   onAddItem: (stage: Stage) => void;
@@ -15,7 +16,7 @@ interface BoardProps {
 
 const DRAG_MIME = "application/x-chisel-item";
 
-export function Board({items, totalCount, onMove, onSelect, onAddItem, onImportClick, onLoadSample}: BoardProps) {
+export function Board({items, totalCount, categories, onMove, onSelect, onAddItem, onImportClick, onLoadSample}: BoardProps) {
   const [dragId, setDragId] = useState<string | null>(null);
   const [overStage, setOverStage] = useState<Stage | null>(null);
   // Columns the user has collapsed. Seeded with any stage marked hiddenByDefault
@@ -154,6 +155,7 @@ export function Board({items, totalCount, onMove, onSelect, onAddItem, onImportC
                 <Card
                   key={item.id}
                   item={item}
+                  categories={categories}
                   dragging={dragId === item.id}
                   onSelect={() => onSelect(item.id)}
                   onDragStart={(e) => {
@@ -234,6 +236,7 @@ function ColumnMenu({label, canAdd, onAdd, onCollapse}: ColumnMenuProps) {
 
 interface CardProps {
   item: RefactorItem;
+  categories: CategoryDef[];
   dragging: boolean;
   onSelect: () => void;
   onDragStart: (e: React.DragEvent) => void;
@@ -241,8 +244,8 @@ interface CardProps {
   onDropBefore: (e: React.DragEvent) => void;
 }
 
-function Card({item, dragging, onSelect, onDragStart, onDragEnd, onDropBefore}: CardProps) {
-  const cat = categoryMeta(item.category);
+function Card({item, categories, dragging, onSelect, onDragStart, onDragEnd, onDropBefore}: CardProps) {
+  const cat = categoryMeta(item.category, categories);
   return (
     <article
       className={`card${dragging ? " dragging" : ""}${item.blocked ? " card-blocked" : ""}${item.stage === "deployed" ? " card-landed" : ""}`}

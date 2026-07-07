@@ -1,5 +1,5 @@
-import type {Category, Effort, Note, RefactorItem, Risk, Stage} from "../types";
-import {blockedFrom, CATEGORIES, uid} from "../types";
+import type {Category, CategoryDef, Effort, Note, RefactorItem, Risk, Stage} from "../types";
+import {blockedFrom, DEFAULT_CATEGORIES, FALLBACK_CATEGORY_ID, uid} from "../types";
 
 export interface ParsedRow {
   ok: boolean;
@@ -55,23 +55,24 @@ function normalizeEffort(v: unknown): Effort | undefined {
   return undefined;
 }
 
-function normalizeCategory(v: unknown): Category | undefined {
+function normalizeCategory(v: unknown, categories: CategoryDef[]): Category | undefined {
   if (typeof v !== "string") return undefined;
-  const s = v
-    .toLowerCase()
-    .trim()
-    .replace(/[\s_]+/g, "-");
-  const direct = CATEGORIES.find((c) => c.id === s);
+  const raw = v.toLowerCase().trim();
+  const s = raw.replace(/[\s_]+/g, "-");
+  const direct = categories.find((c) => c.id === s || c.label.toLowerCase() === raw);
   if (direct) return direct.id;
-  if (/extract|split|decompos|modulariz/.test(s)) return "extract";
-  if (/renam|naming/.test(s)) return "rename";
-  if (/dead|unused|remove|delete|cleanup|clean-up/.test(s)) return "dead-code";
-  if (/dep|upgrade|version|librar|package|vendor/.test(s)) return "dependency";
-  if (/perf|speed|optimi|memory|latency/.test(s)) return "performance";
-  if (/test|coverage|spec/.test(s)) return "test";
-  if (/arch|structur|pattern|design|migrat|api/.test(s)) return "architecture";
-  if (/style|format|lint|convention|consisten/.test(s)) return "style";
-  return undefined;
+  // Fuzzy-match common wordings onto the built-in ids, but only accept the
+  // guess when that category still exists in the configured list.
+  let guess: string | undefined;
+  if (/extract|split|decompos|modulariz/.test(s)) guess = "extract";
+  else if (/renam|naming/.test(s)) guess = "rename";
+  else if (/dead|unused|remove|delete|cleanup|clean-up/.test(s)) guess = "dead-code";
+  else if (/dep|upgrade|version|librar|package|vendor/.test(s)) guess = "dependency";
+  else if (/perf|speed|optimi|memory|latency/.test(s)) guess = "performance";
+  else if (/test|coverage|spec/.test(s)) guess = "test";
+  else if (/arch|structur|pattern|design|migrat|api/.test(s)) guess = "architecture";
+  else if (/style|format|lint|convention|consisten/.test(s)) guess = "style";
+  return guess && categories.some((c) => c.id === guess) ? guess : undefined;
 }
 
 function normalizeStage(v: unknown): Stage | undefined {
@@ -108,7 +109,7 @@ export function extractCandidates(data: unknown): unknown[] | undefined {
   return undefined;
 }
 
-export function parseRefactorJson(text: string): ParseResult {
+export function parseRefactorJson(text: string, categories: CategoryDef[] = DEFAULT_CATEGORIES): ParseResult {
   let data: unknown;
   try {
     data = JSON.parse(text);
@@ -156,13 +157,13 @@ export function parseRefactorJson(text: string): ParseResult {
     let effort = normalizeEffort(obj.effort ?? obj.size ?? obj.estimate ?? obj.points ?? obj.complexity);
     if (!effort) effort = "m";
 
-    let category = normalizeCategory(obj.category ?? obj.type ?? obj.kind ?? obj.refactor_type);
+    let category = normalizeCategory(obj.category ?? obj.type ?? obj.kind ?? obj.refactor_type, categories);
     if (!category) {
       const rawCat = obj.category ?? obj.type ?? obj.kind;
       if (typeof rawCat === "string" && rawCat.trim()) {
         warnings.push(`Unrecognized category "${rawCat}" — filed under Other`);
       }
-      category = "other";
+      category = FALLBACK_CATEGORY_ID;
     }
 
     const stage = normalizeStage(obj.status ?? obj.stage ?? obj.state) ?? "queued";

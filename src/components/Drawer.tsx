@@ -1,10 +1,11 @@
 import {useEffect, useRef, useState} from "react";
-import type {Note, RefactorItem} from "../types";
-import {CATEGORIES, EFFORTS, RISKS, STAGES} from "../types";
+import type {CategoryDef, Note, RefactorItem} from "../types";
+import {EFFORTS, RISKS, STAGES} from "../types";
 import {timeAgo} from "./ui";
 
 interface Props {
   item: RefactorItem;
+  categories: CategoryDef[];
   onClose: () => void;
   onUpdate: (patch: Partial<Omit<RefactorItem, "id" | "notes">>) => void;
   onAddNote: (text: string) => void;
@@ -14,7 +15,7 @@ interface Props {
   onDelete: () => void;
 }
 
-export function Drawer({item, onClose, onUpdate, onAddNote, onDeleteNote, onEditNote, onToggleNoteBlock, onDelete}: Props) {
+export function Drawer({item, categories, onClose, onUpdate, onAddNote, onDeleteNote, onEditNote, onToggleNoteBlock, onDelete}: Props) {
   const [noteDraft, setNoteDraft] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [closing, setClosing] = useState(false);
@@ -103,7 +104,7 @@ export function Drawer({item, onClose, onUpdate, onAddNote, onDeleteNote, onEdit
           <label className="field field-wide">
             <span className="field-label">Category</span>
             <select className="input" value={item.category} onChange={(e) => onUpdate({category: e.target.value as RefactorItem["category"]})}>
-              {CATEGORIES.map((c) => (
+              {categories.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.label}
                 </option>

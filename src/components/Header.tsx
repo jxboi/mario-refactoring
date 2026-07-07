@@ -12,6 +12,7 @@ interface Props {
   filters: Filters;
   onFilters: (f: Filters) => void;
   onImportClick: () => void;
+  onManageCategories: () => void;
   onProjectSwitch: (id: string) => void;
   onProjectCreate: (name: string) => void;
   onProjectRename: (id: string, name: string) => void;
@@ -21,7 +22,7 @@ interface Props {
   onSignOut: () => void;
 }
 
-export function Header({items, projects, activeId, filters, onFilters, onImportClick, onProjectSwitch, onProjectCreate, onProjectRename, onProjectDelete, user, isGuest, onSignOut}: Props) {
+export function Header({items, projects, activeId, filters, onFilters, onImportClick, onManageCategories, onProjectSwitch, onProjectCreate, onProjectRename, onProjectDelete, user, isGuest, onSignOut}: Props) {
   const total = items.length;
   const deployed = items.filter((i) => i.stage === "deployed").length;
   const pct = total === 0 ? 0 : Math.round((deployed / total) * 100);
@@ -59,15 +60,18 @@ export function Header({items, projects, activeId, filters, onFilters, onImportC
           </div>
         )}
 
-        {total > 0 && (
-          <div className="header-actions">
+        <div className="header-actions">
+          <button className="btn btn-ghost" onClick={onManageCategories} title="Manage categories">
+            <span className="btn-icon">❖</span> Categories
+          </button>
+          {total > 0 && (
             <button className="btn btn-primary" onClick={onImportClick}>
               <span className="btn-icon">⇡</span> Import JSON
             </button>
-          </div>
-        )}
+          )}
+        </div>
 
-        <div className={`account${total > 0 ? "" : " account-solo"}`}>
+        <div className="account">
           {isGuest ? (
             <span className="account-user account-guest" title="Local-only guest session">
               <span className="account-avatar account-avatar-guest" aria-hidden="true">

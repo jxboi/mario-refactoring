@@ -1,5 +1,6 @@
 import {useCallback, useEffect, useMemo, useRef, useState} from "react";
 import {Board} from "./components/Board";
+import {CategoryManager} from "./components/CategoryManager";
 import {Drawer} from "./components/Drawer";
 import {Header} from "./components/Header";
 import {ImportModal} from "./components/ImportModal";
@@ -29,12 +30,23 @@ function BoardApp({session, onSignOut}: {session: Session; onSignOut: () => void
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [importOpen, setImportOpen] = useState(false);
+  const [categoriesOpen, setCategoriesOpen] = useState(false);
   const [droppedFile, setDroppedFile] = useState<File | null>(null);
   const [fileDragDepth, setFileDragDepth] = useState(0);
   const {toasts, pushToast, dismissToast} = useToasts();
 
   const project = activeProject(state);
   const items = project.items;
+  const categories = state.categories;
+
+  // How many items across every project use each category (for the manager).
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const p of state.projects) {
+      for (const i of p.items) counts[i.category] = (counts[i.category] ?? 0) + 1;
+    }
+    return counts;
+  }, [state.projects]);
 
   const selected = useMemo(() => items.find((i) => i.id === selectedId) ?? null, [items, selectedId]);
 
@@ -132,6 +144,7 @@ function BoardApp({session, onSignOut}: {session: Session; onSignOut: () => void
       if (e.key === "Escape") {
         setSelectedId(null);
         setImportOpen(false);
+        setCategoriesOpen(false);
         setDroppedFile(null);
       }
     };
@@ -148,6 +161,7 @@ function BoardApp({session, onSignOut}: {session: Session; onSignOut: () => void
         filters={filters}
         onFilters={setFilters}
         onImportClick={() => setImportOpen(true)}
+        onManageCategories={() => setCategoriesOpen(true)}
         user={session.user}
         isGuest={session.kind === "guest"}
         onSignOut={onSignOut}
@@ -172,6 +186,7 @@ function BoardApp({session, onSignOut}: {session: Session; onSignOut: () => void
       <Board
         items={filtered}
         totalCount={items.length}
+        categories={categories}
         onMove={(id, stage, beforeId) => dispatch({type: "move", id, stage, beforeId})}
         onSelect={setSelectedId}
         onAddItem={handleAddItem}
@@ -186,6 +201,7 @@ function BoardApp({session, onSignOut}: {session: Session; onSignOut: () => void
       {selected && (
         <Drawer
           item={selected}
+          categories={categories}
           onClose={() => setSelectedId(null)}
           onUpdate={(patch) => dispatch({type: "update", id: selected.id, patch})}
           onAddNote={(text) => dispatch({type: "add-note", id: selected.id, text})}
@@ -202,11 +218,25 @@ function BoardApp({session, onSignOut}: {session: Session; onSignOut: () => void
       {importOpen && (
         <ImportModal
           initialFile={droppedFile}
+          categories={categories}
           onClose={() => {
             setImportOpen(false);
             setDroppedFile(null);
           }}
           onImport={handleImport}
+        />
+      )}
+      {categoriesOpen && (
+        <CategoryManager
+          categories={categories}
+          counts={categoryCounts}
+          onAdd={(label) => dispatch({type: "category-add", label})}
+          onRename={(id, label) => dispatch({type: "category-rename", id, label})}
+          onDelete={(id) => {
+            dispatch({type: "category-delete", id});
+            pushToast("Category removed — its items moved to Other", "info");
+          }}
+          onClose={() => setCategoriesOpen(false)}
         />
       )}
       {fileDragDepth > 0 && !importOpen && (

@@ -4,7 +4,8 @@ export type Risk = "low" | "medium" | "high";
 
 export type Effort = "low" | "medium" | "high";
 
-export type Category = "extract" | "rename" | "dead-code" | "dependency" | "performance" | "test" | "architecture" | "style" | "other";
+/** Category ids are user-configurable, so this is an open string type. */
+export type Category = string;
 
 export interface Note {
   id: string;
@@ -71,7 +72,17 @@ export const RISKS: Risk[] = ["low", "medium", "high"];
 
 export const EFFORTS: Effort[] = ["low", "medium", "high"];
 
-export const CATEGORIES: {id: Category; label: string; glyph: string}[] = [
+export interface CategoryDef {
+  id: string;
+  label: string;
+  glyph: string;
+}
+
+/** The category items fall back to when none is set or their category was removed. */
+export const FALLBACK_CATEGORY_ID = "other";
+
+/** Categories a fresh board starts with; users can add, rename, or remove them. */
+export const DEFAULT_CATEGORIES: CategoryDef[] = [
   {id: "extract", label: "Extract", glyph: "⤴"},
   {id: "rename", label: "Rename", glyph: "✎"},
   {id: "dead-code", label: "Dead code", glyph: "✂"},
@@ -80,11 +91,22 @@ export const CATEGORIES: {id: Category; label: string; glyph: string}[] = [
   {id: "test", label: "Tests", glyph: "✓"},
   {id: "architecture", label: "Architecture", glyph: "▦"},
   {id: "style", label: "Style", glyph: "❖"},
-  {id: "other", label: "Other", glyph: "·"},
+  {id: FALLBACK_CATEGORY_ID, label: "Other", glyph: "·"},
 ];
 
-export function categoryMeta(id: Category) {
-  return CATEGORIES.find((c) => c.id === id) ?? CATEGORIES[CATEGORIES.length - 1];
+export function categoryMeta(id: string, categories: CategoryDef[] = DEFAULT_CATEGORIES): CategoryDef {
+  return categories.find((c) => c.id === id) ?? categories.find((c) => c.id === FALLBACK_CATEGORY_ID) ?? {id: FALLBACK_CATEGORY_ID, label: "Other", glyph: "·"};
+}
+
+/** Turn a human label into a stable, url-safe category id. */
+export function slugifyCategory(label: string): string {
+  return (
+    label
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "category"
+  );
 }
 
 export function uid(): string {

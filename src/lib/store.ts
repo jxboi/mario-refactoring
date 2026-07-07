@@ -1,6 +1,6 @@
 import {useEffect, useReducer} from "react";
-import type {Note, RefactorItem, Stage} from "../types";
-import {blockedFrom, uid} from "../types";
+import type {CategoryDef, Note, RefactorItem, Stage} from "../types";
+import {blockedFrom, DEFAULT_CATEGORIES, FALLBACK_CATEGORY_ID, slugifyCategory, uid} from "../types";
 
 const STORAGE_KEY = "chisel.projects.v2";
 const LEGACY_KEY = "chisel.board.v1";
@@ -15,9 +15,11 @@ export interface Project {
 export interface BoardState {
   projects: Project[];
   activeId: string;
+  /** Categories are shared across all of a user's projects. */
+  categories: CategoryDef[];
 }
 
-export type Action = {type: "import"; items: RefactorItem[]} | {type: "move"; id: string; stage: Stage; beforeId?: string} | {type: "update"; id: string; patch: Partial<Omit<RefactorItem, "id" | "notes">>} | {type: "add-note"; id: string; text: string} | {type: "edit-note"; id: string; noteId: string; text: string} | {type: "delete-note"; id: string; noteId: string} | {type: "toggle-note-block"; id: string; noteId: string} | {type: "delete"; id: string} | {type: "add"; item: RefactorItem} | {type: "project-create"; name: string} | {type: "project-rename"; id: string; name: string} | {type: "project-delete"; id: string} | {type: "project-switch"; id: string};
+export type Action = {type: "import"; items: RefactorItem[]} | {type: "move"; id: string; stage: Stage; beforeId?: string} | {type: "update"; id: string; patch: Partial<Omit<RefactorItem, "id" | "notes">>} | {type: "add-note"; id: string; text: string} | {type: "edit-note"; id: string; noteId: string; text: string} | {type: "delete-note"; id: string; noteId: string} | {type: "toggle-note-block"; id: string; noteId: string} | {type: "delete"; id: string} | {type: "add"; item: RefactorItem} | {type: "project-create"; name: string} | {type: "project-rename"; id: string; name: string} | {type: "project-delete"; id: string} | {type: "project-switch"; id: string} | {type: "category-add"; label: string} | {type: "category-rename"; id: string; label: string} | {type: "category-delete"; id: string};
 
 function newProject(name: string): Project {
   return {id: uid(), name, createdAt: Date.now(), items: []};
@@ -76,7 +78,7 @@ export function reducer(state: BoardState, action: Action): BoardState {
     case "project-create": {
       const name = action.name.trim() || "Untitled project";
       const project = newProject(name);
-      return {projects: [...state.projects, project], activeId: project.id};
+      return {...state, projects: [...state.projects, project], activeId: project.id};
     }
     case "project-rename":
       return {
@@ -87,13 +89,42 @@ export function reducer(state: BoardState, action: Action): BoardState {
       const remaining = state.projects.filter((p) => p.id !== action.id);
       if (remaining.length === 0) {
         const fresh = newProject("My refactors");
-        return {projects: [fresh], activeId: fresh.id};
+        return {...state, projects: [fresh], activeId: fresh.id};
       }
       const activeId = state.activeId === action.id ? remaining[0].id : state.activeId;
-      return {projects: remaining, activeId};
+      return {...state, projects: remaining, activeId};
     }
     case "project-switch":
       return state.projects.some((p) => p.id === action.id) ? {...state, activeId: action.id} : state;
+
+    case "category-add": {
+      const label = action.label.trim();
+      if (!label) return state;
+      const base = slugifyCategory(label);
+      const existing = new Set(state.categories.map((c) => c.id));
+      let id = base;
+      for (let n = 2; existing.has(id); n++) id = `${base}-${n}`;
+      const def: CategoryDef = {id, label, glyph: "\u00B7"};
+      // Keep the "Other" fallback last so new categories slot in above it.
+      const at = state.categories.findIndex((c) => c.id === FALLBACK_CATEGORY_ID);
+      const categories = at >= 0 ? [...state.categories.slice(0, at), def, ...state.categories.slice(at)] : [...state.categories, def];
+      return {...state, categories};
+    }
+    case "category-rename": {
+      const label = action.label.trim();
+      if (!label) return state;
+      return {...state, categories: state.categories.map((c) => (c.id === action.id ? {...c, label} : c))};
+    }
+    case "category-delete": {
+      if (action.id === FALLBACK_CATEGORY_ID) return state;
+      const categories = state.categories.filter((c) => c.id !== action.id);
+      // Reassign any orphaned items (across every project) to the fallback.
+      const projects = state.projects.map((p) => ({
+        ...p,
+        items: p.items.map((i) => (i.category === action.id ? {...i, category: FALLBACK_CATEGORY_ID} : i)),
+      }));
+      return {...state, categories, projects};
+    }
   }
 }
 
@@ -106,6 +137,13 @@ function storageKey(scope?: string): string {
   return scope ? `${STORAGE_KEY}.${scope}` : STORAGE_KEY;
 }
 
+/** Ensure a loaded/migrated state always has a usable category list. */
+function ensureCategories(state: BoardState): BoardState {
+  const list = Array.isArray(state.categories) && state.categories.length > 0 ? state.categories : DEFAULT_CATEGORIES.map((c) => ({...c}));
+  const categories = list.some((c) => c.id === FALLBACK_CATEGORY_ID) ? list : [...list, {id: FALLBACK_CATEGORY_ID, label: "Other", glyph: "\u00B7"}];
+  return {...state, categories};
+}
+
 function load(scope?: string): BoardState {
   try {
     const raw = localStorage.getItem(storageKey(scope));
@@ -114,7 +152,7 @@ function load(scope?: string): BoardState {
       if (parsed && Array.isArray(parsed.projects) && parsed.projects.length > 0) {
         const state = parsed as BoardState;
         if (!state.projects.some((p) => p.id === state.activeId)) state.activeId = state.projects[0].id;
-        return state;
+        return ensureCategories(state);
       }
     }
     // migrate the single-board v1 format into a default project (unscoped only)
@@ -124,7 +162,7 @@ function load(scope?: string): BoardState {
         const parsed = JSON.parse(legacy);
         if (parsed && Array.isArray(parsed.items)) {
           const project = {...newProject("My refactors"), items: parsed.items as RefactorItem[]};
-          return {projects: [project], activeId: project.id};
+          return ensureCategories({projects: [project], activeId: project.id, categories: []});
         }
       }
     }
@@ -132,7 +170,7 @@ function load(scope?: string): BoardState {
     /* corrupted storage — start fresh */
   }
   const project = newProject("My refactors");
-  return {projects: [project], activeId: project.id};
+  return ensureCategories({projects: [project], activeId: project.id, categories: []});
 }
 
 export function useBoard(scope?: string) {

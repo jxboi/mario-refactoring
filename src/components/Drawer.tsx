@@ -54,7 +54,7 @@ export function Drawer({item, categories, config, onClose, onUpdate, onAddNote, 
   const addListItem = (key: "files" | "tags", value: string) => {
     const v = value.trim();
     if (!v) return;
-    const cleaned = key === "tags" ? v.toLowerCase().replace(/\s+/g, "-") : v;
+    const cleaned = key === "tags" ? v.replace(/\s+/g, "-") : v;
     if (item[key].includes(cleaned)) return;
     onUpdate({[key]: [...item[key], cleaned]});
   };
@@ -319,13 +319,14 @@ function NoteRow({note, onToggleBlock, onToggleResolved, onDelete, onEdit}: {not
 
 function ListEditor({label, values, placeholder, mono, onAdd, onRemove}: {label: string; values: string[]; placeholder: string; mono?: boolean; onAdd: (v: string) => void; onRemove: (v: string) => void}) {
   const [draft, setDraft] = useState("");
+  const display = (v: string) => (mono || /\d/.test(v) ? v : v.replace(/\b\w/g, (c) => c.toUpperCase()));
   return (
     <div className="field">
       <span className="field-label">{label}</span>
       <div className="list-editor">
         {values.map((v) => (
           <span key={v} className={`list-item${mono ? " mono" : ""}`}>
-            {v}
+            {display(v)}
             <button className="list-remove" onClick={() => onRemove(v)} aria-label={`Remove ${v}`}>
               ✕
             </button>

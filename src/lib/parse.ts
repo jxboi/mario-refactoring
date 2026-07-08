@@ -35,6 +35,27 @@ function toStringArray(v: unknown): string[] {
   return [];
 }
 
+/** Read an exported `notes` array back into Note objects, tolerating partial data. */
+function parseNotes(v: unknown, now: number): Note[] {
+  if (!Array.isArray(v)) return [];
+  const notes: Note[] = [];
+  for (const raw of v) {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) continue;
+    const n = raw as Record<string, unknown>;
+    const text = firstString(n, ["text", "note", "body", "message"]);
+    if (!text) continue;
+    const createdAt = typeof n.createdAt === "number" ? n.createdAt : now;
+    notes.push({
+      id: typeof n.id === "string" && n.id ? n.id : uid(),
+      text,
+      createdAt,
+      ...(n.blocked === true ? {blocked: true} : {}),
+      ...(n.resolved === true ? {resolved: true} : {}),
+    });
+  }
+  return notes;
+}
+
 function normalizeRisk(v: unknown): Risk | undefined {
   if (typeof v === "number") return v <= 1 ? "low" : v === 2 ? "medium" : "high";
   if (typeof v !== "string") return undefined;
@@ -173,7 +194,10 @@ export function parseRefactorJson(text: string, categories: CategoryDef[] = DEFA
 
     const importedReason = firstString(obj, ["blocked_reason", "blockReason", "blocker"]) ?? "";
     const importedBlocked = obj.blocked === true || importedReason !== "";
-    const notes: Note[] = importedBlocked ? [{id: uid(), text: importedReason || "Blocked", createdAt: now, blocked: true}] : [];
+    const notes: Note[] = parseNotes(obj.notes, now);
+    if (importedBlocked && !notes.some((n) => n.blocked && !n.resolved)) {
+      notes.push({id: uid(), text: importedReason || "Blocked", createdAt: now, blocked: true});
+    }
 
     if (errors.length > 0) return {ok: false, index, errors, warnings};
 

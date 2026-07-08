@@ -20,7 +20,7 @@ export function projectToJson(project: Project): string {
     name: project.name,
     type: project.type,
     exportedAt: new Date().toISOString(),
-    items: project.items,
+    items: project.items.filter((item) => item.title.trim() !== ""),
   };
   return JSON.stringify(payload, null, 2);
 }

@@ -15,6 +15,7 @@ interface Props {
   onFilters: (f: Filters) => void;
   onImportClick: () => void;
   onManageCategories: () => void;
+  onManageSkills: () => void;
   onProjectSwitch: (id: string) => void;
   onProjectCreate: (name: string, projectType: ProjectType) => void;
   onProjectRename: (id: string, name: string) => void;
@@ -24,8 +25,8 @@ interface Props {
   onSignOut: () => void;
 }
 
-export function Header({items, projects, activeId, metricLabel, showFiles, filters, onFilters, onImportClick, onManageCategories, onProjectSwitch, onProjectCreate, onProjectRename, onProjectDelete, user, isGuest, onSignOut}: Props) {
-  const total = items.length;
+export function Header({items, projects, activeId, metricLabel, showFiles, filters, onFilters, onImportClick, onManageCategories, onManageSkills, onProjectSwitch, onProjectCreate, onProjectRename, onProjectDelete, user, isGuest, onSignOut}: Props) {
+  const total = items.filter((i) => i.stage !== "deferred").length;
   const deployed = items.filter((i) => i.stage === "deployed").length;
   const pct = total === 0 ? 0 : Math.round((deployed / total) * 100);
 
@@ -38,15 +39,17 @@ export function Header({items, projects, activeId, metricLabel, showFiles, filte
   return (
     <header className="header">
       <div className="header-row">
-        <div className="brand">
-          <svg className="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
-            <rect width="32" height="32" rx="7" fill="var(--brand-bg)" />
-            <path d="M9 23 L20 12 L23 15 L12 26 Z M21.5 10.5 L24.5 7.5 L27.5 10.5 L24.5 13.5 Z" fill="var(--accent)" />
-          </svg>
-          <span className="brand-name">Chisel</span>
+        <div className="header-left">
+          <div className="brand">
+            <svg className="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+              <rect width="32" height="32" rx="7" fill="var(--brand-bg)" />
+              <path d="M9 23 L20 12 L23 15 L12 26 Z M21.5 10.5 L24.5 7.5 L27.5 10.5 L24.5 13.5 Z" fill="var(--accent)" />
+            </svg>
+            <span className="brand-name">Chisel</span>
+          </div>
+          <span className="brand-sep">/</span>
+          <ProjectMenu projects={projects} activeId={activeId} onSwitch={onProjectSwitch} onCreate={onProjectCreate} onRename={onProjectRename} onDelete={onProjectDelete} />
         </div>
-        <span className="brand-sep">/</span>
-        <ProjectMenu projects={projects} activeId={activeId} onSwitch={onProjectSwitch} onCreate={onProjectCreate} onRename={onProjectRename} onDelete={onProjectDelete} />
 
         {total > 0 && (
           <div className="progress-cluster">
@@ -62,34 +65,40 @@ export function Header({items, projects, activeId, metricLabel, showFiles, filte
           </div>
         )}
 
-        <div className="header-actions">
-          <button className="btn btn-ghost" onClick={onManageCategories} title="Manage categories">
-            <span className="btn-icon">❖</span> Categories
-          </button>
-          {total > 0 && (
-            <button className="btn btn-primary" onClick={onImportClick}>
-              <span className="btn-icon">⇡</span> Import JSON
+        <div className="header-right">
+          <div className="header-actions">
+            {" "}
+            <button className="btn btn-ghost" onClick={onManageSkills} title="Author refactoring skills">
+              <span className="btn-icon">✦</span> <span className="btn-label">Skills</span>
+            </button>{" "}
+            <button className="btn btn-ghost" onClick={onManageCategories} title="Manage categories">
+              <span className="btn-icon">❖</span> <span className="btn-label">Categories</span>
             </button>
-          )}
-        </div>
+            {total > 0 && (
+              <button className="btn btn-ghost btn-accent" onClick={onImportClick} title="Import JSON">
+                <span className="btn-icon">⇡</span> <span className="btn-label">Import JSON</span>
+              </button>
+            )}
+          </div>
 
-        <div className="account">
-          {isGuest ? (
-            <span className="account-user account-guest" title="Local-only guest session">
-              <span className="account-avatar account-avatar-guest" aria-hidden="true">
-                ᴳ
+          <div className="account">
+            {isGuest ? (
+              <span className="account-user account-guest" title="Local-only guest session">
+                <span className="account-avatar account-avatar-guest" aria-hidden="true">
+                  ᴳ
+                </span>
+                <span className="account-name">Guest</span>
               </span>
-              <span className="account-name">Guest</span>
-            </span>
-          ) : (
-            <a className="account-user" href={user.htmlUrl} target="_blank" rel="noreferrer" title={`@${user.login} on GitHub`}>
-              <img className="account-avatar" src={user.avatarUrl} alt="" width={26} height={26} />
-              <span className="account-name">{user.name || user.login}</span>
-            </a>
-          )}
-          <button className="btn btn-ghost btn-sm" onClick={onSignOut}>
-            {isGuest ? "Exit" : "Sign out"}
-          </button>
+            ) : (
+              <a className="account-user" href={user.htmlUrl} target="_blank" rel="noreferrer" title={`@${user.login} on GitHub`}>
+                <img className="account-avatar" src={user.avatarUrl} alt="" width={26} height={26} />
+                <span className="account-name">{user.name || user.login}</span>
+              </a>
+            )}
+            <button className="btn btn-ghost btn-sm" onClick={onSignOut}>
+              {isGuest ? "Exit" : "Sign out"}
+            </button>
+          </div>
         </div>
       </div>
 

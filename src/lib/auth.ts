@@ -71,8 +71,14 @@ async function postForm(path: string, body: Record<string, string>): Promise<any
     headers: {"Content-Type": "application/x-www-form-urlencoded", Accept: "application/json"},
     body: new URLSearchParams(body).toString(),
   });
-  if (!res.ok) throw new AuthError(`GitHub request failed (${res.status}).`);
-  return res.json();
+  // GitHub's OAuth endpoints report problems in the JSON body — sometimes with a
+  // non-2xx status (e.g. device_flow_disabled → 400) and sometimes with 200
+  // (authorization_pending, slow_down). Return the parsed body so callers can
+  // surface error_description; only fall back to a status message when there is
+  // no JSON to read.
+  const data = await res.json().catch(() => null);
+  if (data) return data;
+  throw new AuthError(`GitHub request failed (${res.status}).`);
 }
 
 /** Step 1: ask GitHub for a device + user code. */

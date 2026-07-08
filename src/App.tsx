@@ -5,9 +5,11 @@ import {Drawer} from "./components/Drawer";
 import {Header} from "./components/Header";
 import {ImportModal} from "./components/ImportModal";
 import {SignInScreen} from "./components/SignIn";
+import {SkillsManager} from "./components/SkillsManager";
 import {ToastHost, useToasts} from "./components/Toast";
 import {useAuth, boardScope, type Session} from "./lib/auth";
 import {activeProject, useBoard} from "./lib/store";
+import {useSkills} from "./lib/skills";
 import type {RefactorItem, Risk, Stage} from "./types";
 import {typeConfig, uid} from "./types";
 
@@ -27,10 +29,12 @@ export default function App() {
 
 function BoardApp({session, onSignOut}: {session: Session; onSignOut: () => void}) {
   const {state, dispatch} = useBoard(boardScope(session));
+  const skills = useSkills(boardScope(session));
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [importOpen, setImportOpen] = useState(false);
   const [categoriesOpen, setCategoriesOpen] = useState(false);
+  const [skillsOpen, setSkillsOpen] = useState(false);
   const [droppedFile, setDroppedFile] = useState<File | null>(null);
   const [fileDragDepth, setFileDragDepth] = useState(0);
   const {toasts, pushToast, dismissToast} = useToasts();
@@ -147,6 +151,7 @@ function BoardApp({session, onSignOut}: {session: Session; onSignOut: () => void
         setSelectedId(null);
         setImportOpen(false);
         setCategoriesOpen(false);
+        setSkillsOpen(false);
         setDroppedFile(null);
       }
     };
@@ -166,6 +171,7 @@ function BoardApp({session, onSignOut}: {session: Session; onSignOut: () => void
         onFilters={setFilters}
         onImportClick={() => setImportOpen(true)}
         onManageCategories={() => setCategoriesOpen(true)}
+        onManageSkills={() => setSkillsOpen(true)}
         user={session.user}
         isGuest={session.kind === "guest"}
         onSignOut={onSignOut}
@@ -254,6 +260,7 @@ function BoardApp({session, onSignOut}: {session: Session; onSignOut: () => void
           onClose={() => setCategoriesOpen(false)}
         />
       )}
+      {skillsOpen && <SkillsManager skills={skills.skills} categories={categories} config={config} onCreate={skills.createSkill} onUpdate={skills.updateSkill} onDelete={skills.deleteSkill} onClose={() => setSkillsOpen(false)} />}
       {fileDragDepth > 0 && !importOpen && (
         <div className="drop-veil">
           <div className="drop-veil-inner">

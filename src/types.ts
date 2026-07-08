@@ -139,6 +139,7 @@ export const TASK_CATEGORIES: CategoryDef[] = [
   {id: "follow-up", label: "Follow up", glyph: "↻"},
   {id: "documentation", label: "Documentation", glyph: "❏"},
   {id: "research", label: "Research", glyph: "⌕"},
+  {id: "design", label: "Design", glyph: "✐"},
   {id: FALLBACK_CATEGORY_ID, label: "Other", glyph: "·"},
 ];
 

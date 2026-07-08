@@ -23,7 +23,7 @@ export interface BoardState {
   categories: CategoriesByType;
 }
 
-export type Action = {type: "import"; items: RefactorItem[]} | {type: "move"; id: string; stage: Stage; beforeId?: string} | {type: "update"; id: string; patch: Partial<Omit<RefactorItem, "id" | "notes">>} | {type: "add-note"; id: string; text: string} | {type: "edit-note"; id: string; noteId: string; text: string} | {type: "delete-note"; id: string; noteId: string} | {type: "toggle-note-block"; id: string; noteId: string} | {type: "delete"; id: string} | {type: "add"; item: RefactorItem} | {type: "project-create"; name: string; projectType: ProjectType} | {type: "project-rename"; id: string; name: string} | {type: "project-delete"; id: string} | {type: "project-switch"; id: string} | {type: "category-add"; label: string} | {type: "category-rename"; id: string; label: string} | {type: "category-delete"; id: string};
+export type Action = {type: "import"; items: RefactorItem[]} | {type: "move"; id: string; stage: Stage; beforeId?: string} | {type: "update"; id: string; patch: Partial<Omit<RefactorItem, "id" | "notes">>} | {type: "add-note"; id: string; text: string} | {type: "edit-note"; id: string; noteId: string; text: string} | {type: "delete-note"; id: string; noteId: string} | {type: "toggle-note-block"; id: string; noteId: string} | {type: "toggle-note-resolved"; id: string; noteId: string} | {type: "delete"; id: string} | {type: "add"; item: RefactorItem} | {type: "project-create"; name: string; projectType: ProjectType} | {type: "project-rename"; id: string; name: string} | {type: "project-delete"; id: string} | {type: "project-switch"; id: string} | {type: "category-add"; label: string} | {type: "category-rename"; id: string; label: string} | {type: "category-delete"; id: string};
 
 function newProject(name: string, projectType: ProjectType = "refactoring"): Project {
   return {id: uid(), name, type: projectType, createdAt: Date.now(), items: []};
@@ -76,6 +76,8 @@ export function reducer(state: BoardState, action: Action): BoardState {
       return mapActive(state, (items) => items.map((i) => (i.id === action.id ? touch(syncBlocked({...i, notes: i.notes.filter((n) => n.id !== action.noteId)})) : i)));
     case "toggle-note-block":
       return mapActive(state, (items) => items.map((i) => (i.id === action.id ? touch(syncBlocked({...i, notes: i.notes.map((n) => (n.id === action.noteId ? {...n, blocked: !n.blocked, resolved: n.blocked} : n))})) : i)));
+    case "toggle-note-resolved":
+      return mapActive(state, (items) => items.map((i) => (i.id === action.id ? touch(syncBlocked({...i, notes: i.notes.map((n) => (n.id === action.noteId ? {...n, resolved: !n.resolved, blocked: n.resolved ? n.blocked : false} : n))})) : i)));
     case "delete":
       return mapActive(state, (items) => items.filter((i) => i.id !== action.id));
 

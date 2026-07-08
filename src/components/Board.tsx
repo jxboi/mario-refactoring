@@ -138,6 +138,11 @@ export function Board({items, totalCount, categories, config, onMove, onSelect, 
               )}
               <span className="column-title">{stage.label}</span>
               <span className="column-count">{colItems.length}</span>
+              {!stage.hiddenByDefault && (
+                <button className="column-add-btn" title={`Add item to ${stage.label}`} aria-label={`Add item to ${stage.label}`} onClick={() => onAddItem(stage.id)}>
+                  ＋
+                </button>
+              )}
               <ColumnMenu label={stage.label} canAdd={!stage.hiddenByDefault} onAdd={() => onAddItem(stage.id)} onCollapse={() => setStageCollapsed(stage.id, true)} />
             </header>
             <div className="column-body">

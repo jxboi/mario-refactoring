@@ -470,6 +470,68 @@ code,
   gap: 8px;
 }
 
+.settings {
+  position: relative;
+}
+
+.settings-btn {
+  gap: 6px;
+}
+
+.settings-caret {
+  color: var(--text-faint);
+}
+
+.settings-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 80;
+  width: 200px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-modal);
+  padding: 6px;
+  animation: modal-in 0.16s var(--ease);
+}
+
+.settings-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--text);
+  text-align: left;
+  transition: background 0.12s;
+}
+
+.settings-item:hover:not(:disabled) {
+  background: var(--surface-hover);
+}
+
+.settings-item:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.settings-item-icon {
+  width: 16px;
+  text-align: center;
+  color: var(--text-dim);
+  flex-shrink: 0;
+}
+
+.settings-sep {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--border);
+}
+
 .filter-row {
   margin-top: 10px;
   gap: 12px;
@@ -881,7 +943,7 @@ code,
 
 .column-head {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 8px;
   padding: 12px 10px 8px 14px;
   user-select: none;
@@ -902,6 +964,24 @@ code,
   background: var(--surface);
   border-radius: 999px;
   padding: 1px 8px;
+}
+
+.column-add-btn {
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
+  color: var(--text-faint);
+  font-size: 15px;
+  line-height: 1;
+  align-self: center;
+  transition: all 0.15s;
+}
+
+.column-add-btn:hover {
+  background: var(--surface-hover);
+  color: var(--accent);
 }
 
 .column-body {
@@ -1843,6 +1923,12 @@ code,
   font-size: 11px;
   font-weight: 550;
   color: var(--red);
+}
+
+.note-resolved-tag {
+  font-size: 11px;
+  font-weight: 550;
+  color: var(--green);
 }
 
 .note-menu {

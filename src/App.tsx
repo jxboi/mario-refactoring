@@ -9,6 +9,7 @@ import {SkillsManager} from "./components/SkillsManager";
 import {ToastHost, useToasts} from "./components/Toast";
 import {useAuth, boardScope, type Session} from "./lib/auth";
 import {activeProject, useBoard} from "./lib/store";
+import {exportProject} from "./lib/export";
 import {useSkills} from "./lib/skills";
 import type {RefactorItem, Risk, Stage} from "./types";
 import {typeConfig, uid} from "./types";
@@ -170,6 +171,10 @@ function BoardApp({session, onSignOut}: {session: Session; onSignOut: () => void
         filters={filters}
         onFilters={setFilters}
         onImportClick={() => setImportOpen(true)}
+        onExportClick={() => {
+          exportProject(project);
+          pushToast(`Exported “${project.name}” (${items.length} ${items.length === 1 ? config.itemNoun : config.itemNounPlural})`, "success");
+        }}
         onManageCategories={() => setCategoriesOpen(true)}
         onManageSkills={() => setSkillsOpen(true)}
         user={session.user}
@@ -227,6 +232,7 @@ function BoardApp({session, onSignOut}: {session: Session; onSignOut: () => void
           onDeleteNote={(noteId) => dispatch({type: "delete-note", id: selected.id, noteId})}
           onEditNote={(noteId, text) => dispatch({type: "edit-note", id: selected.id, noteId, text})}
           onToggleNoteBlock={(noteId) => dispatch({type: "toggle-note-block", id: selected.id, noteId})}
+          onToggleNoteResolved={(noteId) => dispatch({type: "toggle-note-resolved", id: selected.id, noteId})}
           onDelete={() => {
             dispatch({type: "delete", id: selected.id});
             setSelectedId(null);

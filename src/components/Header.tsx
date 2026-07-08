@@ -4,6 +4,7 @@ import type {Project} from "../lib/store";
 import type {ProjectType, RefactorItem, Risk} from "../types";
 import {RISKS, RISK_LABELS} from "../types";
 import {ProjectMenu} from "./ProjectMenu";
+import {SettingsMenu} from "./SettingsMenu";
 
 interface Props {
   items: RefactorItem[];
@@ -14,6 +15,7 @@ interface Props {
   filters: Filters;
   onFilters: (f: Filters) => void;
   onImportClick: () => void;
+  onExportClick: () => void;
   onManageCategories: () => void;
   onManageSkills: () => void;
   onProjectSwitch: (id: string) => void;
@@ -25,7 +27,7 @@ interface Props {
   onSignOut: () => void;
 }
 
-export function Header({items, projects, activeId, metricLabel, showFiles, filters, onFilters, onImportClick, onManageCategories, onManageSkills, onProjectSwitch, onProjectCreate, onProjectRename, onProjectDelete, user, isGuest, onSignOut}: Props) {
+export function Header({items, projects, activeId, metricLabel, showFiles, filters, onFilters, onImportClick, onExportClick, onManageCategories, onManageSkills, onProjectSwitch, onProjectCreate, onProjectRename, onProjectDelete, user, isGuest, onSignOut}: Props) {
   const total = items.filter((i) => i.stage !== "deferred").length;
   const deployed = items.filter((i) => i.stage === "deployed").length;
   const pct = total === 0 ? 0 : Math.round((deployed / total) * 100);
@@ -67,18 +69,7 @@ export function Header({items, projects, activeId, metricLabel, showFiles, filte
 
         <div className="header-right">
           <div className="header-actions">
-            {" "}
-            <button className="btn btn-ghost" onClick={onManageSkills} title="Author refactoring skills">
-              <span className="btn-icon">✦</span> <span className="btn-label">Skills</span>
-            </button>{" "}
-            <button className="btn btn-ghost" onClick={onManageCategories} title="Manage categories">
-              <span className="btn-icon">❖</span> <span className="btn-label">Categories</span>
-            </button>
-            {total > 0 && (
-              <button className="btn btn-ghost btn-accent" onClick={onImportClick} title="Import JSON">
-                <span className="btn-icon">⇡</span> <span className="btn-label">Import JSON</span>
-              </button>
-            )}
+            <SettingsMenu canImport={total > 0} canExport={items.length > 0} onImportClick={onImportClick} onExportClick={onExportClick} onManageCategories={onManageCategories} onManageSkills={onManageSkills} />
           </div>
 
           <div className="account">

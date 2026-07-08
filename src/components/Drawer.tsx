@@ -13,10 +13,11 @@ interface Props {
   onDeleteNote: (noteId: string) => void;
   onEditNote: (noteId: string, text: string) => void;
   onToggleNoteBlock: (noteId: string) => void;
+  onToggleNoteResolved: (noteId: string) => void;
   onDelete: () => void;
 }
 
-export function Drawer({item, categories, config, onClose, onUpdate, onAddNote, onDeleteNote, onEditNote, onToggleNoteBlock, onDelete}: Props) {
+export function Drawer({item, categories, config, onClose, onUpdate, onAddNote, onDeleteNote, onEditNote, onToggleNoteBlock, onToggleNoteResolved, onDelete}: Props) {
   const [noteDraft, setNoteDraft] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [closing, setClosing] = useState(false);
@@ -128,7 +129,7 @@ export function Drawer({item, categories, config, onClose, onUpdate, onAddNote, 
           <div className="notes">
             {item.notes.length === 0 && <div className="notes-empty">No notes yet — findings, gotchas, links to PRs.</div>}
             {item.notes.map((n) => (
-              <NoteRow key={n.id} note={n} onToggleBlock={() => onToggleNoteBlock(n.id)} onDelete={() => onDeleteNote(n.id)} onEdit={(text) => onEditNote(n.id, text)} />
+              <NoteRow key={n.id} note={n} onToggleBlock={() => onToggleNoteBlock(n.id)} onToggleResolved={() => onToggleNoteResolved(n.id)} onDelete={() => onDeleteNote(n.id)} onEdit={(text) => onEditNote(n.id, text)} />
             ))}
           </div>
           <div className="note-composer">
@@ -176,7 +177,7 @@ export function Drawer({item, categories, config, onClose, onUpdate, onAddNote, 
   );
 }
 
-function NoteRow({note, onToggleBlock, onDelete, onEdit}: {note: Note; onToggleBlock: () => void; onDelete: () => void; onEdit: (text: string) => void}) {
+function NoteRow({note, onToggleBlock, onToggleResolved, onDelete, onEdit}: {note: Note; onToggleBlock: () => void; onToggleResolved: () => void; onDelete: () => void; onEdit: (text: string) => void}) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
@@ -260,6 +261,7 @@ function NoteRow({note, onToggleBlock, onDelete, onEdit}: {note: Note; onToggleB
       <div className="note-foot">
         <span>{timeAgo(note.createdAt)}</span>
         {note.blocked && <span className="note-blocked-tag">· Blocker</span>}
+        {note.resolved && !note.blocked && <span className="note-resolved-tag">· Resolved</span>}
         <div className="note-menu">
           <button className="note-menu-btn" onClick={() => setMenuOpen((o) => !o)} aria-haspopup="menu" aria-expanded={menuOpen} aria-label="Note actions">
             ⋯
@@ -269,15 +271,27 @@ function NoteRow({note, onToggleBlock, onDelete, onEdit}: {note: Note; onToggleB
               <button className="note-menu-item" role="menuitem" onClick={startEdit}>
                 Edit note
               </button>
+              {!note.blocked && (
+                <button
+                  className="note-menu-item"
+                  role="menuitem"
+                  onClick={() => {
+                    onToggleBlock();
+                    setMenuOpen(false);
+                  }}
+                >
+                  Mark as blocker
+                </button>
+              )}
               <button
-                className={`note-menu-item${note.blocked ? " resolve" : ""}`}
+                className={`note-menu-item${note.resolved ? "" : " resolve"}`}
                 role="menuitem"
                 onClick={() => {
-                  onToggleBlock();
+                  onToggleResolved();
                   setMenuOpen(false);
                 }}
               >
-                {note.blocked ? "Resolve" : "Mark as blocker"}
+                {note.resolved ? "Mark as unresolved" : "Mark as resolved"}
               </button>
               {confirmRemove ? (
                 <button

@@ -11,7 +11,7 @@ import {useAuth, boardScope, type Session} from "./lib/auth";
 import {activeProject, useBoard} from "./lib/store";
 import {exportProject} from "./lib/export";
 import {useSkills} from "./lib/skills";
-import type {RefactorItem, Risk, Stage} from "./types";
+import type {CategoryDef, RefactorItem, Risk, Stage} from "./types";
 import {typeConfig, uid} from "./types";
 
 export interface Filters {
@@ -71,7 +71,8 @@ function BoardApp({session, onSignOut}: {session: Session; onSignOut: () => void
   }, [items, filters]);
 
   const handleImport = useCallback(
-    (imported: RefactorItem[]) => {
+    (imported: RefactorItem[], importedCategories: CategoryDef[]) => {
+      if (importedCategories.length > 0) dispatch({type: "categories-merge", categories: importedCategories});
       dispatch({type: "import", items: imported});
       setImportOpen(false);
       setDroppedFile(null);
@@ -172,7 +173,7 @@ function BoardApp({session, onSignOut}: {session: Session; onSignOut: () => void
         onFilters={setFilters}
         onImportClick={() => setImportOpen(true)}
         onExportClick={() => {
-          exportProject(project);
+          exportProject(project, categories);
           pushToast(`Exported “${project.name}” (${items.length} ${items.length === 1 ? config.itemNoun : config.itemNounPlural})`, "success");
         }}
         onManageCategories={() => setCategoriesOpen(true)}
@@ -259,6 +260,7 @@ function BoardApp({session, onSignOut}: {session: Session; onSignOut: () => void
           typeLabel={config.label}
           onAdd={(label) => dispatch({type: "category-add", label})}
           onRename={(id, label) => dispatch({type: "category-rename", id, label})}
+          onSetGlyph={(id, glyph) => dispatch({type: "category-set-glyph", id, glyph})}
           onDelete={(id) => {
             dispatch({type: "category-delete", id});
             pushToast("Category removed — its items moved to Other", "info");

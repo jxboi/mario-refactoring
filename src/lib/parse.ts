@@ -1,5 +1,5 @@
 import type {Category, CategoryDef, Effort, Note, RefactorItem, Risk, Stage} from "../types";
-import {blockedFrom, DEFAULT_CATEGORIES, FALLBACK_CATEGORY_ID, uid} from "../types";
+import {blockedFrom, DEFAULT_CATEGORIES, FALLBACK_CATEGORY_ID, slugifyCategory, uid} from "../types";
 
 export interface ParsedRow {
   ok: boolean;
@@ -13,6 +13,8 @@ export interface ParseResult {
   rows: ParsedRow[];
   fileError?: string;
   sourceCount: number;
+  /** Category definitions found in the file (e.g. from a Chisel export). */
+  categories?: CategoryDef[];
 }
 
 const CONTAINER_KEYS = ["items", "tasks", "refactorings", "refactors", "entries", "issues", "backlog", "data"];
@@ -54,6 +56,38 @@ function parseNotes(v: unknown, now: number): Note[] {
     });
   }
   return notes;
+}
+
+/** Read an exported `categories` array back into CategoryDef objects, tolerating partial data. */
+function parseCategoryDefs(v: unknown): CategoryDef[] {
+  if (!Array.isArray(v)) return [];
+  const defs: CategoryDef[] = [];
+  const seen = new Set<string>();
+  for (const raw of v) {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) continue;
+    const c = raw as Record<string, unknown>;
+    const label = firstString(c, ["label", "name", "title"]);
+    const idStr = typeof c.id === "string" && c.id.trim() ? c.id.trim() : undefined;
+    if (!label && !idStr) continue;
+    const id = idStr ?? slugifyCategory(label!);
+    if (seen.has(id)) continue;
+    seen.add(id);
+    const glyph = typeof c.glyph === "string" && c.glyph.trim() ? c.glyph : "\u00B7";
+    defs.push({id, label: label ?? id, glyph});
+  }
+  return defs;
+}
+
+/** Combine a base category list with extras, ignoring any whose id already exists. */
+function mergeCategories(base: CategoryDef[], extra: CategoryDef[]): CategoryDef[] {
+  const ids = new Set(base.map((c) => c.id));
+  const merged = [...base];
+  for (const c of extra) {
+    if (ids.has(c.id)) continue;
+    ids.add(c.id);
+    merged.push(c);
+  }
+  return merged;
 }
 
 function normalizeRisk(v: unknown): Risk | undefined {
@@ -151,6 +185,11 @@ export function parseRefactorJson(text: string, categories: CategoryDef[] = DEFA
     return {rows: [], sourceCount: 0, fileError: "The file parsed correctly but contains zero items."};
   }
 
+  // A Chisel export carries its own `categories` list; merge those in so items
+  // referencing custom categories resolve instead of falling back to "Other".
+  const importedCategories = data && typeof data === "object" && !Array.isArray(data) ? parseCategoryDefs((data as Record<string, unknown>).categories) : [];
+  const knownCategories = mergeCategories(categories, importedCategories);
+
   const now = Date.now();
   const rows: ParsedRow[] = candidates.map((raw, index) => {
     const errors: string[] = [];
@@ -179,7 +218,7 @@ export function parseRefactorJson(text: string, categories: CategoryDef[] = DEFA
     let effort = normalizeEffort(obj.effort ?? obj.size ?? obj.estimate ?? obj.points ?? obj.complexity);
     if (!effort) effort = "medium";
 
-    let category = normalizeCategory(obj.category ?? obj.type ?? obj.kind ?? obj.refactor_type, categories);
+    let category = normalizeCategory(obj.category ?? obj.type ?? obj.kind ?? obj.refactor_type, knownCategories);
     if (!category) {
       const rawCat = obj.category ?? obj.type ?? obj.kind;
       if (typeof rawCat === "string" && rawCat.trim()) {
@@ -219,5 +258,5 @@ export function parseRefactorJson(text: string, categories: CategoryDef[] = DEFA
     return {ok: true, index, item, errors, warnings};
   });
 
-  return {rows, sourceCount: candidates.length};
+  return {rows, sourceCount: candidates.length, categories: importedCategories};
 }

@@ -2,6 +2,9 @@ import {useState} from "react";
 import type {CategoryDef} from "../types";
 import {FALLBACK_CATEGORY_ID} from "../types";
 
+/** Preset icons offered when customising a category's glyph. */
+const GLYPH_CHOICES = ["⤴", "✎", "✂", "⬡", "⚡", "✓", "▦", "❖", "✉", "⚠", "❢", "↻", "❏", "⌕", "✐", "★", "◆", "●", "▲", "❤", "⚑", "⌘", "⎈", "·"];
+
 interface Props {
   categories: CategoryDef[];
   /** How many items currently use each category, keyed by category id. */
@@ -10,14 +13,16 @@ interface Props {
   typeLabel: string;
   onAdd: (label: string) => void;
   onRename: (id: string, label: string) => void;
+  onSetGlyph: (id: string, glyph: string) => void;
   onDelete: (id: string) => void;
   onClose: () => void;
 }
 
-export function CategoryManager({categories, counts, typeLabel, onAdd, onRename, onDelete, onClose}: Props) {
+export function CategoryManager({categories, counts, typeLabel, onAdd, onRename, onSetGlyph, onDelete, onClose}: Props) {
   const [addDraft, setAddDraft] = useState("");
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
+  const [glyphId, setGlyphId] = useState<string | null>(null);
   const [confirmId, setConfirmId] = useState<string | null>(null);
 
   const submitAdd = () => {
@@ -51,9 +56,28 @@ export function CategoryManager({categories, counts, typeLabel, onAdd, onRename,
             const count = counts[c.id] ?? 0;
             return (
               <div key={c.id} className="cat-manage-row">
-                <span className="cat-manage-glyph" aria-hidden="true">
-                  {c.glyph}
-                </span>
+                <div className="cat-glyph-anchor">
+                  <button className="cat-manage-glyph" title="Change icon" aria-label={`Change icon for ${c.label}`} onClick={() => setGlyphId((prev) => (prev === c.id ? null : c.id))}>
+                    {c.glyph}
+                  </button>
+                  {glyphId === c.id && (
+                    <div className="cat-glyph-picker" role="menu">
+                      {GLYPH_CHOICES.map((g) => (
+                        <button
+                          key={g}
+                          className={`cat-glyph-choice${g === c.glyph ? " is-active" : ""}`}
+                          title={`Use ${g}`}
+                          onClick={() => {
+                            onSetGlyph(c.id, g);
+                            setGlyphId(null);
+                          }}
+                        >
+                          {g}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
                 {renamingId === c.id ? (
                   <input
                     className="cat-manage-input"

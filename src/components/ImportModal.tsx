@@ -10,7 +10,7 @@ interface Props {
   categories: CategoryDef[];
   config: TypeConfig;
   onClose: () => void;
-  onImport: (items: RefactorItem[]) => void;
+  onImport: (items: RefactorItem[], categories: CategoryDef[]) => void;
 }
 
 export function ImportModal({initialFile, categories, config, onClose, onImport}: Props) {
@@ -158,7 +158,16 @@ export function ImportModal({initialFile, categories, config, onClose, onImport}
               <button className="btn btn-ghost" onClick={reset}>
                 ← Different file
               </button>
-              <button className="btn btn-primary" disabled={toImport.length === 0} onClick={() => onImport(toImport.map((r) => r.item!))}>
+              <button
+                className="btn btn-primary"
+                disabled={toImport.length === 0}
+                onClick={() =>
+                  onImport(
+                    toImport.map((r) => r.item!),
+                    result?.categories ?? [],
+                  )
+                }
+              >
                 Import {toImport.length} {toImport.length === 1 ? "item" : "items"}
               </button>
             </div>

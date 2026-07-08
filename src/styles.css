@@ -1525,11 +1525,63 @@ code,
   background: var(--surface-hover);
 }
 
+.cat-glyph-anchor {
+  position: relative;
+  flex-shrink: 0;
+}
+
 .cat-manage-glyph {
   width: 18px;
   text-align: center;
   color: var(--text-faint);
   flex-shrink: 0;
+}
+
+button.cat-manage-glyph {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  transition: all 0.14s;
+}
+
+button.cat-manage-glyph:hover {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.cat-glyph-picker {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 20;
+  display: grid;
+  grid-template-columns: repeat(6, 26px);
+  gap: 3px;
+  padding: 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-raised, var(--surface));
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+}
+
+.cat-glyph-choice {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  color: var(--text-dim);
+  font-size: 14px;
+  transition: all 0.14s;
+}
+
+.cat-glyph-choice:hover {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.cat-glyph-choice.is-active {
+  border-color: var(--accent);
+  color: var(--text);
 }
 
 .cat-manage-label {

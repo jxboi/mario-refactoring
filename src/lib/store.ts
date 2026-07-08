@@ -23,8 +23,7 @@ export interface BoardState {
   categories: CategoriesByType;
 }
 
-export type Action = {type: "import"; items: RefactorItem[]} | {type: "move"; id: string; stage: Stage; beforeId?: string} | {type: "update"; id: string; patch: Partial<Omit<RefactorItem, "id" | "notes">>} | {type: "add-note"; id: string; text: string} | {type: "edit-note"; id: string; noteId: string; text: string} | {type: "delete-note"; id: string; noteId: string} | {type: "toggle-note-block"; id: string; noteId: string} | {type: "toggle-note-resolved"; id: string; noteId: string} | {type: "delete"; id: string} | {type: "add"; item: RefactorItem} | {type: "project-create"; name: string; projectType: ProjectType} | {type: "project-rename"; id: string; name: string} | {type: "project-delete"; id: string} | {type: "project-switch"; id: string} | {type: "category-add"; label: string} | {type: "category-rename"; id: string; label: string} | {type: "category-delete"; id: string};
-
+export type Action = {type: "import"; items: RefactorItem[]} | {type: "move"; id: string; stage: Stage; beforeId?: string} | {type: "update"; id: string; patch: Partial<Omit<RefactorItem, "id" | "notes">>} | {type: "add-note"; id: string; text: string} | {type: "edit-note"; id: string; noteId: string; text: string} | {type: "delete-note"; id: string; noteId: string} | {type: "toggle-note-block"; id: string; noteId: string} | {type: "toggle-note-resolved"; id: string; noteId: string} | {type: "delete"; id: string} | {type: "add"; item: RefactorItem} | {type: "project-create"; name: string; projectType: ProjectType} | {type: "project-rename"; id: string; name: string} | {type: "project-delete"; id: string} | {type: "project-switch"; id: string} | {type: "category-add"; label: string} | {type: "category-rename"; id: string; label: string} | {type: "category-set-glyph"; id: string; glyph: string} | {type: "category-delete"; id: string} | {type: "categories-merge"; categories: CategoryDef[]};
 function newProject(name: string, projectType: ProjectType = "refactoring"): Project {
   return {id: uid(), name, type: projectType, createdAt: Date.now(), items: []};
 }
@@ -118,11 +117,29 @@ export function reducer(state: BoardState, action: Action): BoardState {
       const next = at >= 0 ? [...list.slice(0, at), def, ...list.slice(at)] : [...list, def];
       return {...state, categories: {...state.categories, [type]: next}};
     }
+    case "categories-merge": {
+      const type = activeType(state);
+      const list = state.categories[type];
+      const existing = new Set(list.map((c) => c.id));
+      const additions = action.categories.filter((c) => c.id !== FALLBACK_CATEGORY_ID && !existing.has(c.id));
+      if (additions.length === 0) return state;
+      // Keep the "Other" fallback last so merged categories slot in above it.
+      const at = list.findIndex((c) => c.id === FALLBACK_CATEGORY_ID);
+      const next = at >= 0 ? [...list.slice(0, at), ...additions, ...list.slice(at)] : [...list, ...additions];
+      return {...state, categories: {...state.categories, [type]: next}};
+    }
     case "category-rename": {
       const label = action.label.trim();
       if (!label) return state;
       const type = activeType(state);
       const next = state.categories[type].map((c) => (c.id === action.id ? {...c, label} : c));
+      return {...state, categories: {...state.categories, [type]: next}};
+    }
+    case "category-set-glyph": {
+      const glyph = action.glyph.trim();
+      if (!glyph) return state;
+      const type = activeType(state);
+      const next = state.categories[type].map((c) => (c.id === action.id ? {...c, glyph} : c));
       return {...state, categories: {...state.categories, [type]: next}};
     }
     case "category-delete": {

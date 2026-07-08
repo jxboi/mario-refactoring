@@ -1,6 +1,7 @@
 import {Fragment, useEffect, useRef, useState} from "react";
 import type {CategoryDef, RefactorItem, Stage, TypeConfig} from "../types";
 import {categoryMeta} from "../types";
+import {LandingArtwork} from "./LandingArtwork";
 import {EffortDots, RiskPill} from "./ui";
 
 interface BoardProps {
@@ -53,28 +54,58 @@ export function Board({items, totalCount, categories, config, onMove, onSelect, 
     });
 
   if (totalCount === 0) {
+    const valuePoints = config.showFiles
+      ? [
+          ["Import without cleanup", "Bring in JSON, file paths, tags, risk, and effort so rough backlog notes become structured work."],
+          ["See what deserves attention", "Risk, blockers, categories, and stages keep refactors from turning into an invisible side quest."],
+          ["Show progress clearly", "Move work from queued to deployed and export the current project when you need to share the plan."],
+        ]
+      : [
+          ["Capture the full list", "Bring in JSON or create tasks one by one with priority, effort, tags, and custom categories."],
+          ["Keep work moving", "Use the board to spot blocked items, review handoffs, and what is ready to finish next."],
+          ["Share a clean snapshot", "Export the project as structured JSON when the team needs the current plan."],
+        ];
+
     return (
       <main className="board-empty">
-        <div className="empty-card">
-          <svg className="empty-mark" viewBox="0 0 32 32" aria-hidden="true">
-            <rect width="32" height="32" rx="7" fill="var(--brand-bg)" />
-            <path d="M9 23 L20 12 L23 15 L12 26 Z M21.5 10.5 L24.5 7.5 L27.5 10.5 L24.5 13.5 Z" fill="var(--accent)" />
-          </svg>
-          <h1>{config.tagline}</h1>
-          <p>{config.blurb}</p>
-          <div className="empty-actions">
-            <button className="btn btn-primary" onClick={onImportClick}>
-              <span className="btn-icon">⇡</span> Import JSON
-            </button>
-            <button className="btn btn-ghost" onClick={() => onAddItem("queued")}>
-              ＋ New item
-            </button>
-            <button className="btn btn-ghost" onClick={onLoadSample}>
-              Explore with sample data
-            </button>
+        <section className="front-page">
+          <div className="front-copy">
+            <span className="front-kicker">{config.label} workspace</span>
+            <h1>{config.tagline}</h1>
+            <p className="front-lede">{config.blurb}</p>
+            <div className="front-actions">
+              <button className="btn btn-primary" onClick={onImportClick}>
+                <span className="btn-icon">⇡</span> Import JSON
+              </button>
+              <button className="btn btn-ghost" onClick={() => onAddItem("queued")}>
+                + New item
+              </button>
+              <button className="btn btn-ghost" onClick={onLoadSample}>
+                Explore sample
+              </button>
+            </div>
+            <div className="front-value-grid">
+              {valuePoints.map(([title, text]) => (
+                <article className="front-value" key={title}>
+                  <span className="front-value-mark" />
+                  <h2>{title}</h2>
+                  <p>{text}</p>
+                </article>
+              ))}
+            </div>
           </div>
-          <pre className="empty-schema">{config.schema}</pre>
-        </div>
+
+          <div className="front-visual">
+            <LandingArtwork compact />
+            <div className="front-schema-card">
+              <div className="front-schema-head">
+                <span>Example import</span>
+                <strong>{config.metricLabel.toLowerCase()} + effort</strong>
+              </div>
+              <pre className="front-schema">{config.schema}</pre>
+            </div>
+          </div>
+        </section>
       </main>
     );
   }

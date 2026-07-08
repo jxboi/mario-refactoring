@@ -4,6 +4,7 @@ import {blockedFrom, defaultCategoriesFor, FALLBACK_CATEGORY_ID, PROJECT_TYPES, 
 
 const STORAGE_KEY = "chisel.projects.v2";
 const LEGACY_KEY = "chisel.board.v1";
+export const DEFAULT_PROJECT_NAME = "My project";
 
 export interface Project {
   id: string;
@@ -93,7 +94,7 @@ export function reducer(state: BoardState, action: Action): BoardState {
     case "project-delete": {
       const remaining = state.projects.filter((p) => p.id !== action.id);
       if (remaining.length === 0) {
-        const fresh = newProject("My refactors");
+        const fresh = newProject(DEFAULT_PROJECT_NAME);
         return {...state, projects: [fresh], activeId: fresh.id};
       }
       const activeId = state.activeId === action.id ? remaining[0].id : state.activeId;
@@ -209,7 +210,7 @@ function load(scope?: string): BoardState {
       if (legacy) {
         const parsed = JSON.parse(legacy);
         if (parsed && Array.isArray(parsed.items)) {
-          const project = {...newProject("My refactors"), items: parsed.items as RefactorItem[]};
+          const project = {...newProject(DEFAULT_PROJECT_NAME), items: parsed.items as RefactorItem[]};
           return normalize({projects: [project], activeId: project.id, categories: []});
         }
       }
@@ -217,7 +218,7 @@ function load(scope?: string): BoardState {
   } catch {
     /* corrupted storage — start fresh */
   }
-  const project = newProject("My refactors");
+  const project = newProject(DEFAULT_PROJECT_NAME);
   return normalize({projects: [project], activeId: project.id, categories: []});
 }
 

@@ -68,7 +68,7 @@ export function ProjectMenu({projects, activeId, onSwitch, onCreate, onRename, o
     <div className="proj" ref={rootRef}>
       <button className={`proj-btn${open ? " open" : ""}`} onClick={() => setOpen((o) => !o)} aria-haspopup="menu" aria-expanded={open} title="Switch or create project">
         <span className="proj-name">{active?.name ?? "Project"}</span>
-        {active && <span className={`proj-type-badge type-${active.type}`}>{active.type === "task" ? "Task" : "Refactor"}</span>}
+        {active && <span className={`proj-type-badge type-${active.type}`}>{typeConfig(active.type).label}</span>}
         <span className="proj-caret">▾</span>
       </button>
 

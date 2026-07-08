@@ -1,4 +1,4 @@
-import {useEffect, useRef, useState} from "react";
+import {Fragment, useEffect, useRef, useState} from "react";
 import type {CategoryDef, RefactorItem, Stage, TypeConfig} from "../types";
 import {categoryMeta} from "../types";
 import {EffortDots, RiskPill} from "./ui";
@@ -17,9 +17,29 @@ interface BoardProps {
 
 const DRAG_MIME = "application/x-chisel-item";
 
+/**
+ * Work out which card the cursor's Y sits in front of within a column body.
+ * Returns that card's id, or null when the cursor is past the last card (drop at
+ * the end). Reading live rects for every card in one pass keeps the drop slot
+ * stable, so inserting the placeholder can't feed back into the calculation.
+ */
+function slotBeforeId(container: HTMLElement, clientY: number): string | null {
+  const cards = Array.from(container.querySelectorAll<HTMLElement>(".card"));
+  for (const el of cards) {
+    const rect = el.getBoundingClientRect();
+    if (clientY < rect.top + rect.height / 2) return el.dataset.id ?? null;
+  }
+  return null;
+}
+
 export function Board({items, totalCount, categories, config, onMove, onSelect, onAddItem, onImportClick, onLoadSample}: BoardProps) {
   const [dragId, setDragId] = useState<string | null>(null);
   const [overStage, setOverStage] = useState<Stage | null>(null);
+  // Where a placeholder should show while dragging: the target stage and the id
+  // of the card the dragged item would land in front of (null = end of column).
+  const [dropTarget, setDropTarget] = useState<{stage: Stage; beforeId: string | null} | null>(null);
+  // Height of the card being dragged, so the placeholder matches its size.
+  const [dragHeight, setDragHeight] = useState<number | null>(null);
   // Columns the user has collapsed. Seeded with any stage marked hiddenByDefault
   // (e.g. Deferred) so those start collapsed, but every column can be toggled.
   const [collapsed, setCollapsed] = useState<Set<Stage>>(() => new Set(config.stages.filter((s) => s.hiddenByDefault).map((s) => s.id)));
@@ -59,13 +79,24 @@ export function Board({items, totalCount, categories, config, onMove, onSelect, 
     );
   }
 
-  const handleDrop = (e: React.DragEvent, stage: Stage, beforeId?: string) => {
+  const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     const id = e.dataTransfer.getData(DRAG_MIME);
-    if (id) onMove(id, stage, beforeId);
+    if (id && dropTarget) onMove(id, dropTarget.stage, dropTarget.beforeId ?? undefined);
     setDragId(null);
     setOverStage(null);
+    setDropTarget(null);
+  };
+
+  // A placeholder is pointless when it marks the dragged card's current slot.
+  const isNoOp = (beforeId: string | null, list: RefactorItem[]) => {
+    if (dragId == null) return false;
+    const di = list.findIndex((i) => i.id === dragId);
+    if (di < 0) return false; // dragging in from another column — always a real move
+    if (beforeId === null) return di === list.length - 1;
+    const bi = list.findIndex((i) => i.id === beforeId);
+    return bi === di || bi === di + 1;
   };
 
   const now = Date.now();
@@ -91,12 +122,16 @@ export function Board({items, totalCount, categories, config, onMove, onSelect, 
                   e.preventDefault();
                   e.dataTransfer.dropEffect = "move";
                   setOverStage(stage.id);
+                  setDropTarget({stage: stage.id, beforeId: null});
                 }
               }}
               onDragLeave={(e) => {
-                if (e.currentTarget === e.target) setOverStage(null);
+                if (e.currentTarget === e.target) {
+                  setOverStage(null);
+                  setDropTarget(null);
+                }
               }}
-              onDrop={(e) => handleDrop(e, stage.id)}
+              onDrop={handleDrop}
             >
               <span className="column-collapsed-label">{stage.label}</span>
               <span className="column-count">{stageItems.length}</span>
@@ -125,9 +160,12 @@ export function Board({items, totalCount, categories, config, onMove, onSelect, 
               }
             }}
             onDragLeave={(e) => {
-              if (e.currentTarget === e.target) setOverStage(null);
+              if (e.currentTarget === e.target) {
+                setOverStage(null);
+                setDropTarget(null);
+              }
             }}
-            onDrop={(e) => handleDrop(e, stage.id)}
+            onDrop={handleDrop}
           >
             <header className="column-head" title={stage.hint}>
               {stage.group === "active" && <span className="column-live-dot" aria-hidden="true" />}
@@ -145,28 +183,44 @@ export function Board({items, totalCount, categories, config, onMove, onSelect, 
               )}
               <ColumnMenu label={stage.label} canAdd={!stage.hiddenByDefault} onAdd={() => onAddItem(stage.id)} onCollapse={() => setStageCollapsed(stage.id, true)} />
             </header>
-            <div className="column-body">
+            <div
+              className="column-body"
+              onDragOver={(e) => {
+                if (!e.dataTransfer.types.includes(DRAG_MIME)) return;
+                e.preventDefault();
+                e.stopPropagation();
+                e.dataTransfer.dropEffect = "move";
+                setOverStage(stage.id);
+                setDropTarget({stage: stage.id, beforeId: slotBeforeId(e.currentTarget, e.clientY)});
+              }}
+              onDrop={handleDrop}
+            >
               {colItems.map((item) => (
-                <Card
-                  key={item.id}
-                  item={item}
-                  categories={categories}
-                  showFiles={config.showFiles}
-                  dragging={dragId === item.id}
-                  onSelect={() => onSelect(item.id)}
-                  onDragStart={(e) => {
-                    e.dataTransfer.setData(DRAG_MIME, item.id);
-                    e.dataTransfer.effectAllowed = "move";
-                    setDragId(item.id);
-                  }}
-                  onDragEnd={() => {
-                    setDragId(null);
-                    setOverStage(null);
-                  }}
-                  onDropBefore={(e) => handleDrop(e, stage.id, item.id)}
-                />
+                <Fragment key={item.id}>
+                  {dropTarget?.stage === stage.id && dropTarget.beforeId === item.id && !isNoOp(item.id, colItems) && <div className="card-placeholder" style={dragHeight ? {height: dragHeight} : undefined} />}
+                  <Card
+                    item={item}
+                    categories={categories}
+                    showFiles={config.showFiles}
+                    dragging={dragId === item.id}
+                    onSelect={() => onSelect(item.id)}
+                    onDragStart={(e) => {
+                      e.dataTransfer.setData(DRAG_MIME, item.id);
+                      e.dataTransfer.effectAllowed = "move";
+                      setDragId(item.id);
+                      setDragHeight(e.currentTarget.getBoundingClientRect().height);
+                    }}
+                    onDragEnd={() => {
+                      setDragId(null);
+                      setOverStage(null);
+                      setDropTarget(null);
+                      setDragHeight(null);
+                    }}
+                  />
+                </Fragment>
               ))}
-              {colItems.length === 0 && <div className="column-placeholder">Empty</div>}
+              {dropTarget?.stage === stage.id && dropTarget.beforeId === null && !isNoOp(null, colItems) && <div className="card-placeholder" style={dragHeight ? {height: dragHeight} : undefined} />}
+              {colItems.length === 0 && overStage !== stage.id && <div className="column-placeholder">Empty</div>}
             </div>
           </section>
         );
@@ -238,21 +292,17 @@ interface CardProps {
   onSelect: () => void;
   onDragStart: (e: React.DragEvent) => void;
   onDragEnd: () => void;
-  onDropBefore: (e: React.DragEvent) => void;
 }
 
-function Card({item, categories, showFiles, dragging, onSelect, onDragStart, onDragEnd, onDropBefore}: CardProps) {
+function Card({item, categories, showFiles, dragging, onSelect, onDragStart, onDragEnd}: CardProps) {
   const cat = categoryMeta(item.category, categories);
   return (
     <article
       className={`card${dragging ? " dragging" : ""}${item.blocked ? " card-blocked" : ""}${item.stage === "deployed" ? " card-landed" : ""}`}
+      data-id={item.id}
       draggable
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
-      onDrop={onDropBefore}
-      onDragOver={(e) => {
-        if (e.dataTransfer.types.includes(DRAG_MIME)) e.preventDefault();
-      }}
       onClick={onSelect}
       tabIndex={0}
       onKeyDown={(e) => {

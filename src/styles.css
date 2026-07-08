@@ -1004,6 +1004,19 @@ code,
   border-radius: var(--radius-sm);
 }
 
+/* Drop-slot preview shown while dragging a card to reorder it. Height is set
+   inline to match the dragged card; this is just a fallback. */
+.card-placeholder {
+  height: 46px;
+  box-sizing: border-box;
+  border: 2px dashed var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--brand-bg);
+  opacity: 0.7;
+  pointer-events: none;
+  animation: card-in 0.15s var(--ease);
+}
+
 /* ————— Cards ————— */
 .card {
   background: var(--surface);

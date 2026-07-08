@@ -185,7 +185,7 @@ export interface TypeConfig {
 export const TYPE_CONFIGS: Record<ProjectType, TypeConfig> = {
   refactoring: {
     id: "refactoring",
-    label: "Code Refactoring",
+    label: "Coding",
     itemNoun: "refactoring item",
     itemNounPlural: "refactoring items",
     stages: STAGES,

@@ -2429,6 +2429,67 @@ code,
   background: var(--surface);
 }
 
+.account-menu {
+  position: relative;
+}
+
+.account-trigger {
+  padding-right: 8px;
+}
+
+.account-trigger .settings-caret {
+  color: var(--text-faint);
+}
+
+.account-trigger.open,
+.account-trigger:hover {
+  color: var(--text);
+  background: var(--surface);
+}
+
+.account-menu-panel {
+  width: 220px;
+}
+
+.account-menu-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+}
+
+.account-menu-link {
+  transition: background 0.12s;
+}
+
+.account-menu-link:hover {
+  background: var(--surface-hover);
+}
+
+.account-menu-meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.account-menu-name {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-menu-sub {
+  font-size: 12px;
+  color: var(--text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .account-avatar {
   width: 26px;
   height: 26px;

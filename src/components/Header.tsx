@@ -3,6 +3,7 @@ import type {GitHubUser} from "../lib/auth";
 import type {Project} from "../lib/store";
 import type {ProjectType, RefactorItem, Risk} from "../types";
 import {RISKS, RISK_LABELS} from "../types";
+import {AccountMenu} from "./AccountMenu";
 import {ProjectMenu} from "./ProjectMenu";
 import {SettingsMenu} from "./SettingsMenu";
 
@@ -72,24 +73,7 @@ export function Header({items, projects, activeId, metricLabel, showFiles, filte
             <SettingsMenu canImport={total > 0} canExport={items.length > 0} onImportClick={onImportClick} onExportClick={onExportClick} onManageCategories={onManageCategories} onManageSkills={onManageSkills} />
           </div>
 
-          <div className="account">
-            {isGuest ? (
-              <span className="account-user account-guest" title="Local-only guest session">
-                <span className="account-avatar account-avatar-guest" aria-hidden="true">
-                  ᴳ
-                </span>
-                <span className="account-name">Guest</span>
-              </span>
-            ) : (
-              <a className="account-user" href={user.htmlUrl} target="_blank" rel="noreferrer" title={`@${user.login} on GitHub`}>
-                <img className="account-avatar" src={user.avatarUrl} alt="" width={26} height={26} />
-                <span className="account-name">{user.name || user.login}</span>
-              </a>
-            )}
-            <button className="btn btn-ghost btn-sm" onClick={onSignOut}>
-              {isGuest ? "Exit" : "Sign out"}
-            </button>
-          </div>
+          <AccountMenu user={user} isGuest={isGuest} onSignOut={onSignOut} />
         </div>
       </div>
 

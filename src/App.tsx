@@ -1,12 +1,18 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Board } from './components/Board';
-import { Drawer } from './components/Drawer';
-import { Header } from './components/Header';
-import { ImportModal } from './components/ImportModal';
-import { ToastHost, useToasts } from './components/Toast';
-import { activeProject, useBoard } from './lib/store';
-import type { RefactorItem, Risk, Stage } from './types';
-import { uid } from './types';
+import {useCallback, useEffect, useMemo, useRef, useState} from "react";
+import {Board} from "./components/Board";
+import {CategoryManager} from "./components/CategoryManager";
+import {Drawer} from "./components/Drawer";
+import {Header} from "./components/Header";
+import {ImportModal} from "./components/ImportModal";
+import {SignInScreen} from "./components/SignIn";
+import {SkillsManager} from "./components/SkillsManager";
+import {ToastHost, useToasts} from "./components/Toast";
+import {useAuth, boardScope, type Session} from "./lib/auth";
+import {activeProject, useBoard} from "./lib/store";
+import {exportProject} from "./lib/export";
+import {useSkills} from "./lib/skills";
+import type {CategoryDef, RefactorItem, Risk, Stage} from "./types";
+import {typeConfig, uid} from "./types";
 
 export interface Filters {
   query: string;
@@ -14,24 +20,42 @@ export interface Filters {
   blockedOnly: boolean;
 }
 
-const EMPTY_FILTERS: Filters = { query: '', risks: new Set(), blockedOnly: false };
+const EMPTY_FILTERS: Filters = {query: "", risks: new Set(), blockedOnly: false};
 
 export default function App() {
-  const { state, dispatch } = useBoard();
+  const {session, signIn, signOut} = useAuth();
+  if (!session) return <SignInScreen onSignedIn={signIn} />;
+  return <BoardApp session={session} onSignOut={signOut} />;
+}
+
+function BoardApp({session, onSignOut}: {session: Session; onSignOut: () => void}) {
+  const {state, dispatch} = useBoard(boardScope(session));
+  const skills = useSkills(boardScope(session));
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [importOpen, setImportOpen] = useState(false);
+  const [categoriesOpen, setCategoriesOpen] = useState(false);
+  const [skillsOpen, setSkillsOpen] = useState(false);
   const [droppedFile, setDroppedFile] = useState<File | null>(null);
   const [fileDragDepth, setFileDragDepth] = useState(0);
-  const { toasts, pushToast, dismissToast } = useToasts();
+  const {toasts, pushToast, dismissToast} = useToasts();
 
   const project = activeProject(state);
   const items = project.items;
+  const config = typeConfig(project.type);
+  const categories = state.categories[project.type];
 
-  const selected = useMemo(
-    () => items.find((i) => i.id === selectedId) ?? null,
-    [items, selectedId],
-  );
+  // How many items across every project of the same type use each category (for the manager).
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const p of state.projects) {
+      if (p.type !== project.type) continue;
+      for (const i of p.items) counts[i.category] = (counts[i.category] ?? 0) + 1;
+    }
+    return counts;
+  }, [state.projects, project.type]);
+
+  const selected = useMemo(() => items.find((i) => i.id === selectedId) ?? null, [items, selectedId]);
 
   const filtered = useMemo(() => {
     const q = filters.query.trim().toLowerCase();
@@ -39,7 +63,7 @@ export default function App() {
       if (filters.blockedOnly && !item.blocked) return false;
       if (filters.risks.size > 0 && !filters.risks.has(item.risk)) return false;
       if (q) {
-        const hay = [item.title, item.description, ...item.files, ...item.tags].join(' ').toLowerCase();
+        const hay = [item.title, item.description, ...item.files, ...item.tags].join(" ").toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
@@ -47,13 +71,14 @@ export default function App() {
   }, [items, filters]);
 
   const handleImport = useCallback(
-    (imported: RefactorItem[]) => {
-      dispatch({ type: 'import', items: imported });
+    (imported: RefactorItem[], importedCategories: CategoryDef[]) => {
+      if (importedCategories.length > 0) dispatch({type: "categories-merge", categories: importedCategories});
+      dispatch({type: "import", items: imported});
       setImportOpen(false);
       setDroppedFile(null);
-      pushToast(`Imported ${imported.length} refactoring ${imported.length === 1 ? 'item' : 'items'}`, 'success');
+      pushToast(`Imported ${imported.length} ${imported.length === 1 ? config.itemNoun : config.itemNounPlural}`, "success");
     },
-    [dispatch, pushToast],
+    [dispatch, pushToast, config],
   );
 
   const handleAddItem = useCallback(
@@ -61,21 +86,21 @@ export default function App() {
       const now = Date.now();
       const item: RefactorItem = {
         id: uid(),
-        title: '',
-        description: '',
+        title: "",
+        description: "",
         files: [],
-        risk: 'medium',
-        effort: 'm',
-        category: 'other',
+        risk: "medium",
+        effort: "medium",
+        category: "other",
         tags: [],
         stage,
         blocked: false,
-        blockReason: '',
+        blockReason: "",
         notes: [],
         createdAt: now,
         updatedAt: now,
       };
-      dispatch({ type: 'add', item });
+      dispatch({type: "add", item});
       setSelectedId(item.id);
     },
     [dispatch],
@@ -84,7 +109,7 @@ export default function App() {
   // Window-level JSON file drag-and-drop: dropping a file anywhere opens the import flow.
   const depthRef = useRef(0);
   useEffect(() => {
-    const isFileDrag = (e: DragEvent) => e.dataTransfer?.types.includes('Files') ?? false;
+    const isFileDrag = (e: DragEvent) => e.dataTransfer?.types.includes("Files") ?? false;
     const onDragEnter = (e: DragEvent) => {
       if (!isFileDrag(e)) return;
       e.preventDefault();
@@ -110,28 +135,30 @@ export default function App() {
         setImportOpen(true);
       }
     };
-    window.addEventListener('dragenter', onDragEnter);
-    window.addEventListener('dragover', onDragOver);
-    window.addEventListener('dragleave', onDragLeave);
-    window.addEventListener('drop', onDrop);
+    window.addEventListener("dragenter", onDragEnter);
+    window.addEventListener("dragover", onDragOver);
+    window.addEventListener("dragleave", onDragLeave);
+    window.addEventListener("drop", onDrop);
     return () => {
-      window.removeEventListener('dragenter', onDragEnter);
-      window.removeEventListener('dragover', onDragOver);
-      window.removeEventListener('dragleave', onDragLeave);
-      window.removeEventListener('drop', onDrop);
+      window.removeEventListener("dragenter", onDragEnter);
+      window.removeEventListener("dragover", onDragOver);
+      window.removeEventListener("dragleave", onDragLeave);
+      window.removeEventListener("drop", onDrop);
     };
   }, []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
+      if (e.key === "Escape") {
         setSelectedId(null);
         setImportOpen(false);
+        setCategoriesOpen(false);
+        setSkillsOpen(false);
         setDroppedFile(null);
       }
     };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, []);
 
   return (
@@ -140,58 +167,85 @@ export default function App() {
         items={items}
         projects={state.projects}
         activeId={state.activeId}
+        metricLabel={config.metricLabel}
+        showFiles={config.showFiles}
         filters={filters}
         onFilters={setFilters}
         onImportClick={() => setImportOpen(true)}
+        onExportClick={() => {
+          exportProject(project, categories);
+          pushToast(`Exported “${project.name}” (${items.length} ${items.length === 1 ? config.itemNoun : config.itemNounPlural})`, "success");
+        }}
+        onManageCategories={() => setCategoriesOpen(true)}
+        onManageSkills={() => setSkillsOpen(true)}
+        user={session.user}
+        isGuest={session.kind === "guest"}
+        onSignOut={onSignOut}
         onProjectSwitch={(id) => {
-          dispatch({ type: 'project-switch', id });
+          dispatch({type: "project-switch", id});
           setSelectedId(null);
         }}
-        onProjectCreate={(name) => {
-          dispatch({ type: 'project-create', name });
+        onProjectCreate={(name, projectType) => {
+          dispatch({type: "project-create", name, projectType});
           setSelectedId(null);
           setFilters(EMPTY_FILTERS);
-          pushToast(`Project “${name}” created`, 'success');
+          pushToast(`Project “${name}” created`, "success");
         }}
-        onProjectRename={(id, name) => dispatch({ type: 'project-rename', id, name })}
+        onProjectRename={(id, name) => dispatch({type: "project-rename", id, name})}
         onProjectDelete={(id) => {
           const doomed = state.projects.find((p) => p.id === id);
-          dispatch({ type: 'project-delete', id });
+          dispatch({type: "project-delete", id});
           setSelectedId(null);
-          pushToast(`Project “${doomed?.name ?? ''}” deleted`, 'info');
+          pushToast(`Project “${doomed?.name ?? ""}” deleted`, "info");
         }}
       />
       <Board
         items={filtered}
         totalCount={items.length}
-        onMove={(id, stage, beforeId) => dispatch({ type: 'move', id, stage, beforeId })}
+        categories={categories}
+        config={config}
+        onMove={(id, stage, beforeId) => dispatch({type: "move", id, stage, beforeId})}
         onSelect={setSelectedId}
         onAddItem={handleAddItem}
         onImportClick={() => setImportOpen(true)}
         onLoadSample={() => {
-          import('./lib/sample').then(({ sampleItems }) => {
-            dispatch({ type: 'import', items: sampleItems() });
-            pushToast('Loaded sample refactoring backlog', 'success');
-          });
+          if (project.type === "task") {
+            import("./lib/sample").then(({sampleTasks}) => {
+              dispatch({type: "import", items: sampleTasks()});
+              pushToast("Loaded sample task list", "success");
+            });
+          } else {
+            import("./lib/sample").then(({sampleItems}) => {
+              dispatch({type: "import", items: sampleItems()});
+              pushToast("Loaded sample refactoring backlog", "success");
+            });
+          }
         }}
       />
       {selected && (
         <Drawer
           item={selected}
+          categories={categories}
+          config={config}
           onClose={() => setSelectedId(null)}
-          onUpdate={(patch) => dispatch({ type: 'update', id: selected.id, patch })}
-          onAddNote={(text) => dispatch({ type: 'add-note', id: selected.id, text })}
-          onDeleteNote={(noteId) => dispatch({ type: 'delete-note', id: selected.id, noteId })}
+          onUpdate={(patch) => dispatch({type: "update", id: selected.id, patch})}
+          onAddNote={(text) => dispatch({type: "add-note", id: selected.id, text})}
+          onDeleteNote={(noteId) => dispatch({type: "delete-note", id: selected.id, noteId})}
+          onEditNote={(noteId, text) => dispatch({type: "edit-note", id: selected.id, noteId, text})}
+          onToggleNoteBlock={(noteId) => dispatch({type: "toggle-note-block", id: selected.id, noteId})}
+          onToggleNoteResolved={(noteId) => dispatch({type: "toggle-note-resolved", id: selected.id, noteId})}
           onDelete={() => {
-            dispatch({ type: 'delete', id: selected.id });
+            dispatch({type: "delete", id: selected.id});
             setSelectedId(null);
-            pushToast('Item deleted', 'info');
+            pushToast("Item deleted", "info");
           }}
         />
       )}
       {importOpen && (
         <ImportModal
           initialFile={droppedFile}
+          categories={categories}
+          config={config}
           onClose={() => {
             setImportOpen(false);
             setDroppedFile(null);
@@ -199,11 +253,27 @@ export default function App() {
           onImport={handleImport}
         />
       )}
+      {categoriesOpen && (
+        <CategoryManager
+          categories={categories}
+          counts={categoryCounts}
+          typeLabel={config.label}
+          onAdd={(label) => dispatch({type: "category-add", label})}
+          onRename={(id, label) => dispatch({type: "category-rename", id, label})}
+          onSetGlyph={(id, glyph) => dispatch({type: "category-set-glyph", id, glyph})}
+          onDelete={(id) => {
+            dispatch({type: "category-delete", id});
+            pushToast("Category removed — its items moved to Other", "info");
+          }}
+          onClose={() => setCategoriesOpen(false)}
+        />
+      )}
+      {skillsOpen && <SkillsManager skills={skills.skills} categories={categories} config={config} onCreate={skills.createSkill} onUpdate={skills.updateSkill} onDelete={skills.deleteSkill} onClose={() => setSkillsOpen(false)} />}
       {fileDragDepth > 0 && !importOpen && (
         <div className="drop-veil">
           <div className="drop-veil-inner">
             <span className="drop-veil-icon">⇣</span>
-            Drop your JSON file to import refactoring items
+            Drop your JSON file to import {config.itemNounPlural}
           </div>
         </div>
       )}

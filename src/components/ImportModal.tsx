@@ -1,17 +1,19 @@
-import { useEffect, useRef, useState } from 'react';
-import type { ParseResult } from '../lib/parse';
-import { parseRefactorJson } from '../lib/parse';
-import type { RefactorItem } from '../types';
-import { STAGES, categoryMeta } from '../types';
-import { RiskPill } from './ui';
+import {useEffect, useRef, useState} from "react";
+import type {ParseResult} from "../lib/parse";
+import {parseRefactorJson} from "../lib/parse";
+import type {CategoryDef, RefactorItem, TypeConfig} from "../types";
+import {categoryMeta} from "../types";
+import {RiskPill} from "./ui";
 
 interface Props {
   initialFile: File | null;
+  categories: CategoryDef[];
+  config: TypeConfig;
   onClose: () => void;
-  onImport: (items: RefactorItem[]) => void;
+  onImport: (items: RefactorItem[], categories: CategoryDef[]) => void;
 }
 
-export function ImportModal({ initialFile, onClose, onImport }: Props) {
+export function ImportModal({initialFile, categories, config, onClose, onImport}: Props) {
   const [fileName, setFileName] = useState<string | null>(null);
   const [result, setResult] = useState<ParseResult | null>(null);
   const [excluded, setExcluded] = useState<Set<number>>(new Set());
@@ -21,7 +23,7 @@ export function ImportModal({ initialFile, onClose, onImport }: Props) {
   const readFile = (file: File) => {
     setFileName(file.name);
     file.text().then((text) => {
-      setResult(parseRefactorJson(text));
+      setResult(parseRefactorJson(text, categories));
       setExcluded(new Set());
     });
   };
@@ -50,7 +52,7 @@ export function ImportModal({ initialFile, onClose, onImport }: Props) {
     <div className="modal-veil" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className="modal">
         <div className="modal-head">
-          <h2>{result ? 'Review import' : 'Import refactoring items'}</h2>
+          <h2>{result ? "Review import" : `Import ${config.itemNounPlural}`}</h2>
           <button className="icon-btn" onClick={onClose} aria-label="Close">
             ✕
           </button>
@@ -58,7 +60,7 @@ export function ImportModal({ initialFile, onClose, onImport }: Props) {
 
         {!result && (
           <div
-            className={`dropzone${zoneActive ? ' active' : ''}`}
+            className={`dropzone${zoneActive ? " active" : ""}`}
             onDragOver={(e) => {
               e.preventDefault();
               setZoneActive(true);
@@ -73,13 +75,12 @@ export function ImportModal({ initialFile, onClose, onImport }: Props) {
             }}
             onClick={() => fileInput.current?.click()}
           >
-            <span className="dropzone-icon">{ }⇣</span>
+            <span className="dropzone-icon">{}⇣</span>
             <p>
               Drop a <code>.json</code> file here, or <span className="dropzone-link">browse</span>
             </p>
             <p className="dropzone-hint">
-              An array of items, or an object with an <code>items</code> / <code>tasks</code> /{' '}
-              <code>refactorings</code> array. Field names are matched flexibly.
+              An array of items, or an object with an <code>items</code> / <code>tasks</code> / <code>refactorings</code> array. Field names are matched flexibly.
             </p>
             <input
               ref={fileInput}
@@ -117,23 +118,17 @@ export function ImportModal({ initialFile, onClose, onImport }: Props) {
             <div className="import-list">
               {result.rows.map((row) =>
                 row.ok && row.item ? (
-                  <label key={row.index} className={`import-row${excluded.has(row.index) ? ' excluded' : ''}`}>
-                    <input
-                      type="checkbox"
-                      checked={!excluded.has(row.index)}
-                      onChange={() => toggleRow(row.index)}
-                    />
+                  <label key={row.index} className={`import-row${excluded.has(row.index) ? " excluded" : ""}`}>
+                    <input type="checkbox" checked={!excluded.has(row.index)} onChange={() => toggleRow(row.index)} />
                     <div className="import-row-body">
                       <div className="import-row-title">
-                        <span className="import-cat">{categoryMeta(row.item.category).glyph}</span>
+                        <span className="import-cat">{categoryMeta(row.item.category, categories).glyph}</span>
                         {row.item.title}
                       </div>
                       <div className="import-row-meta">
                         <RiskPill risk={row.item.risk} />
-                        <span className="import-stage">
-                          → {STAGES.find((s) => s.id === row.item!.stage)?.label}
-                        </span>
-                        {row.item.files[0] && <code className="import-path">{row.item.files[0]}</code>}
+                        <span className="import-stage">→ {config.stages.find((s) => s.id === row.item!.stage)?.label}</span>
+                        {config.showFiles && row.item.files[0] && <code className="import-path">{row.item.files[0]}</code>}
                         {row.item.blocked && <span className="import-blocked">⛔ blocked</span>}
                       </div>
                       {row.warnings.map((w, i) => (
@@ -166,9 +161,14 @@ export function ImportModal({ initialFile, onClose, onImport }: Props) {
               <button
                 className="btn btn-primary"
                 disabled={toImport.length === 0}
-                onClick={() => onImport(toImport.map((r) => r.item!))}
+                onClick={() =>
+                  onImport(
+                    toImport.map((r) => r.item!),
+                    result?.categories ?? [],
+                  )
+                }
               >
-                Import {toImport.length} {toImport.length === 1 ? 'item' : 'items'}
+                Import {toImport.length} {toImport.length === 1 ? "item" : "items"}
               </button>
             </div>
           </>

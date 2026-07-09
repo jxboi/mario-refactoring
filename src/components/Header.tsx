@@ -24,12 +24,13 @@ interface Props {
   onProjectCreate: (name: string, projectType: ProjectType) => void;
   onProjectRename: (id: string, name: string) => void;
   onProjectDelete: (id: string) => void;
+  onHome: () => void;
   user: GitHubUser;
   isGuest: boolean;
   onSignOut: () => void;
 }
 
-export function Header({items, projects, activeId, metricLabel, showFiles, filters, onFilters, onImportClick, onExportClick, onManageCategories, onManageSkills, onProjectSwitch, onProjectCreate, onProjectRename, onProjectDelete, user, isGuest, onSignOut}: Props) {
+export function Header({items, projects, activeId, metricLabel, showFiles, filters, onFilters, onImportClick, onExportClick, onManageCategories, onManageSkills, onProjectSwitch, onProjectCreate, onProjectRename, onProjectDelete, onHome, user, isGuest, onSignOut}: Props) {
   const total = items.filter((i) => i.stage !== "deferred").length;
   const deployed = items.filter((i) => i.stage === "deployed").length;
   const pct = total === 0 ? 0 : Math.round((deployed / total) * 100);
@@ -44,7 +45,7 @@ export function Header({items, projects, activeId, metricLabel, showFiles, filte
     <header className="header">
       <div className="header-row">
         <div className="header-left">
-          <BrandLogo />
+          <BrandLogo onClick={onHome} />
           <span className="brand-sep">/</span>
           <ProjectMenu projects={projects} activeId={activeId} onSwitch={onProjectSwitch} onCreate={onProjectCreate} onRename={onProjectRename} onDelete={onProjectDelete} />
         </div>

@@ -106,6 +106,16 @@ code,
   user-select: none;
 }
 
+.brand-button {
+  border: none;
+  background: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
 .brand-mark,
 .empty-mark {
   width: 30px;

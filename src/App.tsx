@@ -219,6 +219,14 @@ function BoardApp({session, onSignOut, initialProjectName, onInitialProjectNameA
         }}
         onManageCategories={() => setCategoriesOpen(true)}
         onManageSkills={() => setSkillsOpen(true)}
+        onHome={() => {
+          setSelectedId(null);
+          setFilters(EMPTY_FILTERS);
+          setImportOpen(false);
+          setCategoriesOpen(false);
+          setSkillsOpen(false);
+          setDroppedFile(null);
+        }}
         user={session.user}
         isGuest={session.kind === "guest"}
         onSignOut={onSignOut}

@@ -2917,7 +2917,7 @@ button.cat-manage-glyph:hover {
 }
 
 .account-menu-panel {
-  width: 220px;
+  width: 246px;
 }
 
 .account-menu-header {
@@ -2987,6 +2987,39 @@ button.cat-manage-glyph:hover {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.account-sync {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+  padding: 7px 10px;
+  color: var(--text-dim);
+  font-size: 12px;
+  line-height: 1.25;
+}
+
+.account-sync-dot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 7px;
+  border-radius: 50%;
+  background: var(--text-faint);
+}
+
+.account-sync-synced .account-sync-dot {
+  background: var(--green);
+}
+
+.account-sync-saving .account-sync-dot,
+.account-sync-loading .account-sync-dot {
+  background: var(--accent);
+}
+
+.account-sync-error .account-sync-dot,
+.account-sync-conflict .account-sync-dot {
+  background: var(--red);
 }
 
 /* ————— Sign-in gate ————— */

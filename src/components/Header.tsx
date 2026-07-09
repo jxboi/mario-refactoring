@@ -4,6 +4,7 @@ import type {Project} from "../lib/store";
 import type {ProjectType, RefactorItem, Risk} from "../types";
 import {RISKS, RISK_LABELS} from "../types";
 import {AccountMenu} from "./AccountMenu";
+import {BrandLogo} from "./BrandLogo";
 import {ProjectMenu} from "./ProjectMenu";
 import {SettingsMenu} from "./SettingsMenu";
 
@@ -43,13 +44,7 @@ export function Header({items, projects, activeId, metricLabel, showFiles, filte
     <header className="header">
       <div className="header-row">
         <div className="header-left">
-          <div className="brand">
-            <svg className="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
-              <rect width="32" height="32" rx="7" fill="var(--brand-bg)" />
-              <path d="M9 23 L20 12 L23 15 L12 26 Z M21.5 10.5 L24.5 7.5 L27.5 10.5 L24.5 13.5 Z" fill="var(--accent)" />
-            </svg>
-            <span className="brand-name">Chisel</span>
-          </div>
+          <BrandLogo />
           <span className="brand-sep">/</span>
           <ProjectMenu projects={projects} activeId={activeId} onSwitch={onProjectSwitch} onCreate={onProjectCreate} onRename={onProjectRename} onDelete={onProjectDelete} />
         </div>

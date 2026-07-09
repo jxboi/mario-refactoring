@@ -1,5 +1,6 @@
 import {type FormEvent, useCallback, useState} from "react";
 import {DEFAULT_PROJECT_NAME} from "../lib/store";
+import {BrandLogo} from "./BrandLogo";
 import {LandingArtwork} from "./LandingArtwork";
 
 export function SignInScreen({onCreateProject}: {onCreateProject: (name: string) => void}) {
@@ -17,16 +18,9 @@ export function SignInScreen({onCreateProject}: {onCreateProject: (name: string)
     <main className="signin">
       <section className="signin-shell">
         <div className="signin-story">
-          <div className="brand signin-brand">
-            <svg className="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
-              <rect width="32" height="32" rx="7" fill="var(--brand-bg)" />
-              <path d="M9 23 L20 12 L23 15 L12 26 Z M21.5 10.5 L24.5 7.5 L27.5 10.5 L24.5 13.5 Z" fill="var(--accent)" />
-            </svg>
-            <span className="brand-name">Chisel</span>
-          </div>
+          <BrandLogo className="signin-brand brand-landing" />
 
-          <span className="front-kicker">Refactoring and task boards</span>
-          <h1 className="signin-hero-title">Turn scattered cleanup work into a board you can actually run.</h1>
+          <h1 className="signin-hero-title">Chisel your messy tasks into a focused board</h1>
           <p className="signin-hero-copy">Chisel gives engineers a focused place to import messy backlog notes, prioritize what matters, track blockers, and show visible progress from queued work to shipped changes.</p>
         </div>
 

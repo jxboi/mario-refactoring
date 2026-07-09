@@ -257,7 +257,21 @@ function NoteRow({note, onToggleBlock, onToggleResolved, onDelete, onEdit}: {not
 
   return (
     <div className={`note${note.blocked ? " note-blocked" : note.resolved ? " note-resolved" : ""}`} ref={rootRef}>
-      <div className="note-text">{note.text}</div>
+      <div
+        className="note-text"
+        role="button"
+        tabIndex={0}
+        title="Click to edit"
+        onClick={startEdit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            startEdit();
+          }
+        }}
+      >
+        {note.text}
+      </div>
       <div className="note-foot">
         <span>{timeAgo(note.createdAt)}</span>
         {note.blocked && <span className="note-blocked-tag">· Blocker</span>}
@@ -268,21 +282,16 @@ function NoteRow({note, onToggleBlock, onToggleResolved, onDelete, onEdit}: {not
           </button>
           {menuOpen && (
             <div className="note-menu-pop" role="menu">
-              <button className="note-menu-item" role="menuitem" onClick={startEdit}>
-                Edit note
+              <button
+                className="note-menu-item"
+                role="menuitem"
+                onClick={() => {
+                  onToggleBlock();
+                  setMenuOpen(false);
+                }}
+              >
+                {note.blocked ? "Unblock" : "Mark as blocker"}
               </button>
-              {!note.blocked && (
-                <button
-                  className="note-menu-item"
-                  role="menuitem"
-                  onClick={() => {
-                    onToggleBlock();
-                    setMenuOpen(false);
-                  }}
-                >
-                  Mark as blocker
-                </button>
-              )}
               <button
                 className={`note-menu-item${note.resolved ? "" : " resolve"}`}
                 role="menuitem"

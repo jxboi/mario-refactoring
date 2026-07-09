@@ -75,7 +75,7 @@ export function reducer(state: BoardState, action: Action): BoardState {
     case "delete-note":
       return mapActive(state, (items) => items.map((i) => (i.id === action.id ? touch(syncBlocked({...i, notes: i.notes.filter((n) => n.id !== action.noteId)})) : i)));
     case "toggle-note-block":
-      return mapActive(state, (items) => items.map((i) => (i.id === action.id ? touch(syncBlocked({...i, notes: i.notes.map((n) => (n.id === action.noteId ? {...n, blocked: !n.blocked, resolved: n.blocked} : n))})) : i)));
+      return mapActive(state, (items) => items.map((i) => (i.id === action.id ? touch(syncBlocked({...i, notes: i.notes.map((n) => (n.id === action.noteId ? {...n, blocked: !n.blocked, resolved: false} : n))})) : i)));
     case "toggle-note-resolved":
       return mapActive(state, (items) => items.map((i) => (i.id === action.id ? touch(syncBlocked({...i, notes: i.notes.map((n) => (n.id === action.noteId ? {...n, resolved: !n.resolved, blocked: n.resolved ? n.blocked : false} : n))})) : i)));
     case "delete":
@@ -177,8 +177,16 @@ function storageKey(scope?: string): string {
 
 /** Fill in defaults + guarantee the "Other" fallback for one type's category list. */
 function fillCategories(list: unknown, type: ProjectType): CategoryDef[] {
-  const base = Array.isArray(list) && list.length > 0 ? (list as CategoryDef[]).map((c) => ({...c})) : defaultCategoriesFor(type);
-  return base.some((c) => c.id === FALLBACK_CATEGORY_ID) ? base : [...base, {id: FALLBACK_CATEGORY_ID, label: "Other", glyph: "\u00B7"}];
+  const defaults = defaultCategoriesFor(type);
+  const base = Array.isArray(list) && list.length > 0 ? (list as CategoryDef[]).map((c) => ({...c})) : defaults.map((c) => ({...c}));
+  // Merge in any default categories missing from a stored list (e.g. newly added defaults).
+  const existing = new Set(base.map((c) => c.id));
+  const missing = defaults.filter((c) => c.id !== FALLBACK_CATEGORY_ID && !existing.has(c.id)).map((c) => ({...c}));
+  const withFallback = base.some((c) => c.id === FALLBACK_CATEGORY_ID) ? base : [...base, {id: FALLBACK_CATEGORY_ID, label: "Other", glyph: "\u00B7"}];
+  if (missing.length === 0) return withFallback;
+  // Keep the "Other" fallback last so merged defaults slot in above it.
+  const at = withFallback.findIndex((c) => c.id === FALLBACK_CATEGORY_ID);
+  return [...withFallback.slice(0, at), ...missing, ...withFallback.slice(at)];
 }
 
 /**

@@ -11,7 +11,7 @@ import {useAuth, boardScope, guestSession, type Session} from "./lib/auth";
 import {activeProject, DEFAULT_PROJECT_NAME, useBoard} from "./lib/store";
 import {exportProject} from "./lib/export";
 import {useSkills} from "./lib/skills";
-import type {CategoryDef, RefactorItem, Risk, Stage} from "./types";
+import type {CategoryDef, ProjectType, RefactorItem, Risk, Stage} from "./types";
 import {typeConfig, uid} from "./types";
 
 export interface Filters {
@@ -34,7 +34,7 @@ export default function App() {
     [signIn],
   );
 
-  if (!session) return <SignInScreen onCreateProject={createGuestProject} />;
+  if (!session) return <SignInScreen onCreateProject={createGuestProject} onSignIn={signIn} />;
   return <BoardApp session={session} onSignOut={signOut} initialProjectName={initialProjectName} onInitialProjectNameApplied={() => setInitialProjectName(null)} />;
 }
 
@@ -82,14 +82,27 @@ function BoardApp({session, onSignOut, initialProjectName, onInitialProjectNameA
   }, [items, filters]);
 
   const handleImport = useCallback(
-    (imported: RefactorItem[], importedCategories: CategoryDef[]) => {
+    (imported: RefactorItem[], importedCategories: CategoryDef[], projectType: ProjectType) => {
+      // Send the items to a project of the type the file declared: switch to an
+      // existing one, or spin up a fresh project when none of that type exists.
+      if (projectType !== project.type) {
+        const existing = state.projects.find((p) => p.type === projectType);
+        if (existing) {
+          dispatch({type: "project-switch", id: existing.id});
+        } else {
+          dispatch({type: "project-create", name: `${typeConfig(projectType).label} import`, projectType});
+        }
+        setSelectedId(null);
+        setFilters(EMPTY_FILTERS);
+      }
       if (importedCategories.length > 0) dispatch({type: "categories-merge", categories: importedCategories});
       dispatch({type: "import", items: imported});
       setImportOpen(false);
       setDroppedFile(null);
-      pushToast(`Imported ${imported.length} ${imported.length === 1 ? config.itemNoun : config.itemNounPlural}`, "success");
+      const targetConfig = typeConfig(projectType);
+      pushToast(`Imported ${imported.length} ${imported.length === 1 ? targetConfig.itemNoun : targetConfig.itemNounPlural}`, "success");
     },
-    [dispatch, pushToast, config],
+    [dispatch, pushToast, project.type, state.projects],
   );
 
   const handleAddItem = useCallback(
@@ -272,8 +285,8 @@ function BoardApp({session, onSignOut, initialProjectName, onInitialProjectNameA
       {importOpen && (
         <ImportModal
           initialFile={droppedFile}
-          categories={categories}
-          config={config}
+          categoriesByType={state.categories}
+          defaultType={project.type}
           onClose={() => {
             setImportOpen(false);
             setDroppedFile(null);

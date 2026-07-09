@@ -1279,10 +1279,7 @@ code,
   justify-content: center;
   padding: 28px;
   overflow-y: auto;
-  background:
-    linear-gradient(180deg, rgba(232, 180, 90, 0.04), transparent 260px),
-    radial-gradient(900px 460px at 100% 12%, rgba(95, 200, 143, 0.08), transparent 62%),
-    var(--bg);
+  background: linear-gradient(180deg, rgba(232, 180, 90, 0.04), transparent 260px), radial-gradient(900px 460px at 100% 12%, rgba(95, 200, 143, 0.08), transparent 62%), var(--bg);
 }
 
 .front-page {
@@ -1438,9 +1435,7 @@ code,
   border: 1px solid var(--border-strong);
   border-radius: 18px;
   overflow: hidden;
-  background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.08), transparent 34%),
-    linear-gradient(180deg, #191d24, #0f1115);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.08), transparent 34%), linear-gradient(180deg, #191d24, #0f1115);
   box-shadow: var(--shadow-modal);
   isolation: isolate;
 }
@@ -1601,9 +1596,7 @@ code,
   margin-bottom: 8px;
   border: 1px solid var(--border);
   border-radius: 7px;
-  background:
-    linear-gradient(90deg, rgba(255, 255, 255, 0.13) 0 42%, transparent 42%),
-    var(--surface);
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.13) 0 42%, transparent 42%), var(--surface);
 }
 
 .mini-card-muted {
@@ -1616,9 +1609,7 @@ code,
 
 .mini-card-live {
   border-color: rgba(232, 180, 90, 0.45);
-  background:
-    linear-gradient(90deg, rgba(232, 180, 90, 0.55) 0 36%, transparent 36%),
-    var(--surface);
+  background: linear-gradient(90deg, rgba(232, 180, 90, 0.55) 0 36%, transparent 36%), var(--surface);
 }
 
 .mini-card-wide {
@@ -1627,9 +1618,7 @@ code,
 
 .mini-card-done {
   border-color: rgba(95, 200, 143, 0.38);
-  background:
-    linear-gradient(90deg, rgba(95, 200, 143, 0.42) 0 48%, transparent 48%),
-    var(--surface);
+  background: linear-gradient(90deg, rgba(95, 200, 143, 0.42) 0 48%, transparent 48%), var(--surface);
 }
 
 .art-spark {
@@ -2372,6 +2361,12 @@ button.cat-manage-glyph:hover {
 .note-text {
   font-size: 13px;
   white-space: pre-wrap;
+  cursor: text;
+  border-radius: 4px;
+}
+
+.note-text:hover {
+  background: var(--surface-hover, rgba(127, 127, 127, 0.08));
 }
 
 .note-foot {
@@ -2992,10 +2987,62 @@ button.cat-manage-glyph:hover {
   justify-content: center;
   padding: 34px;
   overflow-y: auto;
-  background:
-    linear-gradient(180deg, rgba(232, 180, 90, 0.06), transparent 310px),
-    radial-gradient(900px 520px at 100% 0%, rgba(95, 200, 143, 0.09), transparent 64%),
-    var(--bg);
+  position: relative;
+  background: linear-gradient(180deg, rgba(232, 180, 90, 0.06), transparent 310px), radial-gradient(900px 520px at 100% 0%, rgba(95, 200, 143, 0.09), transparent 64%), var(--bg);
+}
+
+.signin-topbar {
+  position: absolute;
+  top: 20px;
+  right: 24px;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.signin-corner-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-dim);
+  font-size: 12.5px;
+  font-weight: 550;
+  transition:
+    color 0.15s,
+    border-color 0.15s,
+    background 0.15s;
+}
+
+.signin-corner-btn:hover:not(:disabled) {
+  color: var(--text);
+  border-color: var(--border-strong);
+  background: var(--bg-raised);
+}
+
+.signin-corner-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.device-panel-corner {
+  width: 260px;
+  margin-top: 0;
+  padding: 14px;
+  border-radius: 12px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-modal);
+}
+
+.signin-error-corner {
+  max-width: 260px;
+  text-align: right;
 }
 
 .signin-shell {

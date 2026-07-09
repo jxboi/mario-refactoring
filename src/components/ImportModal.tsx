@@ -1,19 +1,21 @@
 import {useEffect, useRef, useState} from "react";
 import type {ParseResult} from "../lib/parse";
-import {parseRefactorJson} from "../lib/parse";
-import type {CategoryDef, RefactorItem, TypeConfig} from "../types";
-import {categoryMeta} from "../types";
+import {parseRefactorJson, readProjectType} from "../lib/parse";
+import type {CategoriesByType} from "../lib/store";
+import type {CategoryDef, ProjectType, RefactorItem} from "../types";
+import {categoryMeta, typeConfig} from "../types";
 import {RiskPill} from "./ui";
 
 interface Props {
   initialFile: File | null;
-  categories: CategoryDef[];
-  config: TypeConfig;
+  categoriesByType: CategoriesByType;
+  /** The active board's type, used until a file declares its own type. */
+  defaultType: ProjectType;
   onClose: () => void;
-  onImport: (items: RefactorItem[], categories: CategoryDef[]) => void;
+  onImport: (items: RefactorItem[], categories: CategoryDef[], projectType: ProjectType) => void;
 }
 
-export function ImportModal({initialFile, categories, config, onClose, onImport}: Props) {
+export function ImportModal({initialFile, categoriesByType, defaultType, onClose, onImport}: Props) {
   const [fileName, setFileName] = useState<string | null>(null);
   const [result, setResult] = useState<ParseResult | null>(null);
   const [excluded, setExcluded] = useState<Set<number>>(new Set());
@@ -23,7 +25,10 @@ export function ImportModal({initialFile, categories, config, onClose, onImport}
   const readFile = (file: File) => {
     setFileName(file.name);
     file.text().then((text) => {
-      setResult(parseRefactorJson(text, categories));
+      // Route the file to the categories of the type it declares, so custom
+      // categories resolve against the right board instead of the active one.
+      const type = readProjectType(text) ?? defaultType;
+      setResult(parseRefactorJson(text, categoriesByType[type]));
       setExcluded(new Set());
     });
   };
@@ -35,6 +40,11 @@ export function ImportModal({initialFile, categories, config, onClose, onImport}
   const validRows = result?.rows.filter((r) => r.ok) ?? [];
   const invalidRows = result?.rows.filter((r) => !r.ok) ?? [];
   const toImport = validRows.filter((r) => !excluded.has(r.index));
+
+  // Once a file declares its type, preview it against that board's config/categories.
+  const projectType = result?.projectType ?? defaultType;
+  const config = typeConfig(projectType);
+  const categories = categoriesByType[projectType];
 
   const toggleRow = (index: number) => {
     const next = new Set(excluded);
@@ -165,6 +175,7 @@ export function ImportModal({initialFile, categories, config, onClose, onImport}
                   onImport(
                     toImport.map((r) => r.item!),
                     result?.categories ?? [],
+                    projectType,
                   )
                 }
               >

@@ -1,15 +1,14 @@
 import {Fragment, useEffect, useRef, useState} from "react";
-import type {CategoryDef, Stage, TypeConfig, WorkItem} from "../types";
+import type {CategoryDef, ItemConfig, Stage, Task} from "../types";
 import {categoryMeta} from "../types";
 import {LandingArtwork} from "./LandingArtwork";
 import {EffortDots, RiskPill} from "./ui";
 
 interface BoardProps {
-  items: WorkItem[];
+  items: Task[];
   totalCount: number;
   categories: CategoryDef[];
-  config: TypeConfig;
-  relationshipCounts: Record<string, {parents: number; children: number; completedChildren: number}>;
+  config: ItemConfig;
   onMove: (id: string, stage: Stage, beforeId?: string) => void;
   onSelect: (id: string) => void;
   onAddItem: (stage: Stage) => void;
@@ -34,7 +33,7 @@ function slotBeforeId(container: HTMLElement, clientY: number): string | null {
   return null;
 }
 
-export function Board({items, totalCount, categories, config, relationshipCounts, onMove, onSelect, onAddItem, onImportClick, onLoadSample}: BoardProps) {
+export function Board({items, totalCount, categories, config, onMove, onSelect, onAddItem, onImportClick, onLoadSample}: BoardProps) {
   const [dragId, setDragId] = useState<string | null>(null);
   const [overStage, setOverStage] = useState<Stage | null>(null);
   // Where a placeholder should show while dragging: the target stage and the id
@@ -55,19 +54,7 @@ export function Board({items, totalCount, categories, config, relationshipCounts
     });
 
   if (totalCount === 0) {
-    const valuePoints = config.id === "plan"
-      ? [
-          ["Shape the outcome", "Capture goals and initiatives with enough context to make good product decisions."],
-          ["Assign clearly", "Create tasks from a plan item so ownership is established from the start."],
-          ["See delivery progress", "Direct-child rollups show how assigned work is moving without changing plan status."],
-        ]
-      : config.showFiles
-      ? [
-          ["Import without cleanup", "Bring in JSON, file paths, tags, priority, and effort so rough backlog notes become structured work."],
-          ["See what deserves attention", "Priority, blockers, categories, and stages keep technical work visible and actionable."],
-          ["Show progress clearly", "Move work from queued to deployed and keep implementation connected to its upstream task."],
-        ]
-      : [
+    const valuePoints = [
           ["Capture the full list", "Bring in JSON or create tasks one by one with priority, effort, tags, and custom categories."],
           ["Keep work moving", "Use the board to spot blocked items, review handoffs, and what is ready to finish next."],
           ["Share a clean snapshot", "Export the project as structured JSON when the team needs the current plan."],
@@ -77,21 +64,13 @@ export function Board({items, totalCount, categories, config, relationshipCounts
       <main className="board-empty">
         <section className="front-page">
           <div className="front-copy">
-            <span className="front-kicker">{config.label} workspace</span>
-            <h1>{config.tagline}</h1>
-            <p className="front-lede">{config.blurb}</p>
+            <span className="front-kicker">Task board</span>
+            <h1>Turn the project into clear, actionable tasks</h1>
+            <p className="front-lede">Create tasks, prioritize the work, and move it through delivery.</p>
             <div className="front-actions">
-              {config.id === "plan" ? (
-                <>
-                  <button className="btn btn-primary" onClick={() => onAddItem("queued")}>+ New Project</button>
-                  <button className="btn btn-ghost" onClick={onImportClick}>
-                    <span className="btn-icon">⇡</span> Import JSON
-                  </button>
-                  <button className="btn btn-ghost" onClick={onLoadSample}>Explore sample</button>
-                </>
-              ) : (
-                <p className="relation-empty">Create work from its parent item.</p>
-              )}
+              <button className="btn btn-primary" onClick={() => onAddItem("queued")}>+ New Task</button>
+              <button className="btn btn-ghost" onClick={onImportClick}><span className="btn-icon">⇡</span> Import JSON</button>
+              <button className="btn btn-ghost" onClick={onLoadSample}>Explore sample</button>
             </div>
             <div className="front-value-grid">
               {valuePoints.map(([title, text]) => (
@@ -130,7 +109,7 @@ export function Board({items, totalCount, categories, config, relationshipCounts
   };
 
   // A placeholder is pointless when it marks the dragged card's current slot.
-  const isNoOp = (beforeId: string | null, list: WorkItem[]) => {
+  const isNoOp = (beforeId: string | null, list: Task[]) => {
     if (dragId == null) return false;
     const di = list.findIndex((i) => i.id === dragId);
     if (di < 0) return false; // dragging in from another column — always a real move
@@ -216,12 +195,12 @@ export function Board({items, totalCount, categories, config, relationshipCounts
               )}
               <span className="column-title">{stage.label}</span>
               <span className="column-count">{colItems.length}</span>
-              {config.id === "plan" && !stage.hiddenByDefault && (
+              {!stage.hiddenByDefault && (
                 <button className="column-add-btn" title={`Add item to ${stage.label}`} aria-label={`Add item to ${stage.label}`} onClick={() => onAddItem(stage.id)}>
                   ＋
                 </button>
               )}
-              <ColumnMenu label={stage.label} canAdd={config.id === "plan" && !stage.hiddenByDefault} onAdd={() => onAddItem(stage.id)} onCollapse={() => setStageCollapsed(stage.id, true)} />
+              <ColumnMenu label={stage.label} canAdd={!stage.hiddenByDefault} onAdd={() => onAddItem(stage.id)} onCollapse={() => setStageCollapsed(stage.id, true)} />
             </header>
             <div
               className="column-body"
@@ -241,8 +220,6 @@ export function Board({items, totalCount, categories, config, relationshipCounts
                   <Card
                     item={item}
                     categories={categories}
-                    showFiles={config.showFiles}
-                    relationships={relationshipCounts[item.id]}
                     dragging={dragId === item.id}
                     onSelect={() => onSelect(item.id)}
                     onDragStart={(e) => {
@@ -326,17 +303,15 @@ function ColumnMenu({label, canAdd, onAdd, onCollapse}: ColumnMenuProps) {
 }
 
 interface CardProps {
-  item: WorkItem;
+  item: Task;
   categories: CategoryDef[];
-  showFiles: boolean;
-  relationships?: {parents: number; children: number; completedChildren: number};
   dragging: boolean;
   onSelect: () => void;
   onDragStart: (e: React.DragEvent) => void;
   onDragEnd: () => void;
 }
 
-function Card({item, categories, showFiles, relationships, dragging, onSelect, onDragStart, onDragEnd}: CardProps) {
+function Card({item, categories, dragging, onSelect, onDragStart, onDragEnd}: CardProps) {
   const cat = categoryMeta(item.category, categories);
   return (
     <article
@@ -360,12 +335,6 @@ function Card({item, categories, showFiles, relationships, dragging, onSelect, o
         )}
       </div>
       <div className={`card-title${item.title ? "" : " untitled"}`}>{item.title || "Untitled"}</div>
-      {showFiles && item.files.length > 0 && (
-        <div className="card-file">
-          <code>{item.files[0]}</code>
-          {item.files.length > 1 && <span className="card-file-more">+{item.files.length - 1}</span>}
-        </div>
-      )}
       <div className="card-meta">
         <span className="card-meta-right">
           {item.notes.length > 0 && (
@@ -375,8 +344,6 @@ function Card({item, categories, showFiles, relationships, dragging, onSelect, o
           )}
           <EffortDots effort={item.effort} />
           <RiskPill risk={item.risk} />
-          {(relationships?.parents ?? 0) > 0 && <span className="card-rel" title="Owned by one upstream item">↑1</span>}
-          {(relationships?.children ?? 0) > 0 && <span className="card-rel" title={`${relationships!.completedChildren} of ${relationships!.children} children complete`}>↓{relationships!.completedChildren}/{relationships!.children}</span>}
         </span>
       </div>
     </article>

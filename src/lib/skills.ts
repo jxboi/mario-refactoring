@@ -1,4 +1,4 @@
-import type {CategoryDef, ProjectType, TypeConfig} from "../types";
+import type {CategoryDef, ItemConfig, ItemKind} from "../types";
 import {slugifyCategory, uid} from "../types";
 
 /**
@@ -81,33 +81,28 @@ export function skillFileStem(skill: Skill): string {
  * followed by an auto-generated "Output format" section describing Chisel's
  * import schema, so whatever agent runs the prompt returns importable JSON.
  */
-export function composeSkillMarkdown(skill: Skill, config: TypeConfig, categories: CategoryDef[]): string {
+export function composeSkillMarkdown(skill: Skill, config: ItemConfig, categories: CategoryDef[]): string {
   const catIds = categories.map((c) => c.id).join(", ");
   const metric = config.metricLabel.toLowerCase();
   const name = skill.name.trim() || "Untitled skill";
   const parts = [`# ${name}`];
   if (skill.description.trim()) parts.push(skill.description.trim());
   parts.push(skill.body.trim());
-  parts.push(["## Output format", "", `Return a single JSON file that can be imported into Chisel: a top-level array of ${config.itemNounPlural}, or an object with an \`items\` array. Each item supports:`, "", "- `title` (required) — a short, action-oriented summary.", "- `description` — the outcome, context, or implementation detail.", config.showFiles ? "- `files` — array of affected paths." : null, `- \`priority\` — low | medium | high (${metric}).`, "- `effort` — low | medium | high | xhigh.", `- \`category\` — one of: ${catIds}.`, "- `tags` — array of short labels.", "- `status` — queued | active | reviewing | deployed | deferred.", "", "Only `title` is required; everything else falls back to sensible defaults. Field names are matched flexibly on import.", "", "Example:", "", "```json", config.schema, "```"].filter(Boolean).join("\n"));
+  parts.push(["## Output format", "", `Return a single JSON file containing a top-level array of ${config.itemNounPlural}. Each item supports:`, "", "- `title` (required) — a short, action-oriented summary.", "- `description` — the outcome or context.", `- \`priority\` — low | medium | high (${metric}).`, "- `effort` — low | medium | high | xhigh.", `- \`category\` — one of: ${catIds}.`, "- `tags` — array of short labels.", "- `status` — queued | active | reviewing | deployed | deferred.", "", "Example:", "", "```json", config.schema, "```"].filter(Boolean).join("\n"));
   return parts.join("\n\n") + "\n";
 }
 
 /** A clean, valid example JSON payload the user can download and import as-is. */
-export function exampleImportJson(type: ProjectType): string {
+export function exampleImportJson(type: ItemKind): string {
   const items =
-    type === "plan"
+    type === "project"
       ? [
           {title: "Improve new-team onboarding", description: "Reduce time-to-value for new teams.", priority: "high", effort: "high", category: "initiative", tags: ["activation"], status: "planning"},
           {title: "Research reporting needs", description: "Identify the smallest valuable reporting surface.", priority: "medium", effort: "small", category: "research", tags: ["discovery"], status: "idea"},
         ]
-      : type === "task"
-      ? [
+      : [
           {title: "Follow up with vendor on SSO rollout", description: "Confirm go-live date and access scope.", priority: "high", effort: "m", category: "follow-up", tags: ["vendors"], status: "todo"},
           {title: "Document the incident runbook", description: "Capture the on-call steps we used last week.", priority: "medium", effort: "s", category: "documentation", tags: ["oncall"], status: "in-progress"},
-        ]
-      : [
-          {title: "Add auth token validation middleware", description: "Centralize token validation across route handlers.", files: ["src/routes/users.ts", "src/routes/orders.ts"], priority: "high", effort: "m", category: "feature", tags: ["auth", "security"], status: "todo"},
-          {title: "Fix stale dashboard totals", description: "Invalidate cached totals when project membership changes.", files: ["src/dashboard/totals.ts"], priority: "high", effort: "small", category: "bug", tags: ["dashboard"], status: "ready"},
         ];
   return JSON.stringify(items, null, 2) + "\n";
 }

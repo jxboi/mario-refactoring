@@ -1,12 +1,12 @@
 import {useState} from "react";
-import type {CategoryDef, TypeConfig} from "../types";
+import type {CategoryDef, ItemConfig} from "../types";
 import type {Skill} from "../lib/skills";
 import {composeSkillMarkdown, exampleImportJson, skillFileStem} from "../lib/skills";
 
 interface Props {
   skills: Skill[];
   categories: CategoryDef[];
-  config: TypeConfig;
+  config: ItemConfig;
   onCreate: () => Skill;
   onUpdate: (id: string, patch: Partial<Omit<Skill, "id" | "createdAt">>) => void;
   onDelete: (id: string) => void;
@@ -117,7 +117,7 @@ export function SkillsManager({skills, categories, config, onCreate, onUpdate, o
                   <button className="btn btn-ghost btn-sm" onClick={() => copyPrompt(selected)}>
                     {copied ? "Copied!" : "Copy prompt"}
                   </button>
-                  <button className="btn btn-ghost btn-sm" onClick={() => download(`${config.id}-example.json`, exampleImportJson(config.id), "application/json")} title="A ready-to-import example in the target schema">
+                  <button className="btn btn-ghost btn-sm" onClick={() => download(`${config.kind}-example.json`, exampleImportJson(config.kind), "application/json")} title="A ready-to-import example in the target schema">
                     Example .json
                   </button>
                   {confirmDelete ? (

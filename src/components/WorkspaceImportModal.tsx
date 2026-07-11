@@ -23,7 +23,7 @@ export function WorkspaceImportModal({file, onImport, onClose}: Props) {
     return () => { cancelled = true; };
   }, [file]);
 
-  const itemCount = workspace?.projects.reduce((total, project) => total + project.items.length, 0) ?? 0;
+  const itemCount = workspace?.projects.reduce((total, project) => total + project.tasks.length, 0) ?? 0;
 
   return (
     <div className="modal-veil" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
@@ -39,7 +39,7 @@ export function WorkspaceImportModal({file, onImport, onClose}: Props) {
             <p className="modal-intro">This creates a separate copy with new internal IDs. It will not overwrite an existing workspace.</p>
             <div className="import-summary workspace-import-summary">
               <strong>{workspace.name}</strong>
-              <span>{workspace.projects.length} project{workspace.projects.length === 1 ? "" : "s"} · {itemCount} item{itemCount === 1 ? "" : "s"} · {workspace.skills.length} skill{workspace.skills.length === 1 ? "" : "s"}</span>
+              <span>{workspace.projects.length} project{workspace.projects.length === 1 ? "" : "s"} · {itemCount} task{itemCount === 1 ? "" : "s"} · {workspace.skills.length} skill{workspace.skills.length === 1 ? "" : "s"}</span>
             </div>
             <div className="modal-actions">
               <button className="btn btn-ghost" onClick={onClose}>Cancel</button>

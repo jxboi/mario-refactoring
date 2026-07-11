@@ -1388,6 +1388,23 @@ code,
   margin-top: 28px;
 }
 
+.project-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+  margin-top: 32px;
+}
+
+.project-overview-card {
+  cursor: pointer;
+  min-height: 180px;
+}
+
+.project-overview-card:hover {
+  border-color: var(--amber);
+  transform: translateY(-2px);
+}
+
 .front-value {
   min-width: 0;
   padding: 14px;
@@ -2063,8 +2080,9 @@ select.input {
 }
 
 /* ————— Category manager ————— */
-.modal-narrow {
-  max-width: 420px;
+.modal-narrow,
+.modal-categories {
+  max-width: 680px;
 }
 
 .modal-intro {
@@ -2103,6 +2121,31 @@ select.input {
   overflow-y: auto;
   margin-bottom: 14px;
 }
+
+.cat-group {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: visible;
+}
+
+.cat-group + .cat-group { margin-top: 8px; }
+
+.cat-group-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.cat-group-head strong { flex: 1; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-dim); }
+.cat-manage-actions.always { opacity: 1; }
+.cat-manage-action:disabled { opacity: .25; cursor: default; }
+.cat-manage-label small { margin-left: 7px; color: var(--text-faint); }
+.cat-group-select { max-width: 120px; padding: 4px 6px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text-dim); }
+.group-confirm { padding: 10px; }
+.group-add { padding-top: 8px; border-top: 0; }
 
 .cat-manage-row {
   display: flex;

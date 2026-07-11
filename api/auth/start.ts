@@ -1,4 +1,4 @@
-import {cookie, isSecure, oauthState, type ApiRequest, type ApiResponse, STATE_COOKIE} from "../_auth";
+import {cookie, isSecure, oauthState, type ApiRequest, type ApiResponse, STATE_COOKIE} from "../_auth.js";
 
 export default function handler(req: ApiRequest, res: ApiResponse) {
   const clientId = process.env.GITHUB_CLIENT_ID || process.env.VITE_GITHUB_CLIENT_ID;

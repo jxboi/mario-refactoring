@@ -1,4 +1,4 @@
-import {cookie, cookies, githubUser, isSecure, queryValue, SESSION_COOKIE, STATE_COOKIE, type ApiRequest, type ApiResponse} from "../_auth";
+import {cookie, cookies, githubUser, isSecure, queryValue, SESSION_COOKIE, STATE_COOKIE, type ApiRequest, type ApiResponse} from "../_auth.js";
 
 export default async function handler(req: ApiRequest, res: ApiResponse) {
   try {

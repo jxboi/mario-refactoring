@@ -1,6 +1,6 @@
 import {neon} from "@neondatabase/serverless";
 import type {IncomingHttpHeaders} from "node:http";
-import {cookies, githubUser, SESSION_COOKIE} from "./_auth";
+import {cookies, githubUser, SESSION_COOKIE} from "./_auth.js";
 
 interface ApiRequest extends AsyncIterable<Buffer | string> {
   method?: string;

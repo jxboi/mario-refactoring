@@ -1,4 +1,4 @@
-import {cookies, githubUser, SESSION_COOKIE, type ApiRequest, type ApiResponse} from "../_auth";
+import {cookies, githubUser, SESSION_COOKIE, type ApiRequest, type ApiResponse} from "../_auth.js";
 
 export default async function handler(req: ApiRequest, res: ApiResponse) {
   const token = cookies(req)[SESSION_COOKIE];

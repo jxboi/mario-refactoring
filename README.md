@@ -1,11 +1,18 @@
-# Chisel — a refactoring cockpit
+# Chisel — a calm work cockpit
 
-A calm, fast board for steadily chipping away at a codebase. Import a JSON file of refactoring items, triage them, and walk each one through a workflow designed for refactoring — not generic task management.
+A focused board for steadily chipping away at code refactors or everyday tasks. Create items by hand, import structured JSON, or use a reusable AI prompt to turn a codebase audit into an actionable board.
+
+Chisel supports two project types:
+
+- **Coding** boards track refactors with risk, effort, affected files, and code-focused categories.
+- **Task** boards track general work with priority, effort, and task-focused categories.
+
+Projects stay separate, while categories and reusable skills are shared between projects of the same type.
 
 ## Run it
 
 ```sh
-npm install
+npm ci
 npm run dev      # https://localhost:5180
 ```
 
@@ -64,36 +71,46 @@ Vercel should detect this as a Vite app, run `npm run build`, serve `dist/`, and
 
 ## The workflow
 
-| Stage           | Meaning                                  |
-| --------------- | ---------------------------------------- |
-| **Triage**      | Imported, not yet assessed               |
-| **Scoped**      | Risk and effort assessed, ready to start |
-| **Refactoring** | Actively being reworked                  |
-| **Verifying**   | Tests, review, canary                    |
-| **Landed**      | Merged and done                          |
+| Coding board | Task board | Meaning |
+| --- | --- | --- |
+| **Queued** | **To do** | Waiting to be picked up |
+| **Active** | **In progress** | Work happening now |
+| **Reviewing** | **Review** | Checks, review, or sign-off |
+| **Deployed** | **Done** | Completed in the last 14 days |
+| **Deferred** | **On hold** | Parked and hidden by default |
 
-Every item carries refactoring-specific metadata: **risk** (low/medium/high), **effort** (low/medium/high), **category** (extract, rename, dead code, dependency, performance, tests, architecture, style), affected **files/paths**, **tags**, timestamped **notes**, and a **blocker** flag with a reason — blocked items are flagged on the card itself, not hidden in a column.
+Every item carries a low/medium/high **risk** or **priority**, **effort** (including X-High), a customizable **category**, **tags**, and timestamped **notes**. Coding items also track affected files and paths. Marking a note as a blocker flags the card; resolving the note clears that blocker without losing its history.
 
 ## Importing items
 
-Drag a `.json` file anywhere onto the page (or click **Import JSON**). Chisel parses it, validates every row, previews what it found — including warnings for values it had to normalize and rows it will skip — and lets you choose what to import. See [example-refactors.json](example-refactors.json) for a sample.
+Drag a `.json` file anywhere onto the page (or choose **Settings → Import JSON**). Chisel validates every row, previews what it found, calls out normalized values and skipped rows, and lets you choose what to import. See [example-refactors.json](example-refactors.json) for a sample.
 
 The parser is deliberately forgiving:
 
 - Accepts a top-level array, or an object with an `items` / `tasks` / `refactorings` / `entries` array.
 - Titles from `title`, `name`, or `summary`; descriptions from `description`, `details`, `body`, or `rationale`.
-- Risk from `risk` / `severity` / `impact` (words or numbers), effort from `effort` / `size` / `estimate` / `points`, category from `category` / `type` / `kind` (with fuzzy matching), stage from `status` / `stage` / `state` (`todo`, `in-progress`, `review`, `done`, …).
+- Risk or priority from `risk` / `priority` / `severity` / `impact` (words or numbers), effort from `effort` / `size` / `estimate` / `points`, category from `category` / `type` / `kind` (with fuzzy matching), and stage from `status` / `stage` / `state` (`todo`, `in-progress`, `review`, `done`, …).
 - Files from `files` / `file` / `paths` / `path` / `modules`; tags from `tags` / `labels`.
 - `blocked` / `blocked_reason` mark an item blocked on import.
 
 Only a title is required — everything else gets sensible defaults.
 
-## Everything else
+An exported project can be imported again without losing its project type or custom categories. If the file belongs to a different board type, Chisel switches to a matching project or creates one for the import.
 
-- **Projects** — the switcher next to the logo creates, renames, deletes, and switches between independent boards (one per codebase or cleanup effort).
-- The board is grouped visually: Triage/Scoped recede, the amber **in-flight zone** (Refactoring + Verifying) is where the eye lands, Landed is dimmed.
-- Drag cards between stages; click a card to open the detail drawer and edit metadata, mark blockers, or add notes. The **＋** in any column header (or "New item" on an empty board) creates an item by hand.
-- Search across titles, files, and tags; filter by risk chips, or click the red blocked count in the header to see only blocked items.
-- State persists instantly in `localStorage`; signed-in GitHub accounts also sync their board across devices through Vercel + Neon Postgres.
+## Skills
+
+Skills are reusable Markdown prompts for AI coding agents. Open **Settings → Skills** to edit a prompt, copy it, or download it as a `.md` file. Chisel appends the current board's categories and JSON schema automatically, so the agent's response can be dropped straight into the importer.
+
+The included skills cover a general refactoring audit and test-gap discovery. Skills are stored per guest or GitHub account in the browser.
+
+## Features
+
+- Create, rename, delete, and switch between independent Coding and Task projects.
+- Drag cards between stages and reorder them within a column.
+- Edit metadata, add notes, and mark or resolve blockers in the detail drawer.
+- Search titles, descriptions, files, and tags; filter by risk/priority or blocked state.
+- Add, rename, remove, and assign glyphs to categories from **Settings → Categories**.
+- Export the active project as round-trippable JSON from **Settings → Export JSON**.
+- Keep guest data in `localStorage`, or sign in with GitHub to sync boards across devices through Vercel and Neon Postgres.
 
 Built with React + TypeScript + Vite. No UI framework, no state library — one reducer, one stylesheet.

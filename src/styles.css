@@ -501,7 +501,7 @@ code,
 }
 
 .progress-cluster {
-  flex: 0 1 460px;
+  flex: 0 1 320px;
   min-width: 0;
   overflow: hidden;
   display: flex;
@@ -2690,6 +2690,11 @@ button.cat-manage-glyph:hover {
   color: var(--red);
 }
 
+.delete-blocked {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
 /* ————— Modal / import ————— */
 .modal-veil {
   position: fixed;
@@ -3779,6 +3784,14 @@ button.cat-manage-glyph:hover {
   }
 
   /* Trim identity chrome down to the essentials */
+  .header .brand-name {
+    display: none;
+  }
+
+  .header .brand {
+    gap: 0;
+  }
+
   .brand-sep {
     display: none;
   }
@@ -3861,14 +3874,6 @@ button.cat-manage-glyph:hover {
 }
 
 @media (max-width: 380px) {
-  .brand-name {
-    display: none;
-  }
-
-  .brand {
-    gap: 0;
-  }
-
   .header-right {
     gap: 8px;
   }

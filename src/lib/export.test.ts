@@ -30,7 +30,7 @@ describe("workspace import and export", () => {
       blocked: false,
       blockReason: "",
       notes: [{id: "note-1", text: "Keep context", createdAt: 1}],
-      parentIds: [],
+      parentId: null,
       createdAt: 1,
       updatedAt: 1,
     }];
@@ -45,20 +45,20 @@ describe("workspace import and export", () => {
     expect(copy.projects[0].items[0].createdAt).toBe(1);
   });
 
-  it("remaps relationships when copying a workspace", () => {
+  it("remaps ownership when copying a workspace", () => {
     const source = newWorkspace("Product");
     const plan = {...newProject("Plan", "plan"), items: [{...source.projects[0].items[0], ...{
-      id: "plan-item", title: "Plan", description: "", files: [], risk: "medium" as const, effort: "medium" as const, category: "other", tags: [], stage: "queued" as const, blocked: false, blockReason: "", notes: [], parentIds: [], createdAt: 1, updatedAt: 1,
+      id: "plan-item", title: "Plan", description: "", files: [], risk: "medium" as const, effort: "medium" as const, category: "other", tags: [], stage: "queued" as const, blocked: false, blockReason: "", notes: [], parentId: null, createdAt: 1, updatedAt: 1,
     }}]};
-    const task = {...newProject("Tasks", "task"), items: [{...plan.items[0], id: "task-item", title: "Task", parentIds: ["plan-item"]}]};
+    const task = {...newProject("Tasks", "task"), items: [{...plan.items[0], id: "task-item", title: "Task", parentId: "plan-item"}]};
     source.projects = [plan, task];
     source.activeProjectId = task.id;
     const copy = copyWorkspaceForImport(source);
-    expect(copy.projects[1].items[0].parentIds).toEqual([copy.projects[0].items[0].id]);
+    expect(copy.projects[1].items[0].parentId).toBe(copy.projects[0].items[0].id);
   });
 
   it("rejects unsupported and malformed files", () => {
     expect(parseWorkspaceJson("not-json").error).toMatch(/Not valid JSON/);
-    expect(parseWorkspaceJson(JSON.stringify({kind: "chisel-workspace", version: 3, workspace: {}})).error).toMatch(/not supported/);
+    expect(parseWorkspaceJson(JSON.stringify({kind: "chisel-workspace", version: 4, workspace: {}})).error).toMatch(/not supported/);
   });
 });

@@ -10,10 +10,9 @@ interface Props {
   config: TypeConfig;
   projects: Project[];
   onClose: () => void;
-  onUpdate: (patch: Partial<Omit<WorkItem, "id" | "notes">>) => void;
+  onUpdate: (patch: Partial<Omit<WorkItem, "id" | "notes" | "parentId">>) => void;
   onNavigate: (projectId: string, itemId: string) => void;
-  onLink: (childId: string, parentId: string) => void;
-  onUnlink: (childId: string, parentId: string) => void;
+  onReparent: (childId: string, parentId: string) => void;
   onCreateChild: (targetProjectId: string | null) => void;
   onAddNote: (text: string) => void;
   onDeleteNote: (noteId: string) => void;
@@ -23,7 +22,7 @@ interface Props {
   onDelete: () => void;
 }
 
-export function Drawer({item, categories, config, projects, onClose, onUpdate, onNavigate, onLink, onUnlink, onCreateChild, onAddNote, onDeleteNote, onEditNote, onToggleNoteBlock, onToggleNoteResolved, onDelete}: Props) {
+export function Drawer({item, categories, config, projects, onClose, onUpdate, onNavigate, onReparent, onCreateChild, onAddNote, onDeleteNote, onEditNote, onToggleNoteBlock, onToggleNoteResolved, onDelete}: Props) {
   const [noteDraft, setNoteDraft] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [closing, setClosing] = useState(false);
@@ -135,8 +134,7 @@ export function Drawer({item, categories, config, projects, onClose, onUpdate, o
           config={config}
           projects={projects}
           onNavigate={onNavigate}
-          onLink={onLink}
-          onUnlink={onUnlink}
+          onReparent={onReparent}
           onCreateChild={onCreateChild}
         />
 
@@ -172,7 +170,9 @@ export function Drawer({item, categories, config, projects, onClose, onUpdate, o
           <span className="drawer-timestamps">
             created {timeAgo(item.createdAt)} · updated {timeAgo(item.updatedAt)}
           </span>
-          {confirmDelete ? (
+          {projects.some((project) => project.items.some((candidate) => candidate.parentId === item.id)) ? (
+            <span className="delete-blocked">Move or delete child work first</span>
+          ) : confirmDelete ? (
             <span className="delete-confirm">
               Delete for good?
               <button className="btn btn-danger btn-sm" onClick={onDelete}>
@@ -193,140 +193,62 @@ export function Drawer({item, categories, config, projects, onClose, onUpdate, o
   );
 }
 
-function Relationships({item, config, projects, onNavigate, onLink, onUnlink, onCreateChild}: Pick<Props, "item" | "config" | "projects" | "onNavigate" | "onLink" | "onUnlink" | "onCreateChild">) {
+function Relationships({item, config, projects, onNavigate, onReparent, onCreateChild}: Pick<Props, "item" | "config" | "projects" | "onNavigate" | "onReparent" | "onCreateChild">) {
   const [targetProjectId, setTargetProjectId] = useState("");
-  const [parentSearch, setParentSearch] = useState("");
-  const [childSearch, setChildSearch] = useState("");
-  const [parentPickerOpen, setParentPickerOpen] = useState(false);
-  const [childPickerOpen, setChildPickerOpen] = useState(false);
-  const parentPickerRef = useRef<HTMLDivElement>(null);
-  const childPickerRef = useRef<HTMLDivElement>(null);
+  const [moving, setMoving] = useState(false);
   useEffect(() => {
     setTargetProjectId("");
-    setParentSearch("");
-    setChildSearch("");
-    setParentPickerOpen(false);
-    setChildPickerOpen(false);
+    setMoving(false);
   }, [item.id]);
-  useEffect(() => {
-    if (!parentPickerOpen) return;
-    const onDown = (event: MouseEvent) => {
-      if (!parentPickerRef.current?.contains(event.target as Node)) {
-        setParentPickerOpen(false);
-        setParentSearch("");
-      }
-    };
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setParentPickerOpen(false);
-        setParentSearch("");
-      }
-    };
-    window.addEventListener("mousedown", onDown);
-    window.addEventListener("keydown", onKey);
-    return () => {
-      window.removeEventListener("mousedown", onDown);
-      window.removeEventListener("keydown", onKey);
-    };
-  }, [parentPickerOpen]);
-  useEffect(() => {
-    if (!childPickerOpen) return;
-    const onDown = (event: MouseEvent) => {
-      if (!childPickerRef.current?.contains(event.target as Node)) {
-        setChildPickerOpen(false);
-        setChildSearch("");
-      }
-    };
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setChildPickerOpen(false);
-        setChildSearch("");
-      }
-    };
-    window.addEventListener("mousedown", onDown);
-    window.addEventListener("keydown", onKey);
-    return () => {
-      window.removeEventListener("mousedown", onDown);
-      window.removeEventListener("keydown", onKey);
-    };
-  }, [childPickerOpen]);
   const all = projects.flatMap((project) => project.items.map((entry) => ({item: entry, project})));
   const parentType = parentTypeFor(config.id);
   const childType = childTypeFor(config.id);
-  const parents = all.filter((entry) => item.parentIds.includes(entry.item.id));
-  const children = all.filter((entry) => entry.item.parentIds.includes(item.id));
-  const matches = (entry: (typeof all)[number], query: string) => `${entry.project.name} ${entry.item.title} ${entry.item.description} ${entry.item.tags.join(" ")}`.toLowerCase().includes(query.trim().toLowerCase());
-  const parentOptions = all.filter((entry) => entry.project.type === parentType && !item.parentIds.includes(entry.item.id) && matches(entry, parentSearch));
-  const childOptions = all.filter((entry) => entry.project.type === childType && !entry.item.parentIds.includes(item.id) && matches(entry, childSearch));
+  const parent = item.parentId ? all.find((entry) => entry.item.id === item.parentId) : undefined;
+  const children = all.filter((entry) => entry.item.parentId === item.id);
+  const parentOptions = all.filter((entry) => entry.project.type === parentType && entry.item.id !== item.parentId);
   const childProjects = projects.filter((project) => project.type === childType);
   const completed = children.filter((entry) => entry.item.stage === "deployed").length;
+  const destinationRequired = childProjects.length > 0 && !targetProjectId;
 
   return (
     <div className="field relationships">
-      <span className="field-label">Relationships</span>
+      <span className="field-label">Ownership</span>
       {parentType && (
-        <div className="relation-group" ref={parentPickerRef}>
-          <div className="relation-heading">Linked {typeConfig(parentType).itemNounPlural}</div>
-          {parents.map((entry) => <RelationRow key={entry.item.id} title={entry.item.title} project={entry.project} stage={typeConfig(entry.project.type).stages.find((stage) => stage.id === entry.item.stage)?.label ?? entry.item.stage} onOpen={() => onNavigate(entry.project.id, entry.item.id)} onRemove={() => onUnlink(item.id, entry.item.id)} />)}
-          {parents.length === 0 && <div className="relation-empty">No linked parents</div>}
-          <div className="relation-picker-anchor">
+        <div className="relation-group">
+          <div className="relation-heading">Owned by {typeConfig(parentType).itemNoun}</div>
+          {parent && <RelationRow title={parent.item.title} project={parent.project} stage={typeConfig(parent.project.type).stages.find((stage) => stage.id === parent.item.stage)?.label ?? parent.item.stage} onOpen={() => onNavigate(parent.project.id, parent.item.id)} />}
+          {moving ? (
             <div className="relation-add">
-              <select
-                className="input"
-                aria-label="Choose a parent item"
-                value=""
-                onChange={(event) => {
-                  const parentId = event.target.value;
-                  if (!parentId) return;
-                  onLink(item.id, parentId);
-                  setParentSearch("");
-                  setParentPickerOpen(false);
-                }}
-              >
-                <option value="">Link a parent…</option>
+              <select className="input" aria-label="Move to another parent" defaultValue="" onChange={(event) => {
+                if (!event.target.value) return;
+                onReparent(item.id, event.target.value);
+                setMoving(false);
+              }}>
+                <option value="">Choose a new owner…</option>
                 {parentOptions.map((entry) => <option key={entry.item.id} value={entry.item.id}>{entry.project.name} · {entry.item.title || "Untitled"}</option>)}
               </select>
-              <button className={`relation-picker-btn${parentPickerOpen ? " open" : ""}`} title="Search parents" aria-label="Search parents" aria-expanded={parentPickerOpen} onClick={() => { if (parentPickerOpen) setParentSearch(""); setParentPickerOpen(!parentPickerOpen); }}>⌕</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => setMoving(false)}>Cancel</button>
             </div>
-            {parentPickerOpen && <div className="relation-picker-pop"><input className="input" autoFocus value={parentSearch} onChange={(event) => setParentSearch(event.target.value)} placeholder="Search parents…" /></div>}
-          </div>
+          ) : (
+            <button className="btn btn-ghost btn-sm" disabled={parentOptions.length === 0} onClick={() => setMoving(true)}>Move to…</button>
+          )}
+          {!parent && <div className="relation-empty">Owner unavailable</div>}
         </div>
       )}
       {childType && (
-        <div className="relation-group" ref={childPickerRef}>
+        <div className="relation-group">
           <div className="relation-heading">
             Assigned {typeConfig(childType).itemNounPlural}
             <span>{completed}/{children.length} done</span>
           </div>
-          {children.map((entry) => <RelationRow key={entry.item.id} title={entry.item.title} project={entry.project} stage={typeConfig(entry.project.type).stages.find((stage) => stage.id === entry.item.stage)?.label ?? entry.item.stage} onOpen={() => onNavigate(entry.project.id, entry.item.id)} onRemove={() => onUnlink(entry.item.id, item.id)} />)}
+          {children.map((entry) => <RelationRow key={entry.item.id} title={entry.item.title} project={entry.project} stage={typeConfig(entry.project.type).stages.find((stage) => stage.id === entry.item.stage)?.label ?? entry.item.stage} onOpen={() => onNavigate(entry.project.id, entry.item.id)} />)}
           {children.length === 0 && <div className="relation-empty">No assigned work</div>}
-          <div className="relation-picker-anchor">
-            <div className="relation-add">
-              <select
-                className="input"
-                aria-label="Choose existing downstream work"
-                value=""
-                onChange={(event) => {
-                  const childId = event.target.value;
-                  if (!childId) return;
-                  onLink(childId, item.id);
-                  setChildSearch("");
-                  setChildPickerOpen(false);
-                }}
-              >
-                <option value="">Link existing…</option>
-                {childOptions.map((entry) => <option key={entry.item.id} value={entry.item.id}>{entry.project.name} · {entry.item.title || "Untitled"}</option>)}
-              </select>
-              <button className={`relation-picker-btn${childPickerOpen ? " open" : ""}`} title="Search downstream work" aria-label="Search downstream work" aria-expanded={childPickerOpen} onClick={() => { if (childPickerOpen) setChildSearch(""); setChildPickerOpen(!childPickerOpen); }}>⌕</button>
-            </div>
-            {childPickerOpen && <div className="relation-picker-pop"><input className="input" autoFocus value={childSearch} onChange={(event) => setChildSearch(event.target.value)} placeholder="Search downstream work…" /></div>}
-          </div>
           <div className="relation-add">
             <select className="input" aria-label={`Choose a ${typeConfig(childType).label} project`} value={targetProjectId} onChange={(event) => setTargetProjectId(event.target.value)}>
               <option value="">{childProjects.length ? `Choose ${typeConfig(childType).label} project…` : `Create a ${typeConfig(childType).label} project`}</option>
               {childProjects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
             </select>
-            <button className="btn btn-primary btn-sm" disabled={childProjects.length > 0 && !targetProjectId} onClick={() => onCreateChild(targetProjectId || null)}>Create child</button>
+            <button className="btn btn-primary btn-sm" disabled={destinationRequired} onClick={() => onCreateChild(targetProjectId || null)}>Create child</button>
           </div>
         </div>
       )}
@@ -334,8 +256,8 @@ function Relationships({item, config, projects, onNavigate, onLink, onUnlink, on
   );
 }
 
-function RelationRow({title, project, stage, onOpen, onRemove}: {title: string; project: Project; stage: string; onOpen: () => void; onRemove: () => void}) {
-  return <div className="relation-row"><button className="relation-main" onClick={onOpen}><span>{title || "Untitled"}</span><small>{project.name} · {stage}</small></button><button className="list-remove" onClick={onRemove} aria-label={`Unlink ${title || "item"}`}>✕</button></div>;
+function RelationRow({title, project, stage, onOpen}: {title: string; project: Project; stage: string; onOpen: () => void}) {
+  return <div className="relation-row"><button className="relation-main" onClick={onOpen}><span>{title || "Untitled"}</span><small>{project.name} · {stage}</small></button></div>;
 }
 
 function NoteRow({note, onToggleBlock, onToggleResolved, onDelete, onEdit}: {note: Note; onToggleBlock: () => void; onToggleResolved: () => void; onDelete: () => void; onEdit: (text: string) => void}) {

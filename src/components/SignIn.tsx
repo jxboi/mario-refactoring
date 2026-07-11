@@ -44,7 +44,7 @@ export function SignInScreen({onCreateWorkspace}: {onCreateWorkspace: (name: str
 
         <div className="signin-card">
           <h2 className="signin-title">Create a workspace</h2>
-          <p className="signin-sub">Name a workspace and jump into its first Coding project. Add Plan and Task projects to connect product intent all the way to implementation.</p>
+          <p className="signin-sub">Name a workspace and start with a product plan. Create tasks from plan items, then coding work from tasks.</p>
 
           <form className="project-start-form" onSubmit={createWorkspace}>
             <label className="project-start-label" htmlFor="workspace-name">

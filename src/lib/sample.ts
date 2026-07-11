@@ -18,7 +18,7 @@ function make(partial: Partial<WorkItem> & Pick<WorkItem, "title">): WorkItem {
     blocked: false,
     blockReason: "",
     notes: [],
-    parentIds: [],
+    parentId: null,
     createdAt: now - 72 * h,
     updatedAt: now - 24 * h,
     ...partial,

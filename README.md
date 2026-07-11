@@ -2,13 +2,13 @@
 
 A focused workspace for taking product intent from planning through tasks to shipped code. Create items by hand, import structured JSON, or use a reusable AI prompt to turn rough ideas into actionable work.
 
-Chisel organizes work as **workspaces → projects → items**. A workspace can hold any mix of three project types:
+Chisel organizes work as **workspaces → projects → items**. Projects are organizational boards with three types:
 
 - **Plan** boards shape goals, initiatives, features, and research before delivery work begins.
 - **Task** boards track general work with priority, effort, and task-focused categories.
 - **Coding** boards track developer work with priority, effort, affected files, and technical categories.
 
-Items can be linked across adjacent levels inside a workspace: Plan → Task → Coding. Children can have multiple parents, cards show direct-child progress, and parent status always remains under the user's control. Categories are shared between projects of the same type.
+Items follow strict ownership inside a workspace: Plan → Task → Coding. A task belongs to exactly one plan item, and a coding item belongs to exactly one task. Downstream work is created from its owner, cards show direct-child progress, and parent status always remains under the user's control. Categories are shared between projects of the same type.
 
 ## Run it
 
@@ -56,7 +56,7 @@ The Neon integration injects `POSTGRES_URL` into Vercel. Locally, `vercel env pu
 
 Remote saves are debounced and version-checked. If another session updates the account's workspaces first, Chisel pauses cloud sync and surfaces the conflict in the account menu instead of overwriting remote data silently. The latest local state still remains in `localStorage`.
 
-Existing `chisel.projects.v2` browser data and legacy cloud board documents migrate automatically into a workspace named **My workspace**. Legacy Refactoring projects become Coding projects, their categories are preserved, and the broader Coding defaults are merged in.
+Existing browser and cloud documents migrate automatically. Legacy multi-parent relationships keep their first valid adjacent-level owner; orphaned tasks and coding items are removed. Legacy Refactoring projects become Coding projects, their categories are preserved, and the broader Coding defaults are merged in.
 
 ## Deploy to Vercel
 
@@ -84,7 +84,7 @@ Vercel should detect this as a Vite app, run `npm run build`, serve `dist/`, and
 | **Done** | **Done** | **Deployed** | Completed work |
 | **On hold** | **On hold** | **Deferred** | Parked and hidden by default |
 
-Every item carries a low/medium/high **priority**, **effort** (including X-High), a customizable **category**, **tags**, and timestamped **notes**. Coding items also track affected files and paths. The Relationships section creates or attaches downstream work, links parents backward, and navigates between projects.
+Every item carries a low/medium/high **priority**, **effort** (including X-High), a customizable **category**, **tags**, and timestamped **notes**. Coding items also track affected files and paths. The Ownership section creates downstream work, navigates to its owner, and supports explicit reparenting through **Move to…**.
 
 ## Importing items
 
@@ -96,7 +96,7 @@ The parser is deliberately forgiving:
 - Titles from `title`, `name`, or `summary`; descriptions from `description`, `details`, `body`, or `rationale`.
 - Risk or priority from `risk` / `priority` / `severity` / `impact` (words or numbers), effort from `effort` / `size` / `estimate` / `points`, category from `category` / `type` / `kind` (with fuzzy matching), and stage from `status` / `stage` / `state` (`todo`, `in-progress`, `review`, `done`, …).
 - Files from `files` / `file` / `paths` / `path` / `modules`; tags from `tags` / `labels`.
-- `blocked` / `blocked_reason` mark an item blocked on import; `parentIds` restores links when matching compatible parents exist in the destination workspace.
+- `blocked` / `blocked_reason` mark an item blocked on import. Plan files import directly; complete workspace imports preserve valid Task and Coding ownership.
 
 Only a title is required — everything else gets sensible defaults.
 
@@ -113,7 +113,8 @@ The included skills cover a general refactoring audit, dead-code discovery, and 
 ## Features
 
 - Create, rename, delete, and switch between workspaces containing Plan, Task, and Coding projects.
-- Create linked downstream work, attach existing children, link multiple parents, and navigate the full Plan → Task → Coding chain.
+- Create downstream work from its required owner and navigate the full Plan → Task → Coding chain.
+- Move downstream work to another valid owner; deletion is blocked while descendants remain.
 - See completed/total direct-child rollups without automatically changing parent status.
 - Drag cards between stages and reorder them within a column.
 - Edit metadata, add notes, and mark or resolve blockers in the detail drawer.

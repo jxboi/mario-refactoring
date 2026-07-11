@@ -1,4 +1,4 @@
-import {useEffect, useRef, useState} from "react";
+import {useCallback, useEffect, useRef, useState} from "react";
 import type {ParseResult} from "../lib/parse";
 import {parseRefactorJson, readProjectType} from "../lib/parse";
 import type {CategoriesByType} from "../lib/store";
@@ -11,38 +11,40 @@ interface Props {
   categoriesByType: CategoriesByType;
   /** The active board's type, used until a file declares its own type. */
   defaultType: ProjectType;
+  /** Parent-driven imports force the destination type regardless of file metadata. */
+  lockedType?: ProjectType;
   onClose: () => void;
-  onImport: (items: WorkItem[], categories: CategoryDef[], projectType: ProjectType) => void;
+  onImport: (items: WorkItem[], categories: CategoryDef[]) => void;
 }
 
-export function ImportModal({initialFile, categoriesByType, defaultType, onClose, onImport}: Props) {
+export function ImportModal({initialFile, categoriesByType, defaultType, lockedType, onClose, onImport}: Props) {
   const [fileName, setFileName] = useState<string | null>(null);
   const [result, setResult] = useState<ParseResult | null>(null);
   const [excluded, setExcluded] = useState<Set<number>>(new Set());
   const [zoneActive, setZoneActive] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
 
-  const readFile = (file: File) => {
+  const readFile = useCallback((file: File) => {
     setFileName(file.name);
     file.text().then((text) => {
       // Route the file to the categories of the type it declares, so custom
       // categories resolve against the right board instead of the active one.
-      const type = readProjectType(text) ?? defaultType;
-      setResult(parseRefactorJson(text, categoriesByType[type], type));
+      const type = lockedType ?? readProjectType(text) ?? defaultType;
+      setResult(parseRefactorJson(text, categoriesByType[type], type, lockedType !== undefined));
       setExcluded(new Set());
     });
-  };
+  }, [categoriesByType, defaultType, lockedType]);
 
   useEffect(() => {
     if (initialFile) readFile(initialFile);
-  }, [initialFile]);
+  }, [initialFile, readFile]);
 
   const validRows = result?.rows.filter((r) => r.ok) ?? [];
   const invalidRows = result?.rows.filter((r) => !r.ok) ?? [];
   const toImport = validRows.filter((r) => !excluded.has(r.index));
 
   // Once a file declares its type, preview it against that board's config/categories.
-  const projectType = result?.projectType ?? defaultType;
+  const projectType = lockedType ?? result?.projectType ?? defaultType;
   const config = typeConfig(projectType);
   const categories = categoriesByType[projectType];
 
@@ -175,7 +177,6 @@ export function ImportModal({initialFile, categoriesByType, defaultType, onClose
                   onImport(
                     toImport.map((r) => r.item!),
                     result?.categories ?? [],
-                    projectType,
                   )
                 }
               >

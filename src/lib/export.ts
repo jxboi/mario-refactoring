@@ -48,7 +48,7 @@ export function exportProject(project: Project, categories: CategoryDef[]): void
 
 export interface WorkspaceExportDocument {
   kind: "chisel-workspace";
-  version: 1 | 2;
+  version: 1 | 2 | 3;
   exportedAt: string;
   workspace: Workspace;
 }
@@ -56,7 +56,7 @@ export interface WorkspaceExportDocument {
 export function workspaceToJson(workspace: Workspace): string {
   const payload: WorkspaceExportDocument = {
     kind: "chisel-workspace",
-    version: 2,
+    version: 3,
     exportedAt: new Date().toISOString(),
     workspace,
   };
@@ -80,7 +80,7 @@ export function parseWorkspaceJson(text: string): {workspace?: Workspace; error?
   try {
     const value = JSON.parse(text) as Partial<WorkspaceExportDocument>;
     if (value.kind !== "chisel-workspace") return {error: "This is not a Chisel workspace export."};
-    if (value.version !== 1 && value.version !== 2) return {error: "This workspace export version is not supported."};
+    if (value.version !== 1 && value.version !== 2 && value.version !== 3) return {error: "This workspace export version is not supported."};
     const workspace = normalizeWorkspace(value.workspace);
     if (!workspace) return {error: "The workspace export is missing valid workspace or project data."};
     return {workspace};
@@ -102,7 +102,7 @@ export function copyWorkspaceForImport(source: Workspace): Workspace {
       items: project.items.map((item) => ({
         ...item,
         id: itemIds.get(item.id)!,
-        parentIds: item.parentIds.map((id) => itemIds.get(id)).filter((id): id is string => Boolean(id)),
+        parentId: item.parentId ? itemIds.get(item.parentId) ?? null : null,
         notes: item.notes.map((note) => ({...note, id: uid()})),
       })),
     };

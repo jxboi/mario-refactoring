@@ -80,7 +80,7 @@ export function Header({items, projects, activeProjectId, workspaces, activeWork
 
         <div className="header-right">
           <div className="header-actions">
-            <SettingsMenu canImport canExport onImportClick={onImportClick} onExportClick={onExportClick} onImportWorkspaceClick={onImportWorkspaceClick} onExportWorkspaceClick={onExportWorkspaceClick} onManageCategories={onManageCategories} onManageSkills={onManageSkills} />
+            <SettingsMenu canImport={activeType === "plan"} canExport onImportClick={onImportClick} onExportClick={onExportClick} onImportWorkspaceClick={onImportWorkspaceClick} onExportWorkspaceClick={onExportWorkspaceClick} onManageCategories={onManageCategories} onManageSkills={onManageSkills} />
           </div>
 
           <AccountMenu user={user} isGuest={isGuest} sync={sync} onSignOut={onSignOut} />

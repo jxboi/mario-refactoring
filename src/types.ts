@@ -31,8 +31,8 @@ export interface WorkItem {
   blocked: boolean;
   blockReason: string;
   notes: Note[];
-  /** IDs of valid adjacent-level parents in the same workspace. */
-  parentIds: string[];
+  /** The single adjacent-level owner in the same workspace; Plan items use null. */
+  parentId: string | null;
   createdAt: number;
   updatedAt: number;
 }
@@ -230,7 +230,7 @@ export const TYPE_CONFIGS: Record<ProjectType, TypeConfig> = {
     descriptionLabel: "Outcome & context",
     descriptionPlaceholder: "What outcome are we aiming for, and why does it matter?",
     tagline: "Turn product intent into a clear delivery plan",
-    blurb: "Create high-level plan items, shape the outcome, then assign linked work into Task projects.",
+    blurb: "Create high-level plan items, shape the outcome, then create owned work in Task projects.",
     schema: `[
   {
     "title": "Improve the onboarding experience",
@@ -255,7 +255,7 @@ export const TYPE_CONFIGS: Record<ProjectType, TypeConfig> = {
     descriptionLabel: "Implementation details",
     descriptionPlaceholder: "What should be built or changed, and any technical context…",
     tagline: "A calm place to deliver technical work",
-    blurb: "Create or import coding work for features, bugs, refactors, infrastructure, and other developer tasks.",
+    blurb: "Coding work is created from its owning task, keeping implementation context clear from the start.",
     schema: `[
   {
     "title": "Extract retry logic into a service",
@@ -281,7 +281,7 @@ export const TYPE_CONFIGS: Record<ProjectType, TypeConfig> = {
     descriptionLabel: "Details",
     descriptionPlaceholder: "What needs to happen, and any context…",
     tagline: "A calm place to run your tasks",
-    blurb: "Drop a JSON file of tasks anywhere on this page — Chisel parses it, previews what it found, and files everything into a simple workflow: to do, in progress, review, done.",
+    blurb: "Tasks are created from their owning plan item, keeping delivery work connected without manual linking.",
     schema: `[
   {
     "title": "Follow up with vendor on SSO rollout",

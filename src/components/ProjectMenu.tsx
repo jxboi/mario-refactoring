@@ -84,9 +84,11 @@ export function ProjectMenu({projects, activeId, onSwitch, onCreate, onRename, o
                   <div className="proj-menu-label">
                     <span className={`proj-group-dot type-${t}`} aria-hidden="true" />
                     {typeConfig(t).label}
-                    <button className="proj-group-add" title={`New ${typeConfig(t).label} project`} aria-label={`New ${typeConfig(t).label} project`} onClick={() => startCreate(t)}>
-                      ＋
-                    </button>
+                    {t === "plan" && (
+                      <button className="proj-group-add" title="New Plan project" aria-label="New Plan project" onClick={() => startCreate(t)}>
+                        ＋
+                      </button>
+                    )}
                   </div>
                   {group.length === 0 && creatingType !== t && <div className="proj-empty-hint">No projects yet</div>}
                   {group.map((p) => (

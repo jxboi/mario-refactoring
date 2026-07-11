@@ -58,7 +58,7 @@ export function Board({items, totalCount, categories, config, relationshipCounts
     const valuePoints = config.id === "plan"
       ? [
           ["Shape the outcome", "Capture goals and initiatives with enough context to make good product decisions."],
-          ["Assign clearly", "Create or link tasks while keeping every delivery thread connected to its plan."],
+          ["Assign clearly", "Create tasks from a plan item so ownership is established from the start."],
           ["See delivery progress", "Direct-child rollups show how assigned work is moving without changing plan status."],
         ]
       : config.showFiles
@@ -81,15 +81,17 @@ export function Board({items, totalCount, categories, config, relationshipCounts
             <h1>{config.tagline}</h1>
             <p className="front-lede">{config.blurb}</p>
             <div className="front-actions">
-              <button className="btn btn-primary" onClick={onImportClick}>
-                <span className="btn-icon">⇡</span> Import JSON
-              </button>
-              <button className="btn btn-ghost" onClick={() => onAddItem("queued")}>
-                + New item
-              </button>
-              <button className="btn btn-ghost" onClick={onLoadSample}>
-                Explore sample
-              </button>
+              {config.id === "plan" ? (
+                <>
+                  <button className="btn btn-primary" onClick={() => onAddItem("queued")}>+ New item</button>
+                  <button className="btn btn-ghost" onClick={onImportClick}>
+                    <span className="btn-icon">⇡</span> Import JSON
+                  </button>
+                  <button className="btn btn-ghost" onClick={onLoadSample}>Explore sample</button>
+                </>
+              ) : (
+                <p className="relation-empty">Create work from its parent item.</p>
+              )}
             </div>
             <div className="front-value-grid">
               {valuePoints.map(([title, text]) => (
@@ -214,12 +216,12 @@ export function Board({items, totalCount, categories, config, relationshipCounts
               )}
               <span className="column-title">{stage.label}</span>
               <span className="column-count">{colItems.length}</span>
-              {!stage.hiddenByDefault && (
+              {config.id === "plan" && !stage.hiddenByDefault && (
                 <button className="column-add-btn" title={`Add item to ${stage.label}`} aria-label={`Add item to ${stage.label}`} onClick={() => onAddItem(stage.id)}>
                   ＋
                 </button>
               )}
-              <ColumnMenu label={stage.label} canAdd={!stage.hiddenByDefault} onAdd={() => onAddItem(stage.id)} onCollapse={() => setStageCollapsed(stage.id, true)} />
+              <ColumnMenu label={stage.label} canAdd={config.id === "plan" && !stage.hiddenByDefault} onAdd={() => onAddItem(stage.id)} onCollapse={() => setStageCollapsed(stage.id, true)} />
             </header>
             <div
               className="column-body"
@@ -373,7 +375,7 @@ function Card({item, categories, showFiles, relationships, dragging, onSelect, o
           )}
           <EffortDots effort={item.effort} />
           <RiskPill risk={item.risk} />
-          {(relationships?.parents ?? 0) > 0 && <span className="card-rel" title={`${relationships!.parents} linked parent${relationships!.parents === 1 ? "" : "s"}`}>↑{relationships!.parents}</span>}
+          {(relationships?.parents ?? 0) > 0 && <span className="card-rel" title="Owned by one upstream item">↑1</span>}
           {(relationships?.children ?? 0) > 0 && <span className="card-rel" title={`${relationships!.completedChildren} of ${relationships!.children} children complete`}>↓{relationships!.completedChildren}/{relationships!.children}</span>}
         </span>
       </div>

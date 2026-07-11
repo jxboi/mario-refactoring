@@ -197,7 +197,7 @@ export function extractCandidates(data: unknown): unknown[] | undefined {
   return undefined;
 }
 
-export function parseRefactorJson(text: string, categories: CategoryDef[] = CODING_CATEGORIES, fallbackType?: ProjectType): ParseResult {
+export function parseRefactorJson(text: string, categories: CategoryDef[] = CODING_CATEGORIES, fallbackType?: ProjectType, forceType = false): ParseResult {
   let data: unknown;
   try {
     data = JSON.parse(text);
@@ -222,7 +222,9 @@ export function parseRefactorJson(text: string, categories: CategoryDef[] = CODI
   const container = data && typeof data === "object" && !Array.isArray(data) ? (data as Record<string, unknown>) : undefined;
   const importedCategories = container ? parseCategoryDefs(container.categories) : [];
   const knownCategories = mergeCategories(categories, importedCategories);
-  const projectType = (container ? normalizeProjectType(container.type ?? container.projectType ?? container.board) : undefined) ?? fallbackType;
+  const projectType = forceType
+    ? fallbackType
+    : (container ? normalizeProjectType(container.type ?? container.projectType ?? container.board) : undefined) ?? fallbackType;
 
   const now = Date.now();
   const rows: ParsedRow[] = candidates.map((raw, index) => {
@@ -274,7 +276,9 @@ export function parseRefactorJson(text: string, categories: CategoryDef[] = CODI
 
     if (errors.length > 0) return {ok: false, index, errors, warnings};
 
-    const parentIds = toStringArray(obj.parentIds ?? obj.parent_ids ?? obj.parents);
+    const parentId = firstString(obj, ["parentId", "parent_id"])
+      ?? toStringArray(obj.parentIds ?? obj.parent_ids ?? obj.parents)[0]
+      ?? null;
     const item: WorkItem = {
       id: uid(),
       title: title!,
@@ -287,7 +291,7 @@ export function parseRefactorJson(text: string, categories: CategoryDef[] = CODI
       stage,
       ...blockedFrom(notes),
       notes,
-      parentIds: [...new Set(parentIds)],
+      parentId,
       createdAt: now,
       updatedAt: now,
     };

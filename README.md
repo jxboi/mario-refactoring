@@ -1,11 +1,18 @@
-# Chisel — a refactoring cockpit
+# Chisel — a calm work cockpit
 
-A calm, fast board for steadily chipping away at a codebase. Import a JSON file of refactoring items, triage them, and walk each one through a workflow designed for refactoring — not generic task management.
+A focused board for steadily chipping away at code refactors or everyday tasks. Create items by hand, import structured JSON, or use a reusable AI prompt to turn a codebase audit into an actionable board.
+
+Chisel organizes work as **workspaces → projects → items**. A workspace can hold any mix of the two project types:
+
+- **Coding** boards track refactors with risk, effort, affected files, and code-focused categories.
+- **Task** boards track general work with priority, effort, and task-focused categories.
+
+Projects stay separate. Categories are shared between projects of the same type within a workspace, and reusable skills are available throughout that workspace.
 
 ## Run it
 
 ```sh
-npm install
+npm ci
 npm run dev      # https://localhost:5180
 ```
 
@@ -19,6 +26,8 @@ For database-backed sync, run through Vercel so the `/api` functions are served 
 npm run dev:vercel
 ```
 
+Plain `npm run dev` is a Vite-only, local-storage workflow: it does not execute the `/api/board` Vercel Function. Use `npm run dev:vercel` when testing GitHub account sync locally.
+
 ## Sign in with GitHub
 
 Chisel gates the board behind a GitHub sign-in and keeps each account's boards separate.
@@ -31,7 +40,7 @@ Sign-in uses the [OAuth Device Flow](https://docs.github.com/en/apps/oauth-apps/
 
 ## Persistent storage
 
-GitHub is used for identity. Signed-in boards sync through a Vercel Function at `/api/board`, which verifies the GitHub token server-side and stores the board document in Neon Postgres. Guest boards remain local-only.
+GitHub is used for identity. Signed-in workspaces sync together through a Vercel Function at `/api/board`, which verifies the GitHub token server-side and stores the account document in Neon Postgres. Guest workspaces remain local-only.
 
 Provision Neon through the Vercel Marketplace:
 
@@ -44,7 +53,9 @@ npm run dev:vercel
 
 The Neon integration injects `POSTGRES_URL` into Vercel. Locally, `vercel env pull` writes it to `.env.local`. The API creates the required table automatically; the same schema is also captured in [db/schema.sql](db/schema.sql).
 
-Remote saves are debounced and version-checked. If another session updates the same board first, Chisel pauses cloud sync and surfaces the conflict in the account menu instead of overwriting remote data silently. The latest local state still remains in `localStorage`.
+Remote saves are debounced and version-checked. If another session updates the account's workspaces first, Chisel pauses cloud sync and surfaces the conflict in the account menu instead of overwriting remote data silently. The latest local state still remains in `localStorage`.
+
+Existing `chisel.projects.v2` browser data and legacy cloud board documents migrate automatically into a workspace named **My workspace**. Existing locally saved skills move into that workspace as part of the migration.
 
 ## Deploy to Vercel
 
@@ -64,36 +75,48 @@ Vercel should detect this as a Vite app, run `npm run build`, serve `dist/`, and
 
 ## The workflow
 
-| Stage           | Meaning                                  |
-| --------------- | ---------------------------------------- |
-| **Triage**      | Imported, not yet assessed               |
-| **Scoped**      | Risk and effort assessed, ready to start |
-| **Refactoring** | Actively being reworked                  |
-| **Verifying**   | Tests, review, canary                    |
-| **Landed**      | Merged and done                          |
+| Coding board | Task board | Meaning |
+| --- | --- | --- |
+| **Queued** | **To do** | Waiting to be picked up |
+| **Active** | **In progress** | Work happening now |
+| **Reviewing** | **Review** | Checks, review, or sign-off |
+| **Deployed** | **Done** | Completed in the last 14 days |
+| **Deferred** | **On hold** | Parked and hidden by default |
 
-Every item carries refactoring-specific metadata: **risk** (low/medium/high), **effort** (low/medium/high), **category** (extract, rename, dead code, dependency, performance, tests, architecture, style), affected **files/paths**, **tags**, timestamped **notes**, and a **blocker** flag with a reason — blocked items are flagged on the card itself, not hidden in a column.
+Every item carries a low/medium/high **risk** or **priority**, **effort** (including X-High), a customizable **category**, **tags**, and timestamped **notes**. Coding items also track affected files and paths. Marking a note as a blocker flags the card; resolving the note clears that blocker without losing its history.
 
 ## Importing items
 
-Drag a `.json` file anywhere onto the page (or click **Import JSON**). Chisel parses it, validates every row, previews what it found — including warnings for values it had to normalize and rows it will skip — and lets you choose what to import. See [example-refactors.json](example-refactors.json) for a sample.
+Drag a `.json` file anywhere onto the page (or choose **Settings → Import JSON**). Chisel validates every row, previews what it found, calls out normalized values and skipped rows, and lets you choose what to import. See [example-refactors.json](example-refactors.json) for a sample.
 
 The parser is deliberately forgiving:
 
 - Accepts a top-level array, or an object with an `items` / `tasks` / `refactorings` / `entries` array.
 - Titles from `title`, `name`, or `summary`; descriptions from `description`, `details`, `body`, or `rationale`.
-- Risk from `risk` / `severity` / `impact` (words or numbers), effort from `effort` / `size` / `estimate` / `points`, category from `category` / `type` / `kind` (with fuzzy matching), stage from `status` / `stage` / `state` (`todo`, `in-progress`, `review`, `done`, …).
+- Risk or priority from `risk` / `priority` / `severity` / `impact` (words or numbers), effort from `effort` / `size` / `estimate` / `points`, category from `category` / `type` / `kind` (with fuzzy matching), and stage from `status` / `stage` / `state` (`todo`, `in-progress`, `review`, `done`, …).
 - Files from `files` / `file` / `paths` / `path` / `modules`; tags from `tags` / `labels`.
 - `blocked` / `blocked_reason` mark an item blocked on import.
 
 Only a title is required — everything else gets sensible defaults.
 
-## Everything else
+An exported project can be imported again without losing its project type or custom categories. If the file belongs to a different board type, Chisel switches to a matching project in the active workspace or creates one for the import.
 
-- **Projects** — the switcher next to the logo creates, renames, deletes, and switches between independent boards (one per codebase or cleanup effort).
-- The board is grouped visually: Triage/Scoped recede, the amber **in-flight zone** (Refactoring + Verifying) is where the eye lands, Landed is dimmed.
-- Drag cards between stages; click a card to open the detail drawer and edit metadata, mark blockers, or add notes. The **＋** in any column header (or "New item" on an empty board) creates an item by hand.
-- Search across titles, files, and tags; filter by risk chips, or click the red blocked count in the header to see only blocked items.
-- State persists instantly in `localStorage`; signed-in GitHub accounts also sync their board across devices through Vercel + Neon Postgres.
+Use **Settings → Export workspace** for a complete, versioned backup containing every project, category, and skill in the active workspace. **Import workspace** always creates and activates a separate copy with fresh internal IDs; it never overwrites existing data. Workspace export files can also be dragged onto the page.
+
+## Skills
+
+Skills are reusable Markdown prompts for AI coding agents. Open **Settings → Skills** to edit a prompt, copy it, or download it as a `.md` file. Chisel appends the current board's categories and JSON schema automatically, so the agent's response can be dropped straight into the importer.
+
+The included skills cover a general refactoring audit, dead-code discovery, and test-gap discovery. Skills belong to the active workspace and are included in browser persistence, cloud sync, and workspace exports.
+
+## Features
+
+- Create, rename, delete, and switch between workspaces, each containing independent Coding and Task projects.
+- Drag cards between stages and reorder them within a column.
+- Edit metadata, add notes, and mark or resolve blockers in the detail drawer.
+- Search titles, descriptions, files, and tags; filter by risk/priority or blocked state.
+- Add, rename, remove, and assign glyphs to categories from **Settings → Categories**.
+- Export either the active project or the complete active workspace as round-trippable JSON.
+- Keep guest data in `localStorage`, or sign in with GitHub to sync workspaces across devices through Vercel and Neon Postgres.
 
 Built with React + TypeScript + Vite. No UI framework, no state library — one reducer, one stylesheet.

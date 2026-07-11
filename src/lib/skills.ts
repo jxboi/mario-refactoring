@@ -1,4 +1,3 @@
-import {useEffect, useState} from "react";
 import type {CategoryDef, ProjectType, TypeConfig} from "../types";
 import {slugifyCategory, uid} from "../types";
 
@@ -16,12 +15,6 @@ export interface Skill {
   body: string;
   createdAt: number;
   updatedAt: number;
-}
-
-const STORAGE_KEY = "chisel.skills.v1";
-
-function storageKey(scope?: string): string {
-  return scope ? `${STORAGE_KEY}.${scope}` : STORAGE_KEY;
 }
 
 const AUDIT_BODY = `You are auditing a codebase for refactoring opportunities.
@@ -57,7 +50,7 @@ For each gap:
 Favor small, high-value tests around bug-prone or high-traffic logic over broad, low-signal coverage.`;
 
 /** Seeded when a scope has no saved skills yet. */
-function defaultSkills(): Skill[] {
+export function defaultSkills(): Skill[] {
   const now = Date.now();
   return [
     {id: uid(), name: "Refactoring audit", description: "Scan a module for concrete, shippable refactors.", body: AUDIT_BODY, createdAt: now, updatedAt: now},
@@ -66,49 +59,17 @@ function defaultSkills(): Skill[] {
   ];
 }
 
+export function normalizeSkills(value: unknown): Skill[] {
+  if (!Array.isArray(value)) return defaultSkills();
+  return value
+    .filter((skill): skill is Skill => Boolean(skill && typeof skill === "object" && typeof (skill as Skill).id === "string" && typeof (skill as Skill).body === "string"))
+    .map((skill) => ({...skill}));
+}
+
 /** The starting body for a brand-new, hand-created skill. */
 export const NEW_SKILL_BODY = `Describe what this skill should look for in the code, and what to capture for each finding.
 
 For each refactoring opportunity, include a short title, what's wrong today, the files/paths involved, and a sense of risk and effort.`;
-
-function load(scope?: string): Skill[] {
-  try {
-    const raw = localStorage.getItem(storageKey(scope));
-    // A missing key means first run → seed defaults. A present (even empty)
-    // value means the user has curated their list, so respect it as-is.
-    if (raw === null) return defaultSkills();
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed)) return parsed.filter((s) => s && typeof s.id === "string" && typeof s.body === "string");
-  } catch {
-    /* corrupted storage — fall through to defaults */
-  }
-  return defaultSkills();
-}
-
-export function useSkills(scope?: string) {
-  const [skills, setSkills] = useState<Skill[]>(() => load(scope));
-
-  useEffect(() => {
-    localStorage.setItem(storageKey(scope), JSON.stringify(skills));
-  }, [skills, scope]);
-
-  const createSkill = (): Skill => {
-    const now = Date.now();
-    const skill: Skill = {id: uid(), name: "Untitled skill", description: "", body: NEW_SKILL_BODY, createdAt: now, updatedAt: now};
-    setSkills((prev) => [...prev, skill]);
-    return skill;
-  };
-
-  const updateSkill = (id: string, patch: Partial<Omit<Skill, "id" | "createdAt">>) => {
-    setSkills((prev) => prev.map((s) => (s.id === id ? {...s, ...patch, updatedAt: Date.now()} : s)));
-  };
-
-  const deleteSkill = (id: string) => {
-    setSkills((prev) => prev.filter((s) => s.id !== id));
-  };
-
-  return {skills, createSkill, updateSkill, deleteSkill};
-}
 
 /** A url-safe filename stem for a skill (without extension). */
 export function skillFileStem(skill: Skill): string {

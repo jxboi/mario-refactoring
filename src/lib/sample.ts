@@ -1,11 +1,11 @@
-import type {RefactorItem} from "../types";
+import type {WorkItem} from "../types";
 import {blockedFrom, uid} from "../types";
 
 const now = Date.now();
 const h = 3600_000;
 const d = 24 * h;
 
-function make(partial: Partial<RefactorItem> & Pick<RefactorItem, "title">): RefactorItem {
+function make(partial: Partial<WorkItem> & Pick<WorkItem, "title">): WorkItem {
   const item = {
     id: uid(),
     description: "",
@@ -18,14 +18,15 @@ function make(partial: Partial<RefactorItem> & Pick<RefactorItem, "title">): Ref
     blocked: false,
     blockReason: "",
     notes: [],
+    parentIds: [],
     createdAt: now - 72 * h,
     updatedAt: now - 24 * h,
     ...partial,
-  } as RefactorItem;
+  } as WorkItem;
   return {...item, ...blockedFrom(item.notes)};
 }
 
-export function sampleItems(): RefactorItem[] {
+export function sampleItems(): WorkItem[] {
   return [
     make({
       title: "Extract payment retry logic into PaymentRetryService",
@@ -33,7 +34,7 @@ export function sampleItems(): RefactorItem[] {
       files: ["src/checkout/card_handler.py", "src/checkout/wallet_handler.py", "src/checkout/invoice_handler.py"],
       risk: "high",
       effort: "high",
-      category: "extract",
+      category: "refactor",
       tags: ["payments", "duplication"],
       stage: "active",
       notes: [{id: uid(), text: "Card + wallet handlers unified. Invoice handler still has the legacy path behind a flag.", createdAt: now - 5 * h}],
@@ -44,7 +45,7 @@ export function sampleItems(): RefactorItem[] {
       files: ["src/exports/legacy_csv.py", "src/exports/csv_templates/"],
       risk: "low",
       effort: "low",
-      category: "dead-code",
+      category: "refactor",
       tags: ["exports"],
       stage: "queued",
     }),
@@ -54,7 +55,7 @@ export function sampleItems(): RefactorItem[] {
       files: ["src/accounts/user_manager.py"],
       risk: "medium",
       effort: "medium",
-      category: "rename",
+      category: "refactor",
       tags: ["naming", "accounts"],
       stage: "queued",
     }),
@@ -64,7 +65,7 @@ export function sampleItems(): RefactorItem[] {
       files: ["src/db/", "requirements.txt"],
       risk: "high",
       effort: "high",
-      category: "dependency",
+      category: "infrastructure",
       tags: ["database", "upgrade"],
       stage: "deferred",
       notes: [{id: uid(), text: "Waiting on ORM query audit from the data team — ETA Friday.", createdAt: now - 6 * h, blocked: true}],
@@ -96,7 +97,7 @@ export function sampleItems(): RefactorItem[] {
       files: ["src/config/settings.py"],
       risk: "medium",
       effort: "high",
-      category: "architecture",
+      category: "refactor",
       tags: ["config", "ownership"],
       stage: "queued",
     }),
@@ -106,7 +107,7 @@ export function sampleItems(): RefactorItem[] {
       files: ["src/webhooks/signing.py"],
       risk: "high",
       effort: "low",
-      category: "dead-code",
+      category: "refactor",
       tags: ["webhooks", "security"],
       stage: "queued",
       notes: [{id: uid(), text: 'Partner "Acme Logistics" has not confirmed v2 migration.', createdAt: now - 8 * h, blocked: true}],
@@ -117,7 +118,7 @@ export function sampleItems(): RefactorItem[] {
       files: ["src/api/errors.py", "src/api/middleware.py"],
       risk: "medium",
       effort: "high",
-      category: "architecture",
+      category: "infrastructure",
       tags: ["api", "dx"],
       stage: "deployed",
       updatedAt: now - 2 * d,
@@ -137,7 +138,7 @@ export function sampleItems(): RefactorItem[] {
   ];
 }
 
-export function sampleTasks(): RefactorItem[] {
+export function sampleTasks(): WorkItem[] {
   return [
     make({
       title: "Provision staging access for new contractor",
@@ -215,5 +216,13 @@ export function sampleTasks(): RefactorItem[] {
       stage: "deployed",
       updatedAt: now - 3 * d,
     }),
+  ];
+}
+
+export function samplePlans(): WorkItem[] {
+  return [
+    make({title: "Improve new-team onboarding", description: "Help a new team reach its first useful result in one session.", risk: "high", effort: "high", category: "initiative", tags: ["activation"], stage: "active"}),
+    make({title: "Define self-service access controls", description: "Clarify roles, permissions, and audit expectations before implementation.", risk: "medium", effort: "medium", category: "feature", tags: ["security"], stage: "reviewing"}),
+    make({title: "Research customer reporting needs", description: "Interview key users and identify the smallest valuable reporting surface.", risk: "medium", effort: "low", category: "research", tags: ["discovery"], stage: "queued"}),
   ];
 }

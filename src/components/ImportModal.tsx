@@ -2,7 +2,7 @@ import {useEffect, useRef, useState} from "react";
 import type {ParseResult} from "../lib/parse";
 import {parseRefactorJson, readProjectType} from "../lib/parse";
 import type {CategoriesByType} from "../lib/store";
-import type {CategoryDef, ProjectType, RefactorItem} from "../types";
+import type {CategoryDef, ProjectType, WorkItem} from "../types";
 import {categoryMeta, typeConfig} from "../types";
 import {RiskPill} from "./ui";
 
@@ -12,7 +12,7 @@ interface Props {
   /** The active board's type, used until a file declares its own type. */
   defaultType: ProjectType;
   onClose: () => void;
-  onImport: (items: RefactorItem[], categories: CategoryDef[], projectType: ProjectType) => void;
+  onImport: (items: WorkItem[], categories: CategoryDef[], projectType: ProjectType) => void;
 }
 
 export function ImportModal({initialFile, categoriesByType, defaultType, onClose, onImport}: Props) {
@@ -28,7 +28,7 @@ export function ImportModal({initialFile, categoriesByType, defaultType, onClose
       // Route the file to the categories of the type it declares, so custom
       // categories resolve against the right board instead of the active one.
       const type = readProjectType(text) ?? defaultType;
-      setResult(parseRefactorJson(text, categoriesByType[type]));
+      setResult(parseRefactorJson(text, categoriesByType[type], type));
       setExcluded(new Set());
     });
   };

@@ -1,7 +1,6 @@
 import tls from "node:tls";
 import {defineConfig} from "vite";
 import react from "@vitejs/plugin-react";
-import basicSsl from "@vitejs/plugin-basic-ssl";
 import {HttpsProxyAgent} from "https-proxy-agent";
 
 // Corporate proxies often intercept TLS with their own root CA. Browsers trust
@@ -25,7 +24,7 @@ const upstreamProxy =
 const proxyAgent = upstreamProxy ? new HttpsProxyAgent(upstreamProxy) : undefined;
 
 export default defineConfig({
-  plugins: [react(), basicSsl()],
+  plugins: [react()],
   server: {
     port: Number(process.env.PORT) || 5180,
     // GitHub's device-code and token endpoints don't send CORS headers, so the

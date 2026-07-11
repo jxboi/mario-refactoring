@@ -280,8 +280,12 @@ code,
   background: var(--text-faint);
 }
 
-.proj-group-dot.type-refactoring {
+.proj-group-dot.type-coding {
   background: var(--text-dim);
+}
+
+.proj-group-dot.type-plan {
+  background: var(--green);
 }
 
 .proj-group-dot.type-task {
@@ -478,10 +482,16 @@ code,
   flex-shrink: 0;
 }
 
-.type-refactoring {
+.type-coding {
   color: var(--text-dim);
   background: var(--surface);
   border-color: var(--border);
+}
+
+.type-plan {
+  color: var(--green);
+  background: rgba(76, 175, 125, 0.12);
+  border-color: transparent;
 }
 
 .type-task {
@@ -1244,6 +1254,13 @@ code,
   color: var(--text-faint);
 }
 
+.card-rel {
+  font-size: 10.5px;
+  font-family: var(--mono);
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
 .card-title.untitled {
   color: var(--text-faint);
   font-style: italic;
@@ -1822,6 +1839,130 @@ code,
 
 .input:focus {
   border-color: var(--accent);
+}
+
+.relationships {
+  padding-top: 4px;
+}
+
+.relation-group {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.018);
+}
+
+.relation-picker-btn {
+  width: 24px;
+  height: 24px;
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-faint);
+  background: var(--surface);
+  font-size: 14px;
+}
+
+.relation-picker-btn:hover,
+.relation-picker-btn.open {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.relation-picker-pop {
+  position: absolute;
+  z-index: 8;
+  top: calc(100% + 6px);
+  right: 0;
+  width: min(360px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised, var(--surface));
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.35);
+}
+
+.relation-picker-anchor {
+  position: relative;
+}
+
+.relation-picker-pop > .input {
+  width: 100%;
+}
+
+.relation-group + .relation-group {
+  margin-top: 4px;
+}
+
+.relation-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+
+.relation-heading span,
+.relation-empty {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-faint);
+}
+
+.relation-row,
+.relation-add {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.relation-main {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+  border-radius: 6px;
+  text-align: left;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.relation-main:hover {
+  border-color: var(--border-strong);
+}
+
+.relation-main span,
+.relation-main small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.relation-main span {
+  font-size: 12.5px;
+  color: var(--text);
+}
+
+.relation-main small {
+  margin-top: 2px;
+  font-size: 10.5px;
+  color: var(--text-faint);
+}
+
+.relation-add .input {
+  flex: 1;
+  min-width: 0;
 }
 
 /* ————— Category picker ————— */

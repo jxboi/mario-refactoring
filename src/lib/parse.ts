@@ -1,10 +1,10 @@
-import type {Category, CategoryDef, Effort, Note, ProjectType, RefactorItem, Risk, Stage} from "../types";
-import {blockedFrom, DEFAULT_CATEGORIES, FALLBACK_CATEGORY_ID, slugifyCategory, uid} from "../types";
+import type {Category, CategoryDef, Effort, Note, ProjectType, Risk, Stage, WorkItem} from "../types";
+import {blockedFrom, CODING_CATEGORIES, FALLBACK_CATEGORY_ID, slugifyCategory, uid} from "../types";
 
 export interface ParsedRow {
   ok: boolean;
   index: number;
-  item?: RefactorItem;
+  item?: WorkItem;
   errors: string[];
   warnings: string[];
 }
@@ -95,7 +95,8 @@ function mergeCategories(base: CategoryDef[], extra: CategoryDef[]): CategoryDef
 function normalizeProjectType(v: unknown): ProjectType | undefined {
   if (typeof v !== "string") return undefined;
   const s = v.toLowerCase().trim();
-  if (["refactoring", "refactor", "refactors", "code", "coding", "codebase"].includes(s)) return "refactoring";
+  if (["plan", "planning", "product", "strategy"].includes(s)) return "plan";
+  if (["refactoring", "refactor", "refactors", "code", "coding", "codebase"].includes(s)) return "coding";
   if (["task", "tasks", "todo", "todos", "general"].includes(s)) return "task";
   return undefined;
 }
@@ -155,12 +156,19 @@ function normalizeCategory(v: unknown, categories: CategoryDef[]): Category | un
   return guess && categories.some((c) => c.id === guess) ? guess : undefined;
 }
 
-function normalizeStage(v: unknown): Stage | undefined {
+function normalizeStage(v: unknown, projectType?: ProjectType): Stage | undefined {
   if (typeof v !== "string") return undefined;
   const s = v
     .toLowerCase()
     .trim()
     .replace(/[\s_]+/g, "-");
+  if (projectType === "plan") {
+    if (["idea", "ideas", "backlog", "queued"].includes(s)) return "queued";
+    if (["planning", "shaping", "active", "in-progress"].includes(s)) return "active";
+    if (["ready", "committed", "reviewing", "review"].includes(s)) return "reviewing";
+    if (["done", "delivered", "complete", "completed", "deployed"].includes(s)) return "deployed";
+    if (["on-hold", "deferred", "parked"].includes(s)) return "deferred";
+  }
   if (["queued", "triage", "new", "inbox", "backlog", "todo", "open", "pending", "scoped", "ready", "planned", "analyzed", "groomed", "assessed"].includes(s)) return "queued";
   if (["active", "refactor", "refactoring", "in-progress", "inprogress", "doing", "started", "wip"].includes(s)) return "active";
   if (["reviewing", "review", "in-review", "verify", "verifying", "testing", "qa", "validation"].includes(s)) return "reviewing";
@@ -189,7 +197,7 @@ export function extractCandidates(data: unknown): unknown[] | undefined {
   return undefined;
 }
 
-export function parseRefactorJson(text: string, categories: CategoryDef[] = DEFAULT_CATEGORIES): ParseResult {
+export function parseRefactorJson(text: string, categories: CategoryDef[] = CODING_CATEGORIES, fallbackType?: ProjectType): ParseResult {
   let data: unknown;
   try {
     data = JSON.parse(text);
@@ -202,7 +210,7 @@ export function parseRefactorJson(text: string, categories: CategoryDef[] = DEFA
     return {
       rows: [],
       sourceCount: 0,
-      fileError: 'No refactoring items found. Expected a JSON array of items, or an object with an "items" / "tasks" / "refactorings" array.',
+      fileError: 'No work items found. Expected a JSON array of items, or an object with an "items" / "tasks" array.',
     };
   }
   if (candidates.length === 0) {
@@ -214,7 +222,7 @@ export function parseRefactorJson(text: string, categories: CategoryDef[] = DEFA
   const container = data && typeof data === "object" && !Array.isArray(data) ? (data as Record<string, unknown>) : undefined;
   const importedCategories = container ? parseCategoryDefs(container.categories) : [];
   const knownCategories = mergeCategories(categories, importedCategories);
-  const projectType = container ? normalizeProjectType(container.type ?? container.projectType ?? container.board) : undefined;
+  const projectType = (container ? normalizeProjectType(container.type ?? container.projectType ?? container.board) : undefined) ?? fallbackType;
 
   const now = Date.now();
   const rows: ParsedRow[] = candidates.map((raw, index) => {
@@ -253,7 +261,7 @@ export function parseRefactorJson(text: string, categories: CategoryDef[] = DEFA
       category = FALLBACK_CATEGORY_ID;
     }
 
-    const stage = normalizeStage(obj.status ?? obj.stage ?? obj.state) ?? "queued";
+    const stage = normalizeStage(obj.status ?? obj.stage ?? obj.state, projectType) ?? "queued";
 
     const tags = [...toStringArray(obj.tags), ...toStringArray(obj.labels)].map((t) => t.toLowerCase().replace(/\s+/g, "-"));
 
@@ -266,7 +274,8 @@ export function parseRefactorJson(text: string, categories: CategoryDef[] = DEFA
 
     if (errors.length > 0) return {ok: false, index, errors, warnings};
 
-    const item: RefactorItem = {
+    const parentIds = toStringArray(obj.parentIds ?? obj.parent_ids ?? obj.parents);
+    const item: WorkItem = {
       id: uid(),
       title: title!,
       description,
@@ -278,6 +287,7 @@ export function parseRefactorJson(text: string, categories: CategoryDef[] = DEFA
       stage,
       ...blockedFrom(notes),
       notes,
+      parentIds: [...new Set(parentIds)],
       createdAt: now,
       updatedAt: now,
     };

@@ -1,14 +1,15 @@
 import {Fragment, useEffect, useRef, useState} from "react";
-import type {CategoryDef, RefactorItem, Stage, TypeConfig} from "../types";
+import type {CategoryDef, Stage, TypeConfig, WorkItem} from "../types";
 import {categoryMeta} from "../types";
 import {LandingArtwork} from "./LandingArtwork";
 import {EffortDots, RiskPill} from "./ui";
 
 interface BoardProps {
-  items: RefactorItem[];
+  items: WorkItem[];
   totalCount: number;
   categories: CategoryDef[];
   config: TypeConfig;
+  relationshipCounts: Record<string, {parents: number; children: number; completedChildren: number}>;
   onMove: (id: string, stage: Stage, beforeId?: string) => void;
   onSelect: (id: string) => void;
   onAddItem: (stage: Stage) => void;
@@ -33,7 +34,7 @@ function slotBeforeId(container: HTMLElement, clientY: number): string | null {
   return null;
 }
 
-export function Board({items, totalCount, categories, config, onMove, onSelect, onAddItem, onImportClick, onLoadSample}: BoardProps) {
+export function Board({items, totalCount, categories, config, relationshipCounts, onMove, onSelect, onAddItem, onImportClick, onLoadSample}: BoardProps) {
   const [dragId, setDragId] = useState<string | null>(null);
   const [overStage, setOverStage] = useState<Stage | null>(null);
   // Where a placeholder should show while dragging: the target stage and the id
@@ -54,11 +55,17 @@ export function Board({items, totalCount, categories, config, onMove, onSelect, 
     });
 
   if (totalCount === 0) {
-    const valuePoints = config.showFiles
+    const valuePoints = config.id === "plan"
       ? [
-          ["Import without cleanup", "Bring in JSON, file paths, tags, risk, and effort so rough backlog notes become structured work."],
-          ["See what deserves attention", "Risk, blockers, categories, and stages keep refactors from turning into an invisible side quest."],
-          ["Show progress clearly", "Move work from queued to deployed and export the current project when you need to share the plan."],
+          ["Shape the outcome", "Capture goals and initiatives with enough context to make good product decisions."],
+          ["Assign clearly", "Create or link tasks while keeping every delivery thread connected to its plan."],
+          ["See delivery progress", "Direct-child rollups show how assigned work is moving without changing plan status."],
+        ]
+      : config.showFiles
+      ? [
+          ["Import without cleanup", "Bring in JSON, file paths, tags, priority, and effort so rough backlog notes become structured work."],
+          ["See what deserves attention", "Priority, blockers, categories, and stages keep technical work visible and actionable."],
+          ["Show progress clearly", "Move work from queued to deployed and keep implementation connected to its upstream task."],
         ]
       : [
           ["Capture the full list", "Bring in JSON or create tasks one by one with priority, effort, tags, and custom categories."],
@@ -121,7 +128,7 @@ export function Board({items, totalCount, categories, config, onMove, onSelect, 
   };
 
   // A placeholder is pointless when it marks the dragged card's current slot.
-  const isNoOp = (beforeId: string | null, list: RefactorItem[]) => {
+  const isNoOp = (beforeId: string | null, list: WorkItem[]) => {
     if (dragId == null) return false;
     const di = list.findIndex((i) => i.id === dragId);
     if (di < 0) return false; // dragging in from another column — always a real move
@@ -233,6 +240,7 @@ export function Board({items, totalCount, categories, config, onMove, onSelect, 
                     item={item}
                     categories={categories}
                     showFiles={config.showFiles}
+                    relationships={relationshipCounts[item.id]}
                     dragging={dragId === item.id}
                     onSelect={() => onSelect(item.id)}
                     onDragStart={(e) => {
@@ -316,16 +324,17 @@ function ColumnMenu({label, canAdd, onAdd, onCollapse}: ColumnMenuProps) {
 }
 
 interface CardProps {
-  item: RefactorItem;
+  item: WorkItem;
   categories: CategoryDef[];
   showFiles: boolean;
+  relationships?: {parents: number; children: number; completedChildren: number};
   dragging: boolean;
   onSelect: () => void;
   onDragStart: (e: React.DragEvent) => void;
   onDragEnd: () => void;
 }
 
-function Card({item, categories, showFiles, dragging, onSelect, onDragStart, onDragEnd}: CardProps) {
+function Card({item, categories, showFiles, relationships, dragging, onSelect, onDragStart, onDragEnd}: CardProps) {
   const cat = categoryMeta(item.category, categories);
   return (
     <article
@@ -364,6 +373,8 @@ function Card({item, categories, showFiles, dragging, onSelect, onDragStart, onD
           )}
           <EffortDots effort={item.effort} />
           <RiskPill risk={item.risk} />
+          {(relationships?.parents ?? 0) > 0 && <span className="card-rel" title={`${relationships!.parents} linked parent${relationships!.parents === 1 ? "" : "s"}`}>↑{relationships!.parents}</span>}
+          {(relationships?.children ?? 0) > 0 && <span className="card-rel" title={`${relationships!.completedChildren} of ${relationships!.children} children complete`}>↓{relationships!.completedChildren}/{relationships!.children}</span>}
         </span>
       </div>
     </article>

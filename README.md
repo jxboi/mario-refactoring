@@ -46,6 +46,22 @@ The Neon integration injects `POSTGRES_URL` into Vercel. Locally, `vercel env pu
 
 Remote saves are debounced and version-checked. If another session updates the same board first, Chisel pauses cloud sync and surfaces the conflict in the account menu instead of overwriting remote data silently. The latest local state still remains in `localStorage`.
 
+## Deploy to Vercel
+
+After the project is linked and Neon is installed, deploy a preview:
+
+```sh
+vercel
+```
+
+Deploy to production:
+
+```sh
+vercel --prod
+```
+
+Vercel should detect this as a Vite app, run `npm run build`, serve `dist/`, and deploy the `/api` functions. The [vercel.json](vercel.json) rewrite proxies `/gh/*` to GitHub so OAuth device-flow sign-in works in production too.
+
 ## The workflow
 
 | Stage           | Meaning                                  |

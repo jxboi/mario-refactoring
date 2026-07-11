@@ -1,0 +1,11 @@
+{
+  "remoteName": "origin",
+  "projects": [
+    {
+      "id": "prj_HCL3uQqD2PYjOMMnU2YkG7Em7D8X",
+      "name": "mario-refactoring",
+      "directory": ".",
+      "orgId": "team_LdIV9zeTHehCA4qc2BbQewPx"
+    }
+  ]
+}

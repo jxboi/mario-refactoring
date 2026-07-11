@@ -1,4 +1,4 @@
-import type {Category, CategoryDef, Effort, Note, RefactorItem, Risk, Stage} from "../types";
+import type {Category, CategoryDef, Effort, Note, ProjectType, RefactorItem, Risk, Stage} from "../types";
 import {blockedFrom, DEFAULT_CATEGORIES, FALLBACK_CATEGORY_ID, slugifyCategory, uid} from "../types";
 
 export interface ParsedRow {
@@ -15,6 +15,8 @@ export interface ParseResult {
   sourceCount: number;
   /** Category definitions found in the file (e.g. from a Chisel export). */
   categories?: CategoryDef[];
+  /** Board type declared by the file (e.g. from a Chisel export), if recognized. */
+  projectType?: ProjectType;
 }
 
 const CONTAINER_KEYS = ["items", "tasks", "refactorings", "refactors", "entries", "issues", "backlog", "data"];
@@ -88,6 +90,28 @@ function mergeCategories(base: CategoryDef[], extra: CategoryDef[]): CategoryDef
     merged.push(c);
   }
   return merged;
+}
+
+function normalizeProjectType(v: unknown): ProjectType | undefined {
+  if (typeof v !== "string") return undefined;
+  const s = v.toLowerCase().trim();
+  if (["refactoring", "refactor", "refactors", "code", "coding", "codebase"].includes(s)) return "refactoring";
+  if (["task", "tasks", "todo", "todos", "general"].includes(s)) return "task";
+  return undefined;
+}
+
+/** Peek at a file's declared board type without fully parsing its items. */
+export function readProjectType(text: string): ProjectType | undefined {
+  try {
+    const data = JSON.parse(text);
+    if (data && typeof data === "object" && !Array.isArray(data)) {
+      const obj = data as Record<string, unknown>;
+      return normalizeProjectType(obj.type ?? obj.projectType ?? obj.board);
+    }
+  } catch {
+    /* ignore — parseRefactorJson will surface the error */
+  }
+  return undefined;
 }
 
 function normalizeRisk(v: unknown): Risk | undefined {
@@ -187,8 +211,10 @@ export function parseRefactorJson(text: string, categories: CategoryDef[] = DEFA
 
   // A Chisel export carries its own `categories` list; merge those in so items
   // referencing custom categories resolve instead of falling back to "Other".
-  const importedCategories = data && typeof data === "object" && !Array.isArray(data) ? parseCategoryDefs((data as Record<string, unknown>).categories) : [];
+  const container = data && typeof data === "object" && !Array.isArray(data) ? (data as Record<string, unknown>) : undefined;
+  const importedCategories = container ? parseCategoryDefs(container.categories) : [];
   const knownCategories = mergeCategories(categories, importedCategories);
+  const projectType = container ? normalizeProjectType(container.type ?? container.projectType ?? container.board) : undefined;
 
   const now = Date.now();
   const rows: ParsedRow[] = candidates.map((raw, index) => {
@@ -258,5 +284,5 @@ export function parseRefactorJson(text: string, categories: CategoryDef[] = DEFA
     return {ok: true, index, item, errors, warnings};
   });
 
-  return {rows, sourceCount: candidates.length, categories: importedCategories};
+  return {rows, sourceCount: candidates.length, categories: importedCategories, projectType};
 }

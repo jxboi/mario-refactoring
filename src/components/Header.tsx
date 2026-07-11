@@ -1,9 +1,10 @@
 import type {Filters} from "../App";
 import type {GitHubUser} from "../lib/auth";
-import type {Project} from "../lib/store";
+import type {BoardSyncState, Project} from "../lib/store";
 import type {ProjectType, RefactorItem, Risk} from "../types";
 import {RISKS, RISK_LABELS} from "../types";
 import {AccountMenu} from "./AccountMenu";
+import {BrandLogo} from "./BrandLogo";
 import {ProjectMenu} from "./ProjectMenu";
 import {SettingsMenu} from "./SettingsMenu";
 
@@ -23,12 +24,14 @@ interface Props {
   onProjectCreate: (name: string, projectType: ProjectType) => void;
   onProjectRename: (id: string, name: string) => void;
   onProjectDelete: (id: string) => void;
+  onHome: () => void;
   user: GitHubUser;
   isGuest: boolean;
+  sync: BoardSyncState;
   onSignOut: () => void;
 }
 
-export function Header({items, projects, activeId, metricLabel, showFiles, filters, onFilters, onImportClick, onExportClick, onManageCategories, onManageSkills, onProjectSwitch, onProjectCreate, onProjectRename, onProjectDelete, user, isGuest, onSignOut}: Props) {
+export function Header({items, projects, activeId, metricLabel, showFiles, filters, onFilters, onImportClick, onExportClick, onManageCategories, onManageSkills, onProjectSwitch, onProjectCreate, onProjectRename, onProjectDelete, onHome, user, isGuest, sync, onSignOut}: Props) {
   const total = items.filter((i) => i.stage !== "deferred").length;
   const deployed = items.filter((i) => i.stage === "deployed").length;
   const pct = total === 0 ? 0 : Math.round((deployed / total) * 100);
@@ -43,13 +46,7 @@ export function Header({items, projects, activeId, metricLabel, showFiles, filte
     <header className="header">
       <div className="header-row">
         <div className="header-left">
-          <div className="brand">
-            <svg className="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
-              <rect width="32" height="32" rx="7" fill="var(--brand-bg)" />
-              <path d="M9 23 L20 12 L23 15 L12 26 Z M21.5 10.5 L24.5 7.5 L27.5 10.5 L24.5 13.5 Z" fill="var(--accent)" />
-            </svg>
-            <span className="brand-name">Chisel</span>
-          </div>
+          <BrandLogo onClick={onHome} />
           <span className="brand-sep">/</span>
           <ProjectMenu projects={projects} activeId={activeId} onSwitch={onProjectSwitch} onCreate={onProjectCreate} onRename={onProjectRename} onDelete={onProjectDelete} />
         </div>
@@ -73,7 +70,7 @@ export function Header({items, projects, activeId, metricLabel, showFiles, filte
             <SettingsMenu canImport={total > 0} canExport={items.length > 0} onImportClick={onImportClick} onExportClick={onExportClick} onManageCategories={onManageCategories} onManageSkills={onManageSkills} />
           </div>
 
-          <AccountMenu user={user} isGuest={isGuest} onSignOut={onSignOut} />
+          <AccountMenu user={user} isGuest={isGuest} sync={sync} onSignOut={onSignOut} />
         </div>
       </div>
 

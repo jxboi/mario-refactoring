@@ -128,6 +128,7 @@ export const DEFAULT_CATEGORIES: CategoryDef[] = [
   {id: "test", label: "Tests", glyph: "✓"},
   {id: "architecture", label: "Architecture", glyph: "▦"},
   {id: "style", label: "Style", glyph: "❖"},
+  {id: "question", label: "Question", glyph: "?"},
   {id: FALLBACK_CATEGORY_ID, label: "Other", glyph: "·"},
 ];
 
@@ -140,6 +141,7 @@ export const TASK_CATEGORIES: CategoryDef[] = [
   {id: "documentation", label: "Documentation", glyph: "❏"},
   {id: "research", label: "Research", glyph: "⌕"},
   {id: "design", label: "Design", glyph: "✐"},
+  {id: "question", label: "Question", glyph: "?"},
   {id: FALLBACK_CATEGORY_ID, label: "Other", glyph: "·"},
 ];
 

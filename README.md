@@ -9,7 +9,15 @@ npm install
 npm run dev      # https://localhost:5180
 ```
 
+Use Node 20 LTS or Node 22+; Node 19 is not supported by this dependency set.
+
 `npm run build` produces a static production build in `dist/`.
+
+For database-backed sync, run through Vercel so the `/api` functions are served too:
+
+```sh
+npm run dev:vercel
+```
 
 ## Sign in with GitHub
 
@@ -20,6 +28,39 @@ Chisel gates the board behind a GitHub sign-in and keeps each account's boards s
 3. Restart `npm run dev` and click **Sign in with GitHub** — you'll get a short code to enter at github.com/login/device.
 
 Sign-in uses the [OAuth Device Flow](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps#device-flow), so no client secret is needed. GitHub's device/token endpoints don't send CORS headers, so the dev server proxies them (the `/gh` entry in [vite.config.ts](vite.config.ts)). A production deployment needs the same proxy in front of `github.com`.
+
+## Persistent storage
+
+GitHub is used for identity. Signed-in boards sync through a Vercel Function at `/api/board`, which verifies the GitHub token server-side and stores the board document in Neon Postgres. Guest boards remain local-only.
+
+Provision Neon through the Vercel Marketplace:
+
+```sh
+vercel link
+vercel integration add neon
+vercel env pull .env.local --yes
+npm run dev:vercel
+```
+
+The Neon integration injects `POSTGRES_URL` into Vercel. Locally, `vercel env pull` writes it to `.env.local`. The API creates the required table automatically; the same schema is also captured in [db/schema.sql](db/schema.sql).
+
+Remote saves are debounced and version-checked. If another session updates the same board first, Chisel pauses cloud sync and surfaces the conflict in the account menu instead of overwriting remote data silently. The latest local state still remains in `localStorage`.
+
+## Deploy to Vercel
+
+After the project is linked and Neon is installed, deploy a preview:
+
+```sh
+vercel
+```
+
+Deploy to production:
+
+```sh
+vercel --prod
+```
+
+Vercel should detect this as a Vite app, run `npm run build`, serve `dist/`, and deploy the `/api` functions. The [vercel.json](vercel.json) rewrite proxies `/gh/*` to GitHub so OAuth device-flow sign-in works in production too.
 
 ## The workflow
 
@@ -53,6 +94,6 @@ Only a title is required — everything else gets sensible defaults.
 - The board is grouped visually: Triage/Scoped recede, the amber **in-flight zone** (Refactoring + Verifying) is where the eye lands, Landed is dimmed.
 - Drag cards between stages; click a card to open the detail drawer and edit metadata, mark blockers, or add notes. The **＋** in any column header (or "New item" on an empty board) creates an item by hand.
 - Search across titles, files, and tags; filter by risk chips, or click the red blocked count in the header to see only blocked items.
-- State persists in `localStorage` — no backend, nothing leaves your machine.
+- State persists instantly in `localStorage`; signed-in GitHub accounts also sync their board across devices through Vercel + Neon Postgres.
 
 Built with React + TypeScript + Vite. No UI framework, no state library — one reducer, one stylesheet.

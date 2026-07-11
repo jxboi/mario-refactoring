@@ -39,7 +39,7 @@ export default function App() {
 }
 
 function BoardApp({session, onSignOut, initialProjectName, onInitialProjectNameApplied}: {session: Session; onSignOut: () => void; initialProjectName: string | null; onInitialProjectNameApplied: () => void}) {
-  const {state, dispatch} = useBoard(boardScope(session));
+  const {state, dispatch, sync} = useBoard(boardScope(session), session.kind === "github" ? session.token : null);
   const skills = useSkills(boardScope(session));
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -229,6 +229,7 @@ function BoardApp({session, onSignOut, initialProjectName, onInitialProjectNameA
         }}
         user={session.user}
         isGuest={session.kind === "guest"}
+        sync={sync}
         onSignOut={onSignOut}
         onProjectSwitch={(id) => {
           dispatch({type: "project-switch", id});

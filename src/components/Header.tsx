@@ -1,6 +1,6 @@
 import type {Filters} from "../App";
 import type {GitHubUser} from "../lib/auth";
-import type {Project} from "../lib/store";
+import type {BoardSyncState, Project} from "../lib/store";
 import type {ProjectType, RefactorItem, Risk} from "../types";
 import {RISKS, RISK_LABELS} from "../types";
 import {AccountMenu} from "./AccountMenu";
@@ -27,10 +27,11 @@ interface Props {
   onHome: () => void;
   user: GitHubUser;
   isGuest: boolean;
+  sync: BoardSyncState;
   onSignOut: () => void;
 }
 
-export function Header({items, projects, activeId, metricLabel, showFiles, filters, onFilters, onImportClick, onExportClick, onManageCategories, onManageSkills, onProjectSwitch, onProjectCreate, onProjectRename, onProjectDelete, onHome, user, isGuest, onSignOut}: Props) {
+export function Header({items, projects, activeId, metricLabel, showFiles, filters, onFilters, onImportClick, onExportClick, onManageCategories, onManageSkills, onProjectSwitch, onProjectCreate, onProjectRename, onProjectDelete, onHome, user, isGuest, sync, onSignOut}: Props) {
   const total = items.filter((i) => i.stage !== "deferred").length;
   const deployed = items.filter((i) => i.stage === "deployed").length;
   const pct = total === 0 ? 0 : Math.round((deployed / total) * 100);
@@ -69,7 +70,7 @@ export function Header({items, projects, activeId, metricLabel, showFiles, filte
             <SettingsMenu canImport={total > 0} canExport={items.length > 0} onImportClick={onImportClick} onExportClick={onExportClick} onManageCategories={onManageCategories} onManageSkills={onManageSkills} />
           </div>
 
-          <AccountMenu user={user} isGuest={isGuest} onSignOut={onSignOut} />
+          <AccountMenu user={user} isGuest={isGuest} sync={sync} onSignOut={onSignOut} />
         </div>
       </div>
 

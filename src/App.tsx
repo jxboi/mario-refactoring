@@ -7,10 +7,11 @@ import {ImportModal} from "./components/ImportModal";
 import {SignInScreen} from "./components/SignIn";
 import {SkillsManager} from "./components/SkillsManager";
 import {ToastHost, useToasts} from "./components/Toast";
-import {useAuth, boardScope, guestSession, type Session} from "./lib/auth";
-import {activeProject, DEFAULT_PROJECT_NAME, useBoard} from "./lib/store";
-import {exportProject} from "./lib/export";
-import {useSkills} from "./lib/skills";
+import {WorkspaceImportModal} from "./components/WorkspaceImportModal";
+import {boardScope, guestSession, type Session, useAuth} from "./lib/auth";
+import {exportProject, exportWorkspace, isWorkspaceExport} from "./lib/export";
+import {NEW_SKILL_BODY, type Skill} from "./lib/skills";
+import {activeProject, activeWorkspace, DEFAULT_PROJECT_NAME, DEFAULT_WORKSPACE_NAME, useBoard} from "./lib/store";
 import type {CategoryDef, ProjectType, RefactorItem, Risk, Stage} from "./types";
 import {typeConfig, uid} from "./types";
 
@@ -24,157 +25,162 @@ const EMPTY_FILTERS: Filters = {query: "", risks: new Set(), blockedOnly: false}
 
 export default function App() {
   const {session, signIn, signOut} = useAuth();
-  const [initialProjectName, setInitialProjectName] = useState<string | null>(null);
+  const [initialWorkspaceName, setInitialWorkspaceName] = useState<string | null>(null);
 
-  const createGuestProject = useCallback(
-    (name: string) => {
-      setInitialProjectName(name.trim() || DEFAULT_PROJECT_NAME);
-      signIn(guestSession());
-    },
-    [signIn],
-  );
+  const createGuestWorkspace = useCallback((name: string) => {
+    setInitialWorkspaceName(name.trim() || DEFAULT_WORKSPACE_NAME);
+    signIn(guestSession());
+  }, [signIn]);
 
-  if (!session) return <SignInScreen onCreateProject={createGuestProject} onSignIn={signIn} />;
-  return <BoardApp session={session} onSignOut={signOut} initialProjectName={initialProjectName} onInitialProjectNameApplied={() => setInitialProjectName(null)} />;
+  if (!session) return <SignInScreen onCreateWorkspace={createGuestWorkspace} onSignIn={signIn} />;
+  return <BoardApp session={session} onSignOut={signOut} initialWorkspaceName={initialWorkspaceName} onInitialWorkspaceNameApplied={() => setInitialWorkspaceName(null)} />;
 }
 
-function BoardApp({session, onSignOut, initialProjectName, onInitialProjectNameApplied}: {session: Session; onSignOut: () => void; initialProjectName: string | null; onInitialProjectNameApplied: () => void}) {
+interface BoardAppProps {
+  session: Session;
+  onSignOut: () => void;
+  initialWorkspaceName: string | null;
+  onInitialWorkspaceNameApplied: () => void;
+}
+
+function BoardApp({session, onSignOut, initialWorkspaceName, onInitialWorkspaceNameApplied}: BoardAppProps) {
   const {state, dispatch, sync} = useBoard(boardScope(session), session.kind === "github" ? session.token : null);
-  const skills = useSkills(boardScope(session));
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [importOpen, setImportOpen] = useState(false);
   const [categoriesOpen, setCategoriesOpen] = useState(false);
   const [skillsOpen, setSkillsOpen] = useState(false);
   const [droppedFile, setDroppedFile] = useState<File | null>(null);
+  const [workspaceImportFile, setWorkspaceImportFile] = useState<File | null>(null);
   const [fileDragDepth, setFileDragDepth] = useState(0);
+  const workspaceFileInputRef = useRef<HTMLInputElement>(null);
+  const initialWorkspaceAppliedRef = useRef(false);
   const {toasts, pushToast, dismissToast} = useToasts();
-  const initialProjectAppliedRef = useRef(false);
 
+  const workspace = activeWorkspace(state);
   const project = activeProject(state);
   const items = project.items;
   const config = typeConfig(project.type);
-  const categories = state.categories[project.type];
+  const categories = workspace.categories[project.type];
 
-  // How many items across every project of the same type use each category (for the manager).
+  const resetTransient = useCallback(() => {
+    setSelectedId(null);
+    setFilters(EMPTY_FILTERS);
+    setImportOpen(false);
+    setCategoriesOpen(false);
+    setSkillsOpen(false);
+    setDroppedFile(null);
+    setWorkspaceImportFile(null);
+  }, []);
+
   const categoryCounts = useMemo(() => {
     const counts: Record<string, number> = {};
-    for (const p of state.projects) {
-      if (p.type !== project.type) continue;
-      for (const i of p.items) counts[i.category] = (counts[i.category] ?? 0) + 1;
+    for (const candidate of workspace.projects) {
+      if (candidate.type !== project.type) continue;
+      for (const item of candidate.items) counts[item.category] = (counts[item.category] ?? 0) + 1;
     }
     return counts;
-  }, [state.projects, project.type]);
+  }, [workspace.projects, project.type]);
 
-  const selected = useMemo(() => items.find((i) => i.id === selectedId) ?? null, [items, selectedId]);
+  const selected = useMemo(() => items.find((item) => item.id === selectedId) ?? null, [items, selectedId]);
 
   const filtered = useMemo(() => {
-    const q = filters.query.trim().toLowerCase();
+    const query = filters.query.trim().toLowerCase();
     return items.filter((item) => {
       if (filters.blockedOnly && !item.blocked) return false;
       if (filters.risks.size > 0 && !filters.risks.has(item.risk)) return false;
-      if (q) {
-        const hay = [item.title, item.description, ...item.files, ...item.tags].join(" ").toLowerCase();
-        if (!hay.includes(q)) return false;
-      }
+      if (query && ![item.title, item.description, ...item.files, ...item.tags].join(" ").toLowerCase().includes(query)) return false;
       return true;
     });
   }, [items, filters]);
 
-  const handleImport = useCallback(
-    (imported: RefactorItem[], importedCategories: CategoryDef[], projectType: ProjectType) => {
-      // Send the items to a project of the type the file declared: switch to an
-      // existing one, or spin up a fresh project when none of that type exists.
-      if (projectType !== project.type) {
-        const existing = state.projects.find((p) => p.type === projectType);
-        if (existing) {
-          dispatch({type: "project-switch", id: existing.id});
-        } else {
-          dispatch({type: "project-create", name: `${typeConfig(projectType).label} import`, projectType});
-        }
-        setSelectedId(null);
-        setFilters(EMPTY_FILTERS);
-      }
-      if (importedCategories.length > 0) dispatch({type: "categories-merge", categories: importedCategories});
-      dispatch({type: "import", items: imported});
-      setImportOpen(false);
-      setDroppedFile(null);
-      const targetConfig = typeConfig(projectType);
-      pushToast(`Imported ${imported.length} ${imported.length === 1 ? targetConfig.itemNoun : targetConfig.itemNounPlural}`, "success");
-    },
-    [dispatch, pushToast, project.type, state.projects],
-  );
+  const handleImport = useCallback((imported: RefactorItem[], importedCategories: CategoryDef[], projectType: ProjectType) => {
+    if (projectType !== project.type) {
+      const existing = workspace.projects.find((candidate) => candidate.type === projectType);
+      if (existing) dispatch({type: "project-switch", id: existing.id});
+      else dispatch({type: "project-create", name: `${typeConfig(projectType).label} import`, projectType});
+      setSelectedId(null);
+      setFilters(EMPTY_FILTERS);
+    }
+    if (importedCategories.length > 0) dispatch({type: "categories-merge", categories: importedCategories});
+    dispatch({type: "import", items: imported});
+    setImportOpen(false);
+    setDroppedFile(null);
+    const targetConfig = typeConfig(projectType);
+    pushToast(`Imported ${imported.length} ${imported.length === 1 ? targetConfig.itemNoun : targetConfig.itemNounPlural}`, "success");
+  }, [dispatch, project.type, pushToast, workspace.projects]);
 
-  const handleAddItem = useCallback(
-    (stage: Stage) => {
-      const now = Date.now();
-      const item: RefactorItem = {
-        id: uid(),
-        title: "",
-        description: "",
-        files: [],
-        risk: "medium",
-        effort: "medium",
-        category: "other",
-        tags: [],
-        stage,
-        blocked: false,
-        blockReason: "",
-        notes: [],
-        createdAt: now,
-        updatedAt: now,
-      };
-      dispatch({type: "add", item});
-      setSelectedId(item.id);
-    },
-    [dispatch],
-  );
+  const handleAddItem = useCallback((stage: Stage) => {
+    const now = Date.now();
+    const item: RefactorItem = {
+      id: uid(),
+      title: "",
+      description: "",
+      files: [],
+      risk: "medium",
+      effort: "medium",
+      category: "other",
+      tags: [],
+      stage,
+      blocked: false,
+      blockReason: "",
+      notes: [],
+      createdAt: now,
+      updatedAt: now,
+    };
+    dispatch({type: "add", item});
+    setSelectedId(item.id);
+  }, [dispatch]);
+
+  const createSkill = (): Skill => {
+    const now = Date.now();
+    const skill: Skill = {id: uid(), name: "Untitled skill", description: "", body: NEW_SKILL_BODY, createdAt: now, updatedAt: now};
+    dispatch({type: "skill-create", skill});
+    return skill;
+  };
 
   useEffect(() => {
-    if (!initialProjectName || initialProjectAppliedRef.current) return;
-    initialProjectAppliedRef.current = true;
+    if (!initialWorkspaceName || initialWorkspaceAppliedRef.current) return;
+    initialWorkspaceAppliedRef.current = true;
+    const name = initialWorkspaceName.trim() || DEFAULT_WORKSPACE_NAME;
+    const pristine = state.workspaces.length === 1 && workspace.name === DEFAULT_WORKSPACE_NAME && workspace.projects.length === 1 && project.name === DEFAULT_PROJECT_NAME && project.items.length === 0;
+    if (pristine) dispatch({type: "workspace-rename", id: workspace.id, name});
+    else dispatch({type: "workspace-create", name});
+    resetTransient();
+    onInitialWorkspaceNameApplied();
+  }, [dispatch, initialWorkspaceName, onInitialWorkspaceNameApplied, project.items.length, project.name, resetTransient, state.workspaces.length, workspace]);
 
-    const name = initialProjectName.trim() || DEFAULT_PROJECT_NAME;
-    const current = activeProject(state);
-    if (state.projects.length === 1 && current.items.length === 0 && current.name === DEFAULT_PROJECT_NAME) {
-      dispatch({type: "project-rename", id: current.id, name});
-    } else {
-      dispatch({type: "project-create", name, projectType: "refactoring"});
-    }
-
-    setSelectedId(null);
-    setFilters(EMPTY_FILTERS);
-    onInitialProjectNameApplied();
-  }, [dispatch, initialProjectName, onInitialProjectNameApplied, state]);
-
-  // Window-level JSON file drag-and-drop: dropping a file anywhere opens the import flow.
   const depthRef = useRef(0);
   useEffect(() => {
-    const isFileDrag = (e: DragEvent) => e.dataTransfer?.types.includes("Files") ?? false;
-    const onDragEnter = (e: DragEvent) => {
-      if (!isFileDrag(e)) return;
-      e.preventDefault();
+    const isFileDrag = (event: DragEvent) => event.dataTransfer?.types.includes("Files") ?? false;
+    const onDragEnter = (event: DragEvent) => {
+      if (!isFileDrag(event)) return;
+      event.preventDefault();
       depthRef.current += 1;
       setFileDragDepth(depthRef.current);
     };
-    const onDragOver = (e: DragEvent) => {
-      if (isFileDrag(e)) e.preventDefault();
+    const onDragOver = (event: DragEvent) => {
+      if (isFileDrag(event)) event.preventDefault();
     };
-    const onDragLeave = (e: DragEvent) => {
-      if (!isFileDrag(e)) return;
+    const onDragLeave = (event: DragEvent) => {
+      if (!isFileDrag(event)) return;
       depthRef.current = Math.max(0, depthRef.current - 1);
       setFileDragDepth(depthRef.current);
     };
-    const onDrop = (e: DragEvent) => {
-      if (!isFileDrag(e)) return;
-      e.preventDefault();
+    const onDrop = (event: DragEvent) => {
+      if (!isFileDrag(event)) return;
+      event.preventDefault();
       depthRef.current = 0;
       setFileDragDepth(0);
-      const file = e.dataTransfer?.files[0];
-      if (file) {
-        setDroppedFile(file);
-        setImportOpen(true);
-      }
+      const file = event.dataTransfer?.files[0];
+      if (!file) return;
+      void file.text().then((text) => {
+        if (isWorkspaceExport(text)) setWorkspaceImportFile(file);
+        else {
+          setDroppedFile(file);
+          setImportOpen(true);
+        }
+      });
     };
     window.addEventListener("dragenter", onDragEnter);
     window.addEventListener("dragover", onDragOver);
@@ -189,25 +195,32 @@ function BoardApp({session, onSignOut, initialProjectName, onInitialProjectNameA
   }, []);
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setSelectedId(null);
-        setImportOpen(false);
-        setCategoriesOpen(false);
-        setSkillsOpen(false);
-        setDroppedFile(null);
-      }
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") resetTransient();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [resetTransient]);
 
   return (
     <div className="app">
+      <input
+        ref={workspaceFileInputRef}
+        hidden
+        type="file"
+        accept=".json,application/json"
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          if (file) setWorkspaceImportFile(file);
+          event.target.value = "";
+        }}
+      />
       <Header
         items={items}
-        projects={state.projects}
-        activeId={state.activeId}
+        projects={workspace.projects}
+        activeProjectId={workspace.activeProjectId}
+        workspaces={state.workspaces}
+        activeWorkspaceId={state.activeWorkspaceId}
         metricLabel={config.metricLabel}
         showFiles={config.showFiles}
         filters={filters}
@@ -215,25 +228,40 @@ function BoardApp({session, onSignOut, initialProjectName, onInitialProjectNameA
         onImportClick={() => setImportOpen(true)}
         onExportClick={() => {
           exportProject(project, categories);
-          pushToast(`Exported “${project.name}” (${items.length} ${items.length === 1 ? config.itemNoun : config.itemNounPlural})`, "success");
+          pushToast(`Exported “${project.name}”`, "success");
+        }}
+        onImportWorkspaceClick={() => workspaceFileInputRef.current?.click()}
+        onExportWorkspaceClick={() => {
+          exportWorkspace(workspace);
+          pushToast(`Exported workspace “${workspace.name}”`, "success");
         }}
         onManageCategories={() => setCategoriesOpen(true)}
         onManageSkills={() => setSkillsOpen(true)}
-        onHome={() => {
-          setSelectedId(null);
-          setFilters(EMPTY_FILTERS);
-          setImportOpen(false);
-          setCategoriesOpen(false);
-          setSkillsOpen(false);
-          setDroppedFile(null);
-        }}
+        onHome={resetTransient}
         user={session.user}
         isGuest={session.kind === "guest"}
         sync={sync}
         onSignOut={onSignOut}
+        onWorkspaceSwitch={(id) => {
+          dispatch({type: "workspace-switch", id});
+          resetTransient();
+        }}
+        onWorkspaceCreate={(name) => {
+          dispatch({type: "workspace-create", name});
+          resetTransient();
+          pushToast(`Workspace “${name}” created`, "success");
+        }}
+        onWorkspaceRename={(id, name) => dispatch({type: "workspace-rename", id, name})}
+        onWorkspaceDelete={(id) => {
+          const doomed = state.workspaces.find((candidate) => candidate.id === id);
+          dispatch({type: "workspace-delete", id});
+          resetTransient();
+          pushToast(`Workspace “${doomed?.name ?? ""}” deleted`, "info");
+        }}
         onProjectSwitch={(id) => {
           dispatch({type: "project-switch", id});
           setSelectedId(null);
+          setFilters(EMPTY_FILTERS);
         }}
         onProjectCreate={(name, projectType) => {
           dispatch({type: "project-create", name, projectType});
@@ -243,7 +271,7 @@ function BoardApp({session, onSignOut, initialProjectName, onInitialProjectNameA
         }}
         onProjectRename={(id, name) => dispatch({type: "project-rename", id, name})}
         onProjectDelete={(id) => {
-          const doomed = state.projects.find((p) => p.id === id);
+          const doomed = workspace.projects.find((candidate) => candidate.id === id);
           dispatch({type: "project-delete", id});
           setSelectedId(null);
           pushToast(`Project “${doomed?.name ?? ""}” deleted`, "info");
@@ -260,12 +288,12 @@ function BoardApp({session, onSignOut, initialProjectName, onInitialProjectNameA
         onImportClick={() => setImportOpen(true)}
         onLoadSample={() => {
           if (project.type === "task") {
-            import("./lib/sample").then(({sampleTasks}) => {
+            void import("./lib/sample").then(({sampleTasks}) => {
               dispatch({type: "import", items: sampleTasks()});
               pushToast("Loaded sample task list", "success");
             });
           } else {
-            import("./lib/sample").then(({sampleItems}) => {
+            void import("./lib/sample").then(({sampleItems}) => {
               dispatch({type: "import", items: sampleItems()});
               pushToast("Loaded sample refactoring backlog", "success");
             });
@@ -294,13 +322,24 @@ function BoardApp({session, onSignOut, initialProjectName, onInitialProjectNameA
       {importOpen && (
         <ImportModal
           initialFile={droppedFile}
-          categoriesByType={state.categories}
+          categoriesByType={workspace.categories}
           defaultType={project.type}
           onClose={() => {
             setImportOpen(false);
             setDroppedFile(null);
           }}
           onImport={handleImport}
+        />
+      )}
+      {workspaceImportFile && (
+        <WorkspaceImportModal
+          file={workspaceImportFile}
+          onClose={() => setWorkspaceImportFile(null)}
+          onImport={(importedWorkspace) => {
+            dispatch({type: "workspace-import", workspace: importedWorkspace});
+            resetTransient();
+            pushToast(`Imported workspace “${importedWorkspace.name}”`, "success");
+          }}
         />
       )}
       {categoriesOpen && (
@@ -318,12 +357,22 @@ function BoardApp({session, onSignOut, initialProjectName, onInitialProjectNameA
           onClose={() => setCategoriesOpen(false)}
         />
       )}
-      {skillsOpen && <SkillsManager skills={skills.skills} categories={categories} config={config} onCreate={skills.createSkill} onUpdate={skills.updateSkill} onDelete={skills.deleteSkill} onClose={() => setSkillsOpen(false)} />}
-      {fileDragDepth > 0 && !importOpen && (
+      {skillsOpen && (
+        <SkillsManager
+          skills={workspace.skills}
+          categories={categories}
+          config={config}
+          onCreate={createSkill}
+          onUpdate={(id, patch) => dispatch({type: "skill-update", id, patch})}
+          onDelete={(id) => dispatch({type: "skill-delete", id})}
+          onClose={() => setSkillsOpen(false)}
+        />
+      )}
+      {fileDragDepth > 0 && !importOpen && !workspaceImportFile && (
         <div className="drop-veil">
           <div className="drop-veil-inner">
             <span className="drop-veil-icon">⇣</span>
-            Drop your JSON file to import {config.itemNounPlural}
+            Drop project, item, or workspace JSON to import
           </div>
         </div>
       )}

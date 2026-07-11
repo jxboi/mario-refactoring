@@ -2,12 +2,12 @@
 
 A focused board for steadily chipping away at code refactors or everyday tasks. Create items by hand, import structured JSON, or use a reusable AI prompt to turn a codebase audit into an actionable board.
 
-Chisel supports two project types:
+Chisel organizes work as **workspaces → projects → items**. A workspace can hold any mix of the two project types:
 
 - **Coding** boards track refactors with risk, effort, affected files, and code-focused categories.
 - **Task** boards track general work with priority, effort, and task-focused categories.
 
-Projects stay separate, while categories and reusable skills are shared between projects of the same type.
+Projects stay separate. Categories are shared between projects of the same type within a workspace, and reusable skills are available throughout that workspace.
 
 ## Run it
 
@@ -26,6 +26,8 @@ For database-backed sync, run through Vercel so the `/api` functions are served 
 npm run dev:vercel
 ```
 
+Plain `npm run dev` is a Vite-only, local-storage workflow: it does not execute the `/api/board` Vercel Function. Use `npm run dev:vercel` when testing GitHub account sync locally.
+
 ## Sign in with GitHub
 
 Chisel gates the board behind a GitHub sign-in and keeps each account's boards separate.
@@ -38,7 +40,7 @@ Sign-in uses the [OAuth Device Flow](https://docs.github.com/en/apps/oauth-apps/
 
 ## Persistent storage
 
-GitHub is used for identity. Signed-in boards sync through a Vercel Function at `/api/board`, which verifies the GitHub token server-side and stores the board document in Neon Postgres. Guest boards remain local-only.
+GitHub is used for identity. Signed-in workspaces sync together through a Vercel Function at `/api/board`, which verifies the GitHub token server-side and stores the account document in Neon Postgres. Guest workspaces remain local-only.
 
 Provision Neon through the Vercel Marketplace:
 
@@ -51,7 +53,9 @@ npm run dev:vercel
 
 The Neon integration injects `POSTGRES_URL` into Vercel. Locally, `vercel env pull` writes it to `.env.local`. The API creates the required table automatically; the same schema is also captured in [db/schema.sql](db/schema.sql).
 
-Remote saves are debounced and version-checked. If another session updates the same board first, Chisel pauses cloud sync and surfaces the conflict in the account menu instead of overwriting remote data silently. The latest local state still remains in `localStorage`.
+Remote saves are debounced and version-checked. If another session updates the account's workspaces first, Chisel pauses cloud sync and surfaces the conflict in the account menu instead of overwriting remote data silently. The latest local state still remains in `localStorage`.
+
+Existing `chisel.projects.v2` browser data and legacy cloud board documents migrate automatically into a workspace named **My workspace**. Existing locally saved skills move into that workspace as part of the migration.
 
 ## Deploy to Vercel
 
@@ -95,22 +99,24 @@ The parser is deliberately forgiving:
 
 Only a title is required — everything else gets sensible defaults.
 
-An exported project can be imported again without losing its project type or custom categories. If the file belongs to a different board type, Chisel switches to a matching project or creates one for the import.
+An exported project can be imported again without losing its project type or custom categories. If the file belongs to a different board type, Chisel switches to a matching project in the active workspace or creates one for the import.
+
+Use **Settings → Export workspace** for a complete, versioned backup containing every project, category, and skill in the active workspace. **Import workspace** always creates and activates a separate copy with fresh internal IDs; it never overwrites existing data. Workspace export files can also be dragged onto the page.
 
 ## Skills
 
 Skills are reusable Markdown prompts for AI coding agents. Open **Settings → Skills** to edit a prompt, copy it, or download it as a `.md` file. Chisel appends the current board's categories and JSON schema automatically, so the agent's response can be dropped straight into the importer.
 
-The included skills cover a general refactoring audit and test-gap discovery. Skills are stored per guest or GitHub account in the browser.
+The included skills cover a general refactoring audit, dead-code discovery, and test-gap discovery. Skills belong to the active workspace and are included in browser persistence, cloud sync, and workspace exports.
 
 ## Features
 
-- Create, rename, delete, and switch between independent Coding and Task projects.
+- Create, rename, delete, and switch between workspaces, each containing independent Coding and Task projects.
 - Drag cards between stages and reorder them within a column.
 - Edit metadata, add notes, and mark or resolve blockers in the detail drawer.
 - Search titles, descriptions, files, and tags; filter by risk/priority or blocked state.
 - Add, rename, remove, and assign glyphs to categories from **Settings → Categories**.
-- Export the active project as round-trippable JSON from **Settings → Export JSON**.
-- Keep guest data in `localStorage`, or sign in with GitHub to sync boards across devices through Vercel and Neon Postgres.
+- Export either the active project or the complete active workspace as round-trippable JSON.
+- Keep guest data in `localStorage`, or sign in with GitHub to sync workspaces across devices through Vercel and Neon Postgres.
 
 Built with React + TypeScript + Vite. No UI framework, no state library — one reducer, one stylesheet.

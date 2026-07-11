@@ -1,7 +1,7 @@
-import type {BoardState} from "./store";
+import type {AppState} from "./store";
 
 export interface RemoteBoardSnapshot {
-  state: BoardState | null;
+  state: AppState | null;
   version: number;
   updatedAt: string | null;
 }
@@ -24,7 +24,7 @@ export class RemoteBoardConflict extends RemoteBoardError {
 function snapshotFrom(value: unknown): RemoteBoardSnapshot {
   const data = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
   return {
-    state: (data.state ?? null) as BoardState | null,
+    state: (data.state ?? null) as AppState | null,
     version: typeof data.version === "number" ? data.version : 0,
     updatedAt: typeof data.updatedAt === "string" ? data.updatedAt : null,
   };
@@ -32,7 +32,19 @@ function snapshotFrom(value: unknown): RemoteBoardSnapshot {
 
 async function parseResponse(res: Response): Promise<unknown> {
   const text = await res.text();
-  return text ? JSON.parse(text) : null;
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    const contentType = res.headers.get("content-type") ?? "";
+    const viteServedApiSource = contentType.includes("text/javascript") || /^\s*import\s/.test(text);
+    throw new RemoteBoardError(
+      viteServedApiSource
+        ? "Cloud sync is unavailable in the Vite-only dev server. Run npm run dev:vercel."
+        : `Cloud sync returned an invalid response (${res.status}).`,
+      res.ok ? 502 : res.status,
+    );
+  }
 }
 
 async function requestBoard(token: string, init?: RequestInit): Promise<RemoteBoardSnapshot> {
@@ -62,7 +74,7 @@ export function fetchRemoteBoard(token: string): Promise<RemoteBoardSnapshot> {
   return requestBoard(token);
 }
 
-export function saveRemoteBoard(token: string, state: BoardState, baseVersion: number): Promise<RemoteBoardSnapshot> {
+export function saveRemoteBoard(token: string, state: AppState, baseVersion: number): Promise<RemoteBoardSnapshot> {
   return requestBoard(token, {
     method: "PUT",
     headers: {"Content-Type": "application/json"},

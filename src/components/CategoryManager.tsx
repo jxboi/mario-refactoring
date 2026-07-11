@@ -48,7 +48,7 @@ export function CategoryManager({categories, counts, typeLabel, onAdd, onRename,
           </button>
         </div>
 
-        <p className="modal-intro">Categories are shared across all your {typeLabel} projects. Removing one files its items under “Other”.</p>
+        <p className="modal-intro">Categories are shared across {typeLabel} projects in this workspace. Removing one files its items under “Other”.</p>
 
         <div className="cat-manage-list">
           {categories.map((c) => {

@@ -83,7 +83,7 @@ export function Board({items, totalCount, categories, config, relationshipCounts
             <div className="front-actions">
               {config.id === "plan" ? (
                 <>
-                  <button className="btn btn-primary" onClick={() => onAddItem("queued")}>+ New item</button>
+                  <button className="btn btn-primary" onClick={() => onAddItem("queued")}>+ New Project</button>
                   <button className="btn btn-ghost" onClick={onImportClick}>
                     <span className="btn-icon">⇡</span> Import JSON
                   </button>

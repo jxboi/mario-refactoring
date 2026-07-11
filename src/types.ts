@@ -220,7 +220,7 @@ export interface TypeConfig {
 export const TYPE_CONFIGS: Record<ProjectType, TypeConfig> = {
   plan: {
     id: "plan",
-    label: "Plan",
+    label: "Project",
     itemNoun: "plan item",
     itemNounPlural: "plan items",
     stages: PLAN_STAGES,

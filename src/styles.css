@@ -3887,7 +3887,7 @@ button.cat-manage-glyph:hover {
   }
 }
 
-@media (max-width: 480px) {
+@media (max-width: 640px) {
   .proj-btn .proj-type-badge {
     display: none;
   }

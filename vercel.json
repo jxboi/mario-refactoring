@@ -1,3 +1,4 @@
 {
-  "$schema": "https://openapi.vercel.sh/vercel.json"
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "devCommand": "npm run dev:vite -- --port $PORT"
 }

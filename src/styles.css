@@ -1841,6 +1841,15 @@ code,
   border-color: var(--accent);
 }
 
+select.input {
+  appearance: none;
+  padding-right: 36px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 6l4 4 4-4' fill='none' stroke='%23848c9a' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 14px 14px;
+}
+
 .relationships {
   padding-top: 4px;
 }
@@ -1857,16 +1866,18 @@ code,
 }
 
 .relation-picker-btn {
-  width: 24px;
-  height: 24px;
+  width: 38px;
+  height: 36px;
   display: inline-grid;
   place-items: center;
   flex-shrink: 0;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   color: var(--text-faint);
   background: var(--surface);
-  font-size: 14px;
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1;
 }
 
 .relation-picker-btn:hover,

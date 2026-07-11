@@ -69,7 +69,9 @@ export function ProjectMenu({projects, activeId, onSwitch, onCreate, onRename, o
       <button className={`proj-btn${open ? " open" : ""}`} onClick={() => setOpen((o) => !o)} aria-haspopup="menu" aria-expanded={open} title="Switch or create project">
         <span className="proj-name">{active?.name ?? "Project"}</span>
         {active && <span className={`proj-type-badge type-${active.type}`}>{typeConfig(active.type).label}</span>}
-        <span className="proj-caret">▾</span>
+        <svg className="settings-caret" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+          <path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
       </button>
 
       {open && (

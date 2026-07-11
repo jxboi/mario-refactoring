@@ -61,7 +61,9 @@ export function WorkspaceMenu({workspaces, activeId, onSwitch, onCreate, onRenam
     <div className="proj workspace-switcher" ref={rootRef}>
       <button className={`proj-btn workspace-btn${open ? " open" : ""}`} onClick={() => setOpen((value) => !value)} aria-haspopup="menu" aria-expanded={open} title="Switch or create workspace">
         <span className="proj-name">{active?.name ?? "Workspace"}</span>
-        <span className="proj-caret">▾</span>
+        <svg className="settings-caret" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+          <path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
       </button>
       {open && (
         <div className="proj-menu workspace-menu" role="menu">

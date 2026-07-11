@@ -1,6 +1,6 @@
-import {type FormEvent, useCallback, useEffect, useRef, useState} from "react";
+import {type FormEvent, useCallback, useState} from "react";
 import {DEFAULT_WORKSPACE_NAME} from "../lib/store";
-import {type DeviceCode, type Session, fetchUser, githubConfigured, isCancelled, pollForToken, requestDeviceCode} from "../lib/auth";
+import {githubConfigured} from "../lib/auth";
 import {BrandLogo} from "./BrandLogo";
 import {LandingArtwork} from "./LandingArtwork";
 
@@ -10,15 +10,8 @@ const GitHubMark = () => (
   </svg>
 );
 
-export function SignInScreen({onCreateWorkspace, onSignIn}: {onCreateWorkspace: (name: string) => void; onSignIn: (session: Session) => void}) {
+export function SignInScreen({onCreateWorkspace}: {onCreateWorkspace: (name: string) => void}) {
   const [workspaceName, setWorkspaceName] = useState(DEFAULT_WORKSPACE_NAME);
-  const [device, setDevice] = useState<DeviceCode | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const abortRef = useRef<AbortController | null>(null);
-
-  useEffect(() => () => abortRef.current?.abort(), []);
-
   const createWorkspace = useCallback(
     (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
@@ -27,60 +20,18 @@ export function SignInScreen({onCreateWorkspace, onSignIn}: {onCreateWorkspace: 
     [onCreateWorkspace, workspaceName],
   );
 
-  const signInWithGitHub = useCallback(async () => {
-    setError(null);
-    setBusy(true);
-    const controller = new AbortController();
-    abortRef.current?.abort();
-    abortRef.current = controller;
-    try {
-      const code = await requestDeviceCode();
-      setDevice(code);
-      window.open(code.verificationUri, "_blank", "noopener,noreferrer");
-      const token = await pollForToken(code, controller.signal);
-      const user = await fetchUser(token);
-      onSignIn({kind: "github", token, user});
-    } catch (err) {
-      if (!isCancelled(err)) setError(err instanceof Error ? err.message : "GitHub sign-in failed.");
-      setDevice(null);
-    } finally {
-      if (abortRef.current === controller) abortRef.current = null;
-      setBusy(false);
-    }
-  }, [onSignIn]);
-
-  const cancelGitHub = useCallback(() => {
-    abortRef.current?.abort();
-    abortRef.current = null;
-    setDevice(null);
-    setBusy(false);
+  const signInWithGitHub = useCallback(() => {
+    window.location.assign("/api/auth/start");
   }, []);
 
   return (
     <main className="signin">
       {githubConfigured() && (
         <div className="signin-topbar">
-          {device ? (
-            <div className="device-panel device-panel-corner">
-              <p className="device-hint">Enter this code on GitHub to finish signing in.</p>
-              <div className="device-code">
-                <span className="device-code-value">{device.userCode}</span>
-              </div>
-              <p className="device-status">
-                <span className="device-spinner" aria-hidden="true" />
-                Waiting for authorization…
-              </p>
-              <button type="button" className="signin-link-btn" onClick={cancelGitHub}>
-                Cancel
-              </button>
-            </div>
-          ) : (
-            <button type="button" className="signin-corner-btn" onClick={signInWithGitHub} disabled={busy}>
-              <GitHubMark />
-              {busy ? "Starting…" : "Sign in"}
-            </button>
-          )}
-          {error && <p className="signin-error signin-error-corner">{error}</p>}
+          <button type="button" className="signin-corner-btn" onClick={signInWithGitHub}>
+            <GitHubMark />
+            Sign in with GitHub
+          </button>
         </div>
       )}
       <section className="signin-shell">
@@ -93,7 +44,7 @@ export function SignInScreen({onCreateWorkspace, onSignIn}: {onCreateWorkspace: 
 
         <div className="signin-card">
           <h2 className="signin-title">Create a workspace</h2>
-          <p className="signin-sub">Name a workspace and jump into its first Coding project. Add more Coding or Task projects whenever you need them.</p>
+          <p className="signin-sub">Name a workspace and jump into its first Coding project. Add Plan and Task projects to connect product intent all the way to implementation.</p>
 
           <form className="project-start-form" onSubmit={createWorkspace}>
             <label className="project-start-label" htmlFor="workspace-name">
@@ -111,7 +62,7 @@ export function SignInScreen({onCreateWorkspace, onSignIn}: {onCreateWorkspace: 
           <div className="signin-value-list">
             <div>
               <strong>Structure the chaos</strong>
-              <span>Import JSON or create items manually with categories, tags, effort, and risk.</span>
+              <span>Import JSON or create items manually with categories, tags, effort, and priority.</span>
             </div>
             <div>
               <strong>Protect focus</strong>

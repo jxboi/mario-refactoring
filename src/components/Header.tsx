@@ -1,8 +1,8 @@
 import type {Filters} from "../App";
 import type {GitHubUser} from "../lib/auth";
 import type {BoardSyncState, Project, Workspace} from "../lib/store";
-import type {ProjectType, RefactorItem, Risk} from "../types";
-import {RISKS, RISK_LABELS} from "../types";
+import type {ProjectType, Risk, WorkItem} from "../types";
+import {RISKS, RISK_LABELS, typeConfig} from "../types";
 import {AccountMenu} from "./AccountMenu";
 import {BrandLogo} from "./BrandLogo";
 import {ProjectMenu} from "./ProjectMenu";
@@ -10,7 +10,7 @@ import {SettingsMenu} from "./SettingsMenu";
 import {WorkspaceMenu} from "./WorkspaceMenu";
 
 interface Props {
-  items: RefactorItem[];
+  items: WorkItem[];
   projects: Project[];
   activeProjectId: string;
   workspaces: Workspace[];
@@ -44,6 +44,8 @@ export function Header({items, projects, activeProjectId, workspaces, activeWork
   const total = items.filter((i) => i.stage !== "deferred").length;
   const deployed = items.filter((i) => i.stage === "deployed").length;
   const pct = total === 0 ? 0 : Math.round((deployed / total) * 100);
+  const activeType = projects.find((project) => project.id === activeProjectId)?.type;
+  const completionLabel = typeConfig(activeType).stages.find((stage) => stage.id === "deployed")?.label.toLowerCase() ?? "done";
 
   const toggleRisk = (r: Risk) => {
     const next = new Set(filters.risks);
@@ -64,14 +66,14 @@ export function Header({items, projects, activeProjectId, workspaces, activeWork
 
         {total > 0 && (
           <div className="progress-cluster">
-            <div className="progress-track" title={`${pct}% deployed`}>
+            <div className="progress-track" title={`${pct}% ${completionLabel}`}>
               <div className="progress-fill" style={{width: `${pct}%`}} />
             </div>
             <span className="progress-label">
               <strong>
                 {deployed}/{total}
               </strong>{" "}
-              deployed
+              {completionLabel}
             </span>
           </div>
         )}

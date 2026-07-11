@@ -1,5 +1,6 @@
 import {neon} from "@neondatabase/serverless";
 import type {IncomingHttpHeaders} from "node:http";
+import {cookies, githubUser, SESSION_COOKIE} from "./_auth.js";
 
 interface ApiRequest extends AsyncIterable<Buffer | string> {
   method?: string;
@@ -64,20 +65,14 @@ function headerValue(headers: IncomingHttpHeaders, name: string): string {
 
 async function authenticate(req: ApiRequest): Promise<string> {
   const authorization = headerValue(req.headers, "authorization");
-  const token = authorization.match(/^Bearer\s+(.+)$/i)?.[1];
+  const token = authorization.match(/^Bearer\s+(.+)$/i)?.[1] ?? cookies({headers: req.headers})[SESSION_COOKIE];
   if (!token) throw Object.assign(new Error("Missing GitHub token."), {status: 401});
-
-  const response = await fetch("https://api.github.com/user", {
-    headers: {
-      Accept: "application/vnd.github+json",
-      Authorization: `Bearer ${token}`,
-      "User-Agent": "chisel-board-sync",
-    },
-  });
-  if (!response.ok) throw Object.assign(new Error("Invalid GitHub token."), {status: 401});
-
-  const user = (await response.json()) as Partial<GitHubUser>;
-  if (typeof user.id !== "number") throw Object.assign(new Error("Invalid GitHub profile."), {status: 401});
+  let user: GitHubUser;
+  try {
+    user = await githubUser(token);
+  } catch {
+    throw Object.assign(new Error("Invalid GitHub token."), {status: 401});
+  }
   return `github:${user.id}`;
 }
 

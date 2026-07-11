@@ -12,8 +12,8 @@ import {boardScope, guestSession, type Session, useAuth} from "./lib/auth";
 import {exportProject, exportWorkspace, isWorkspaceExport} from "./lib/export";
 import {NEW_SKILL_BODY, type Skill} from "./lib/skills";
 import {activeProject, activeWorkspace, DEFAULT_PROJECT_NAME, DEFAULT_WORKSPACE_NAME, useBoard} from "./lib/store";
-import type {CategoryDef, ProjectType, RefactorItem, Risk, Stage} from "./types";
-import {typeConfig, uid} from "./types";
+import type {CategoryDef, ProjectType, Risk, Stage, WorkItem} from "./types";
+import {childTypeFor, parentTypeFor, typeConfig, uid} from "./types";
 
 export interface Filters {
   query: string;
@@ -24,7 +24,7 @@ export interface Filters {
 const EMPTY_FILTERS: Filters = {query: "", risks: new Set(), blockedOnly: false};
 
 export default function App() {
-  const {session, signIn, signOut} = useAuth();
+  const {session, loading, signIn, signOut} = useAuth();
   const [initialWorkspaceName, setInitialWorkspaceName] = useState<string | null>(null);
 
   const createGuestWorkspace = useCallback((name: string) => {
@@ -32,7 +32,8 @@ export default function App() {
     signIn(guestSession());
   }, [signIn]);
 
-  if (!session) return <SignInScreen onCreateWorkspace={createGuestWorkspace} onSignIn={signIn} />;
+  if (loading) return null;
+  if (!session) return <SignInScreen onCreateWorkspace={createGuestWorkspace} />;
   return <BoardApp session={session} onSignOut={signOut} initialWorkspaceName={initialWorkspaceName} onInitialWorkspaceNameApplied={() => setInitialWorkspaceName(null)} />;
 }
 
@@ -44,7 +45,7 @@ interface BoardAppProps {
 }
 
 function BoardApp({session, onSignOut, initialWorkspaceName, onInitialWorkspaceNameApplied}: BoardAppProps) {
-  const {state, dispatch, sync} = useBoard(boardScope(session), session.kind === "github" ? session.token : null);
+  const {state, dispatch, sync} = useBoard(boardScope(session), session.kind === "github" ? "session" : null);
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [importOpen, setImportOpen] = useState(false);
@@ -83,6 +84,18 @@ function BoardApp({session, onSignOut, initialWorkspaceName, onInitialWorkspaceN
   }, [workspace.projects, project.type]);
 
   const selected = useMemo(() => items.find((item) => item.id === selectedId) ?? null, [items, selectedId]);
+  const relationshipCounts = useMemo(() => {
+    const counts: Record<string, {parents: number; children: number; completedChildren: number}> = {};
+    for (const candidate of workspace.projects.flatMap((entry) => entry.items)) counts[candidate.id] = {parents: candidate.parentIds.length, children: 0, completedChildren: 0};
+    for (const candidate of workspace.projects.flatMap((entry) => entry.items)) for (const parentId of candidate.parentIds) {
+      const count = counts[parentId];
+      if (count) {
+        count.children += 1;
+        if (candidate.stage === "deployed") count.completedChildren += 1;
+      }
+    }
+    return counts;
+  }, [workspace.projects]);
 
   const filtered = useMemo(() => {
     const query = filters.query.trim().toLowerCase();
@@ -94,7 +107,15 @@ function BoardApp({session, onSignOut, initialWorkspaceName, onInitialWorkspaceN
     });
   }, [items, filters]);
 
-  const handleImport = useCallback((imported: RefactorItem[], importedCategories: CategoryDef[], projectType: ProjectType) => {
+  const handleImport = useCallback((imported: WorkItem[], importedCategories: CategoryDef[], projectType: ProjectType) => {
+    const expectedParentType = parentTypeFor(projectType);
+    const itemTypes = new Map(workspace.projects.flatMap((candidate) => candidate.items.map((item) => [item.id, candidate.type] as const)));
+    let removedLinks = 0;
+    const cleaned = imported.map((item) => ({...item, parentIds: item.parentIds.filter((id) => {
+      const valid = expectedParentType !== null && itemTypes.get(id) === expectedParentType;
+      if (!valid) removedLinks += 1;
+      return valid;
+    })}));
     if (projectType !== project.type) {
       const existing = workspace.projects.find((candidate) => candidate.type === projectType);
       if (existing) dispatch({type: "project-switch", id: existing.id});
@@ -103,16 +124,16 @@ function BoardApp({session, onSignOut, initialWorkspaceName, onInitialWorkspaceN
       setFilters(EMPTY_FILTERS);
     }
     if (importedCategories.length > 0) dispatch({type: "categories-merge", categories: importedCategories});
-    dispatch({type: "import", items: imported});
+    dispatch({type: "import", items: cleaned});
     setImportOpen(false);
     setDroppedFile(null);
     const targetConfig = typeConfig(projectType);
-    pushToast(`Imported ${imported.length} ${imported.length === 1 ? targetConfig.itemNoun : targetConfig.itemNounPlural}`, "success");
+    pushToast(`Imported ${cleaned.length} ${cleaned.length === 1 ? targetConfig.itemNoun : targetConfig.itemNounPlural}${removedLinks ? ` · removed ${removedLinks} unresolved link${removedLinks === 1 ? "" : "s"}` : ""}`, "success");
   }, [dispatch, project.type, pushToast, workspace.projects]);
 
   const handleAddItem = useCallback((stage: Stage) => {
     const now = Date.now();
-    const item: RefactorItem = {
+    const item: WorkItem = {
       id: uid(),
       title: "",
       description: "",
@@ -125,6 +146,7 @@ function BoardApp({session, onSignOut, initialWorkspaceName, onInitialWorkspaceN
       blocked: false,
       blockReason: "",
       notes: [],
+      parentIds: [],
       createdAt: now,
       updatedAt: now,
     };
@@ -265,8 +287,7 @@ function BoardApp({session, onSignOut, initialWorkspaceName, onInitialWorkspaceN
         }}
         onProjectCreate={(name, projectType) => {
           dispatch({type: "project-create", name, projectType});
-          setSelectedId(null);
-          setFilters(EMPTY_FILTERS);
+          resetTransient();
           pushToast(`Project “${name}” created`, "success");
         }}
         onProjectRename={(id, name) => dispatch({type: "project-rename", id, name})}
@@ -282,12 +303,18 @@ function BoardApp({session, onSignOut, initialWorkspaceName, onInitialWorkspaceN
         totalCount={items.length}
         categories={categories}
         config={config}
+        relationshipCounts={relationshipCounts}
         onMove={(id, stage, beforeId) => dispatch({type: "move", id, stage, beforeId})}
         onSelect={setSelectedId}
         onAddItem={handleAddItem}
         onImportClick={() => setImportOpen(true)}
         onLoadSample={() => {
-          if (project.type === "task") {
+          if (project.type === "plan") {
+            void import("./lib/sample").then(({samplePlans}) => {
+              dispatch({type: "import", items: samplePlans()});
+              pushToast("Loaded sample product plan", "success");
+            });
+          } else if (project.type === "task") {
             void import("./lib/sample").then(({sampleTasks}) => {
               dispatch({type: "import", items: sampleTasks()});
               pushToast("Loaded sample task list", "success");
@@ -295,7 +322,7 @@ function BoardApp({session, onSignOut, initialWorkspaceName, onInitialWorkspaceN
           } else {
             void import("./lib/sample").then(({sampleItems}) => {
               dispatch({type: "import", items: sampleItems()});
-              pushToast("Loaded sample refactoring backlog", "success");
+              pushToast("Loaded sample coding backlog", "success");
             });
           }
         }}
@@ -305,8 +332,48 @@ function BoardApp({session, onSignOut, initialWorkspaceName, onInitialWorkspaceN
           item={selected}
           categories={categories}
           config={config}
+          projects={workspace.projects}
           onClose={() => setSelectedId(null)}
           onUpdate={(patch) => dispatch({type: "update", id: selected.id, patch})}
+          onNavigate={(projectId, itemId) => {
+            dispatch({type: "project-switch", id: projectId});
+            setSelectedId(itemId);
+            setFilters(EMPTY_FILTERS);
+          }}
+          onLink={(childId, parentId) => dispatch({type: "link-parent", childId, parentId})}
+          onUnlink={(childId, parentId) => dispatch({type: "unlink-parent", childId, parentId})}
+          onCreateChild={(requestedProjectId) => {
+            const childType = childTypeFor(project.type);
+            if (!childType) return;
+            let targetProjectId = requestedProjectId;
+            if (!targetProjectId) {
+              targetProjectId = uid();
+              dispatch({type: "project-create", id: targetProjectId, name: `${typeConfig(childType).label} project`, projectType: childType});
+            }
+            const now = Date.now();
+            const child: WorkItem = {
+              id: uid(),
+              title: selected.title,
+              description: selected.description,
+              files: [],
+              risk: selected.risk,
+              effort: "medium",
+              category: "other",
+              tags: [...selected.tags],
+              stage: "queued",
+              blocked: false,
+              blockReason: "",
+              notes: [],
+              parentIds: [selected.id],
+              createdAt: now,
+              updatedAt: now,
+            };
+            dispatch({type: "add-to-project", projectId: targetProjectId, item: child});
+            dispatch({type: "project-switch", id: targetProjectId});
+            setSelectedId(child.id);
+            setFilters(EMPTY_FILTERS);
+            pushToast(`Created linked ${typeConfig(childType).itemNoun}`, "success");
+          }}
           onAddNote={(text) => dispatch({type: "add-note", id: selected.id, text})}
           onDeleteNote={(noteId) => dispatch({type: "delete-note", id: selected.id, noteId})}
           onEditNote={(noteId, text) => dispatch({type: "edit-note", id: selected.id, noteId, text})}

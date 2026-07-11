@@ -1,8 +1,8 @@
 import {describe, expect, it} from "vitest";
-import {activeProject, activeWorkspace, DEFAULT_WORKSPACE_NAME, newWorkspace, normalizeAppState, reducer, type AppState} from "./store";
-import type {RefactorItem} from "../types";
+import {activeProject, activeWorkspace, DEFAULT_WORKSPACE_NAME, newProject, newWorkspace, normalizeAppState, reducer, type AppState} from "./store";
+import type {WorkItem} from "../types";
 
-function item(id: string): RefactorItem {
+function item(id: string): WorkItem {
   return {
     id,
     title: `Item ${id}`,
@@ -16,6 +16,7 @@ function item(id: string): RefactorItem {
     blocked: false,
     blockReason: "",
     notes: [],
+    parentIds: [],
     createdAt: 1,
     updatedAt: 1,
   };
@@ -38,12 +39,12 @@ describe("workspace reducer", () => {
     current = reducer(current, {type: "add", item: item("second")});
 
     expect(activeProject(current).items.map((entry) => entry.id)).toEqual(["second"]);
-    expect(activeWorkspace(current).categories.refactoring.some((category) => category.label === "Alpha only")).toBe(false);
+    expect(activeWorkspace(current).categories.coding.some((category) => category.label === "Alpha only")).toBe(false);
     expect(activeWorkspace(current).skills.some((skill) => skill.id === "alpha-skill")).toBe(false);
 
     current = reducer(current, {type: "workspace-switch", id: firstId});
     expect(activeProject(current).items.map((entry) => entry.id)).toEqual(["first"]);
-    expect(activeWorkspace(current).categories.refactoring.some((category) => category.label === "Alpha only")).toBe(true);
+    expect(activeWorkspace(current).categories.coding.some((category) => category.label === "Alpha only")).toBe(true);
     expect(activeWorkspace(current).skills.some((skill) => skill.id === "alpha-skill")).toBe(true);
     expect(secondId).not.toBe(firstId);
   });
@@ -65,7 +66,36 @@ describe("workspace reducer", () => {
     expect(current.workspaces).toHaveLength(1);
     expect(current.activeWorkspaceId).not.toBe(deletedId);
     expect(activeWorkspace(current).name).toBe(DEFAULT_WORKSPACE_NAME);
-    expect(activeProject(current).type).toBe("refactoring");
+    expect(activeProject(current).type).toBe("coding");
+  });
+
+  it("links only adjacent project types and supports multiple parents", () => {
+    let current = state();
+    const workspace = activeWorkspace(current);
+    const plan = {...newProject("Plan", "plan", "plan"), items: [item("p1"), item("p2")]};
+    const tasks = {...newProject("Tasks", "task", "tasks"), items: [item("t1")]};
+    const coding = {...newProject("Coding", "coding", "coding"), items: [item("c1")]};
+    current = {...current, workspaces: [{...workspace, projects: [plan, tasks, coding], activeProjectId: "tasks"}]};
+
+    current = reducer(current, {type: "link-parent", childId: "t1", parentId: "p1"});
+    current = reducer(current, {type: "link-parent", childId: "t1", parentId: "p2"});
+    current = reducer(current, {type: "link-parent", childId: "c1", parentId: "p1"});
+    expect(activeWorkspace(current).projects[1].items[0].parentIds).toEqual(["p1", "p2"]);
+    expect(activeWorkspace(current).projects[2].items[0].parentIds).toEqual([]);
+  });
+
+  it("cleans links without cascading when a linked project is deleted", () => {
+    let current = state();
+    const workspace = activeWorkspace(current);
+    const plan = {...newProject("Plan", "plan", "plan"), items: [item("p1")]};
+    const taskItem = {...item("t1"), parentIds: ["p1"]};
+    const tasks = {...newProject("Tasks", "task", "tasks"), items: [taskItem]};
+    current = {...current, workspaces: [{...workspace, projects: [plan, tasks], activeProjectId: "tasks"}]};
+    current = reducer(current, {type: "project-delete", id: "plan"});
+
+    expect(activeWorkspace(current).projects).toHaveLength(1);
+    expect(activeWorkspace(current).projects[0].items.map((entry) => entry.id)).toEqual(["t1"]);
+    expect(activeWorkspace(current).projects[0].items[0].parentIds).toEqual([]);
   });
 });
 
@@ -79,7 +109,18 @@ describe("workspace normalization", () => {
     expect(migrated?.workspaces).toHaveLength(1);
     expect(activeWorkspace(migrated!).name).toBe(DEFAULT_WORKSPACE_NAME);
     expect(activeProject(migrated!).items[0].id).toBe("legacy");
+    expect(activeProject(migrated!).type).toBe("coding");
+    expect(activeWorkspace(migrated!).categories.coding.some((category) => category.id === "feature")).toBe(true);
     expect(activeWorkspace(migrated!).skills).toEqual(skills);
+  });
+
+  it("drops duplicate, missing, and wrong-level links during normalization", () => {
+    const plan = {...newProject("Plan", "plan", "plan"), items: [item("p1")]};
+    const tasks = {...newProject("Tasks", "task", "tasks"), items: [{...item("t1"), parentIds: ["p1", "p1", "missing"]}]};
+    const coding = {...newProject("Coding", "coding", "coding"), items: [{...item("c1"), parentIds: ["p1", "t1"]}]};
+    const normalized = normalizeAppState({workspaces: [{id: "w", name: "Work", createdAt: 1, projects: [plan, tasks, coding], activeProjectId: "tasks", categories: {}, skills: []}], activeWorkspaceId: "w"});
+    expect(normalized!.workspaces[0].projects[1].items[0].parentIds).toEqual(["p1"]);
+    expect(normalized!.workspaces[0].projects[2].items[0].parentIds).toEqual(["t1"]);
   });
 
   it("rejects malformed workspace project data", () => {

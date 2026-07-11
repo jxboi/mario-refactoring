@@ -2,7 +2,7 @@ import type {CategoryDef, ProjectType, TypeConfig} from "../types";
 import {slugifyCategory, uid} from "../types";
 
 /**
- * A "skill" is a reusable, user-authored prompt template for code refactoring.
+ * A "skill" is a reusable, user-authored prompt template for structured work discovery.
  * The user exports it as a Markdown file to hand to an AI/Copilot agent; the
  * agent then produces a JSON file in Chisel's import schema, which the user
  * uploads through the normal Import JSON flow.
@@ -88,21 +88,26 @@ export function composeSkillMarkdown(skill: Skill, config: TypeConfig, categorie
   const parts = [`# ${name}`];
   if (skill.description.trim()) parts.push(skill.description.trim());
   parts.push(skill.body.trim());
-  parts.push(["## Output format", "", `Return a single JSON file that can be imported into Chisel: a top-level array of ${config.itemNounPlural}, or an object with an \`items\` array. Each item supports:`, "", "- `title` (required) — a short, action-oriented summary.", "- `description` — what's wrong today and what better looks like.", config.showFiles ? "- `files` — array of affected paths." : null, `- \`${config.id === "task" ? "priority" : "risk"}\` — low | medium | high (${metric}).`, "- `effort` — low | medium | high | xhigh.", `- \`category\` — one of: ${catIds}.`, "- `tags` — array of short labels.", "- `status` — queued | active | reviewing | deployed | deferred.", "", "Only `title` is required; everything else falls back to sensible defaults. Field names are matched flexibly on import.", "", "Example:", "", "```json", config.schema, "```"].filter(Boolean).join("\n"));
+  parts.push(["## Output format", "", `Return a single JSON file that can be imported into Chisel: a top-level array of ${config.itemNounPlural}, or an object with an \`items\` array. Each item supports:`, "", "- `title` (required) — a short, action-oriented summary.", "- `description` — the outcome, context, or implementation detail.", config.showFiles ? "- `files` — array of affected paths." : null, `- \`priority\` — low | medium | high (${metric}).`, "- `effort` — low | medium | high | xhigh.", `- \`category\` — one of: ${catIds}.`, "- `tags` — array of short labels.", "- `status` — queued | active | reviewing | deployed | deferred.", "", "Only `title` is required; everything else falls back to sensible defaults. Field names are matched flexibly on import.", "", "Example:", "", "```json", config.schema, "```"].filter(Boolean).join("\n"));
   return parts.join("\n\n") + "\n";
 }
 
 /** A clean, valid example JSON payload the user can download and import as-is. */
 export function exampleImportJson(type: ProjectType): string {
   const items =
-    type === "task"
+    type === "plan"
+      ? [
+          {title: "Improve new-team onboarding", description: "Reduce time-to-value for new teams.", priority: "high", effort: "high", category: "initiative", tags: ["activation"], status: "planning"},
+          {title: "Research reporting needs", description: "Identify the smallest valuable reporting surface.", priority: "medium", effort: "small", category: "research", tags: ["discovery"], status: "idea"},
+        ]
+      : type === "task"
       ? [
           {title: "Follow up with vendor on SSO rollout", description: "Confirm go-live date and access scope.", priority: "high", effort: "m", category: "follow-up", tags: ["vendors"], status: "todo"},
           {title: "Document the incident runbook", description: "Capture the on-call steps we used last week.", priority: "medium", effort: "s", category: "documentation", tags: ["oncall"], status: "in-progress"},
         ]
       : [
-          {title: "Extract auth token validation into middleware", description: "Token validation is copy-pasted across route handlers with drift between them.", files: ["src/routes/users.ts", "src/routes/orders.ts"], risk: "high", effort: "m", category: "extract", tags: ["auth", "security"], status: "todo"},
-          {title: "Remove unused GraphQL resolvers", description: "Several resolvers with zero traffic in the last 6 months.", files: ["src/graphql/resolvers/legacy/"], risk: "low", effort: "small", category: "dead-code", tags: ["graphql"], status: "ready"},
+          {title: "Add auth token validation middleware", description: "Centralize token validation across route handlers.", files: ["src/routes/users.ts", "src/routes/orders.ts"], priority: "high", effort: "m", category: "feature", tags: ["auth", "security"], status: "todo"},
+          {title: "Fix stale dashboard totals", description: "Invalidate cached totals when project membership changes.", files: ["src/dashboard/totals.ts"], priority: "high", effort: "small", category: "bug", tags: ["dashboard"], status: "ready"},
         ];
   return JSON.stringify(items, null, 2) + "\n";
 }

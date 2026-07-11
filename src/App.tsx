@@ -24,7 +24,7 @@ export interface Filters {
 const EMPTY_FILTERS: Filters = {query: "", risks: new Set(), blockedOnly: false};
 
 export default function App() {
-  const {session, signIn, signOut} = useAuth();
+  const {session, loading, signIn, signOut} = useAuth();
   const [initialWorkspaceName, setInitialWorkspaceName] = useState<string | null>(null);
 
   const createGuestWorkspace = useCallback((name: string) => {
@@ -32,7 +32,8 @@ export default function App() {
     signIn(guestSession());
   }, [signIn]);
 
-  if (!session) return <SignInScreen onCreateWorkspace={createGuestWorkspace} onSignIn={signIn} />;
+  if (loading) return null;
+  if (!session) return <SignInScreen onCreateWorkspace={createGuestWorkspace} />;
   return <BoardApp session={session} onSignOut={signOut} initialWorkspaceName={initialWorkspaceName} onInitialWorkspaceNameApplied={() => setInitialWorkspaceName(null)} />;
 }
 
@@ -44,7 +45,7 @@ interface BoardAppProps {
 }
 
 function BoardApp({session, onSignOut, initialWorkspaceName, onInitialWorkspaceNameApplied}: BoardAppProps) {
-  const {state, dispatch, sync} = useBoard(boardScope(session), session.kind === "github" ? session.token : null);
+  const {state, dispatch, sync} = useBoard(boardScope(session), session.kind === "github" ? "session" : null);
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [importOpen, setImportOpen] = useState(false);

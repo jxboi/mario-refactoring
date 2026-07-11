@@ -48,7 +48,7 @@ export function exportProject(project: Project, categories: CategoryDef[]): void
 
 export interface WorkspaceExportDocument {
   kind: "chisel-workspace";
-  version: 1;
+  version: 1 | 2;
   exportedAt: string;
   workspace: Workspace;
 }
@@ -56,7 +56,7 @@ export interface WorkspaceExportDocument {
 export function workspaceToJson(workspace: Workspace): string {
   const payload: WorkspaceExportDocument = {
     kind: "chisel-workspace",
-    version: 1,
+    version: 2,
     exportedAt: new Date().toISOString(),
     workspace,
   };
@@ -80,7 +80,7 @@ export function parseWorkspaceJson(text: string): {workspace?: Workspace; error?
   try {
     const value = JSON.parse(text) as Partial<WorkspaceExportDocument>;
     if (value.kind !== "chisel-workspace") return {error: "This is not a Chisel workspace export."};
-    if (value.version !== 1) return {error: "This workspace export version is not supported."};
+    if (value.version !== 1 && value.version !== 2) return {error: "This workspace export version is not supported."};
     const workspace = normalizeWorkspace(value.workspace);
     if (!workspace) return {error: "The workspace export is missing valid workspace or project data."};
     return {workspace};
@@ -91,6 +91,8 @@ export function parseWorkspaceJson(text: string): {workspace?: Workspace; error?
 
 export function copyWorkspaceForImport(source: Workspace): Workspace {
   const projectIds = new Map<string, string>();
+  const itemIds = new Map<string, string>();
+  for (const project of source.projects) for (const item of project.items) itemIds.set(item.id, uid());
   const projects = source.projects.map((project) => {
     const projectId = uid();
     projectIds.set(project.id, projectId);
@@ -99,7 +101,8 @@ export function copyWorkspaceForImport(source: Workspace): Workspace {
       id: projectId,
       items: project.items.map((item) => ({
         ...item,
-        id: uid(),
+        id: itemIds.get(item.id)!,
+        parentIds: item.parentIds.map((id) => itemIds.get(id)).filter((id): id is string => Boolean(id)),
         notes: item.notes.map((note) => ({...note, id: uid()})),
       })),
     };
@@ -111,10 +114,7 @@ export function copyWorkspaceForImport(source: Workspace): Workspace {
     createdAt: Date.now(),
     projects,
     activeProjectId: projectIds.get(source.activeProjectId) ?? projects[0].id,
-    categories: {
-      refactoring: source.categories.refactoring.map((category) => ({...category})),
-      task: source.categories.task.map((category) => ({...category})),
-    },
+    categories: Object.fromEntries(Object.entries(source.categories).map(([type, categories]) => [type, categories.map((category) => ({...category}))])) as Workspace["categories"],
     skills: source.skills.map((skill) => ({...skill, id: uid()})),
   };
 }

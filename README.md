@@ -1,13 +1,14 @@
 # Chisel — a calm work cockpit
 
-A focused board for steadily chipping away at code refactors or everyday tasks. Create items by hand, import structured JSON, or use a reusable AI prompt to turn a codebase audit into an actionable board.
+A focused workspace for taking product intent from planning through tasks to shipped code. Create items by hand, import structured JSON, or use a reusable AI prompt to turn rough ideas into actionable work.
 
-Chisel organizes work as **workspaces → projects → items**. A workspace can hold any mix of the two project types:
+Chisel organizes work as **workspaces → projects → items**. A workspace can hold any mix of three project types:
 
-- **Coding** boards track refactors with risk, effort, affected files, and code-focused categories.
+- **Plan** boards shape goals, initiatives, features, and research before delivery work begins.
 - **Task** boards track general work with priority, effort, and task-focused categories.
+- **Coding** boards track developer work with priority, effort, affected files, and technical categories.
 
-Projects stay separate. Categories are shared between projects of the same type within a workspace, and reusable skills are available throughout that workspace.
+Items can be linked across adjacent levels inside a workspace: Plan → Task → Coding. Children can have multiple parents, cards show direct-child progress, and parent status always remains under the user's control. Categories are shared between projects of the same type.
 
 ## Run it
 
@@ -55,7 +56,7 @@ The Neon integration injects `POSTGRES_URL` into Vercel. Locally, `vercel env pu
 
 Remote saves are debounced and version-checked. If another session updates the account's workspaces first, Chisel pauses cloud sync and surfaces the conflict in the account menu instead of overwriting remote data silently. The latest local state still remains in `localStorage`.
 
-Existing `chisel.projects.v2` browser data and legacy cloud board documents migrate automatically into a workspace named **My workspace**. Existing locally saved skills move into that workspace as part of the migration.
+Existing `chisel.projects.v2` browser data and legacy cloud board documents migrate automatically into a workspace named **My workspace**. Legacy Refactoring projects become Coding projects, their categories are preserved, and the broader Coding defaults are merged in.
 
 ## Deploy to Vercel
 
@@ -75,15 +76,15 @@ Vercel should detect this as a Vite app, run `npm run build`, serve `dist/`, and
 
 ## The workflow
 
-| Coding board | Task board | Meaning |
-| --- | --- | --- |
-| **Queued** | **To do** | Waiting to be picked up |
-| **Active** | **In progress** | Work happening now |
-| **Reviewing** | **Review** | Checks, review, or sign-off |
-| **Deployed** | **Done** | Completed in the last 14 days |
-| **Deferred** | **On hold** | Parked and hidden by default |
+| Plan board | Task board | Coding board | Meaning |
+| --- | --- | --- | --- |
+| **Idea** | **To do** | **Queued** | Waiting to be shaped or picked up |
+| **Planning** | **In progress** | **Active** | Work happening now |
+| **Ready** | **Review** | **Reviewing** | Ready, checking, or awaiting sign-off |
+| **Done** | **Done** | **Deployed** | Completed work |
+| **On hold** | **On hold** | **Deferred** | Parked and hidden by default |
 
-Every item carries a low/medium/high **risk** or **priority**, **effort** (including X-High), a customizable **category**, **tags**, and timestamped **notes**. Coding items also track affected files and paths. Marking a note as a blocker flags the card; resolving the note clears that blocker without losing its history.
+Every item carries a low/medium/high **priority**, **effort** (including X-High), a customizable **category**, **tags**, and timestamped **notes**. Coding items also track affected files and paths. The Relationships section creates or attaches downstream work, links parents backward, and navigates between projects.
 
 ## Importing items
 
@@ -95,13 +96,13 @@ The parser is deliberately forgiving:
 - Titles from `title`, `name`, or `summary`; descriptions from `description`, `details`, `body`, or `rationale`.
 - Risk or priority from `risk` / `priority` / `severity` / `impact` (words or numbers), effort from `effort` / `size` / `estimate` / `points`, category from `category` / `type` / `kind` (with fuzzy matching), and stage from `status` / `stage` / `state` (`todo`, `in-progress`, `review`, `done`, …).
 - Files from `files` / `file` / `paths` / `path` / `modules`; tags from `tags` / `labels`.
-- `blocked` / `blocked_reason` mark an item blocked on import.
+- `blocked` / `blocked_reason` mark an item blocked on import; `parentIds` restores links when matching compatible parents exist in the destination workspace.
 
 Only a title is required — everything else gets sensible defaults.
 
 An exported project can be imported again without losing its project type or custom categories. If the file belongs to a different board type, Chisel switches to a matching project in the active workspace or creates one for the import.
 
-Use **Settings → Export workspace** for a complete, versioned backup containing every project, category, and skill in the active workspace. **Import workspace** always creates and activates a separate copy with fresh internal IDs; it never overwrites existing data. Workspace export files can also be dragged onto the page.
+Use **Settings → Export workspace** for a complete, versioned backup containing every project, category, relationship, and skill in the active workspace. **Import workspace** creates a separate copy and remaps every internal ID without breaking links.
 
 ## Skills
 
@@ -111,7 +112,9 @@ The included skills cover a general refactoring audit, dead-code discovery, and 
 
 ## Features
 
-- Create, rename, delete, and switch between workspaces, each containing independent Coding and Task projects.
+- Create, rename, delete, and switch between workspaces containing Plan, Task, and Coding projects.
+- Create linked downstream work, attach existing children, link multiple parents, and navigate the full Plan → Task → Coding chain.
+- See completed/total direct-child rollups without automatically changing parent status.
 - Drag cards between stages and reorder them within a column.
 - Edit metadata, add notes, and mark or resolve blockers in the detail drawer.
 - Search titles, descriptions, files, and tags; filter by risk/priority or blocked state.

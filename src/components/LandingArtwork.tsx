@@ -22,7 +22,7 @@ export function LandingArtwork({compact = false}: LandingArtworkProps) {
 
       <div className="art-board">
         <div className="art-board-top">
-          <span>Refactor plan</span>
+          <span>Delivery plan</span>
           <strong>68%</strong>
         </div>
         <div className="art-columns">

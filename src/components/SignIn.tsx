@@ -93,7 +93,7 @@ export function SignInScreen({onCreateWorkspace, onSignIn}: {onCreateWorkspace: 
 
         <div className="signin-card">
           <h2 className="signin-title">Create a workspace</h2>
-          <p className="signin-sub">Name a workspace and jump into its first Coding project. Add more Coding or Task projects whenever you need them.</p>
+          <p className="signin-sub">Name a workspace and jump into its first Coding project. Add Plan and Task projects to connect product intent all the way to implementation.</p>
 
           <form className="project-start-form" onSubmit={createWorkspace}>
             <label className="project-start-label" htmlFor="workspace-name">
@@ -111,7 +111,7 @@ export function SignInScreen({onCreateWorkspace, onSignIn}: {onCreateWorkspace: 
           <div className="signin-value-list">
             <div>
               <strong>Structure the chaos</strong>
-              <span>Import JSON or create items manually with categories, tags, effort, and risk.</span>
+              <span>Import JSON or create items manually with categories, tags, effort, and priority.</span>
             </div>
             <div>
               <strong>Protect focus</strong>

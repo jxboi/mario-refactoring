@@ -1,6 +1,6 @@
 import {useEffect, useReducer, useRef, useState} from "react";
-import type {CategoryDef, Note, ProjectType, RefactorItem, Stage} from "../types";
-import {blockedFrom, defaultCategoriesFor, FALLBACK_CATEGORY_ID, PROJECT_TYPES, slugifyCategory, uid} from "../types";
+import type {CategoryDef, Note, ProjectType, Stage, WorkItem} from "../types";
+import {blockedFrom, defaultCategoriesFor, FALLBACK_CATEGORY_ID, parentTypeFor, PROJECT_TYPES, slugifyCategory, uid} from "../types";
 import {defaultSkills, normalizeSkills, type Skill} from "./skills";
 import {fetchRemoteBoard, RemoteBoardConflict, saveRemoteBoard} from "./remoteBoard";
 
@@ -16,7 +16,7 @@ export interface Project {
   name: string;
   type: ProjectType;
   createdAt: number;
-  items: RefactorItem[];
+  items: WorkItem[];
 }
 
 export type CategoriesByType = Record<ProjectType, CategoryDef[]>;
@@ -43,17 +43,20 @@ export type Action =
   | {type: "workspace-rename"; id: string; name: string}
   | {type: "workspace-delete"; id: string}
   | {type: "workspace-switch"; id: string}
-  | {type: "import"; items: RefactorItem[]}
+  | {type: "import"; items: WorkItem[]}
   | {type: "move"; id: string; stage: Stage; beforeId?: string}
-  | {type: "update"; id: string; patch: Partial<Omit<RefactorItem, "id" | "notes">>}
+  | {type: "update"; id: string; patch: Partial<Omit<WorkItem, "id" | "notes">>}
   | {type: "add-note"; id: string; text: string}
   | {type: "edit-note"; id: string; noteId: string; text: string}
   | {type: "delete-note"; id: string; noteId: string}
   | {type: "toggle-note-block"; id: string; noteId: string}
   | {type: "toggle-note-resolved"; id: string; noteId: string}
   | {type: "delete"; id: string}
-  | {type: "add"; item: RefactorItem}
-  | {type: "project-create"; name: string; projectType: ProjectType}
+  | {type: "add"; item: WorkItem}
+  | {type: "add-to-project"; projectId: string; item: WorkItem}
+  | {type: "link-parent"; childId: string; parentId: string}
+  | {type: "unlink-parent"; childId: string; parentId: string}
+  | {type: "project-create"; name: string; projectType: ProjectType; id?: string}
   | {type: "project-rename"; id: string; name: string}
   | {type: "project-delete"; id: string}
   | {type: "project-switch"; id: string}
@@ -74,8 +77,8 @@ export type BoardSyncState =
   | {status: "error"; message: string}
   | {status: "conflict"; message: string; updatedAt: string | null};
 
-export function newProject(name = DEFAULT_PROJECT_NAME, projectType: ProjectType = "refactoring"): Project {
-  return {id: uid(), name, type: projectType, createdAt: Date.now(), items: []};
+export function newProject(name = DEFAULT_PROJECT_NAME, projectType: ProjectType = "coding", id = uid()): Project {
+  return {id, name, type: projectType, createdAt: Date.now(), items: []};
 }
 
 function freshCategories(): CategoriesByType {
@@ -95,11 +98,11 @@ export function newWorkspace(name = DEFAULT_WORKSPACE_NAME): Workspace {
   };
 }
 
-function touch(item: RefactorItem): RefactorItem {
+function touch(item: WorkItem): WorkItem {
   return {...item, updatedAt: Date.now()};
 }
 
-function syncBlocked(item: RefactorItem): RefactorItem {
+function syncBlocked(item: WorkItem): WorkItem {
   return {...item, ...blockedFrom(item.notes)};
 }
 
@@ -107,11 +110,23 @@ function mapActiveWorkspace(state: AppState, fn: (workspace: Workspace) => Works
   return {...state, workspaces: state.workspaces.map((workspace) => (workspace.id === state.activeWorkspaceId ? fn(workspace) : workspace))};
 }
 
-function mapActiveItems(state: AppState, fn: (items: RefactorItem[]) => RefactorItem[]): AppState {
+function mapActiveItems(state: AppState, fn: (items: WorkItem[]) => WorkItem[]): AppState {
   return mapActiveWorkspace(state, (workspace) => ({
     ...workspace,
     projects: workspace.projects.map((project) => (project.id === workspace.activeProjectId ? {...project, items: fn(project.items)} : project)),
   }));
+}
+
+function mapWorkspaceItems(workspace: Workspace, fn: (item: WorkItem, project: Project) => WorkItem): Workspace {
+  return {...workspace, projects: workspace.projects.map((project) => ({...project, items: project.items.map((item) => fn(item, project))}))};
+}
+
+function locateItem(workspace: Workspace, id: string): {item: WorkItem; project: Project} | undefined {
+  for (const project of workspace.projects) {
+    const item = project.items.find((entry) => entry.id === id);
+    if (item) return {item, project};
+  }
+  return undefined;
 }
 
 export function reducer(state: AppState, action: Action): AppState {
@@ -140,6 +155,22 @@ export function reducer(state: AppState, action: Action): AppState {
       return mapActiveItems(state, (items) => [...items, ...action.items]);
     case "add":
       return mapActiveItems(state, (items) => [...items, action.item]);
+    case "add-to-project":
+      return mapActiveWorkspace(state, (workspace) => workspace.projects.some((project) => project.id === action.projectId)
+        ? {...workspace, projects: workspace.projects.map((project) => project.id === action.projectId ? {...project, items: [...project.items, action.item]} : project)}
+        : workspace);
+    case "link-parent":
+      return mapActiveWorkspace(state, (workspace) => {
+        const child = locateItem(workspace, action.childId);
+        const parent = locateItem(workspace, action.parentId);
+        if (!child || !parent || parentTypeFor(child.project.type) !== parent.project.type || child.item.id === parent.item.id) return workspace;
+        if (child.item.parentIds.includes(parent.item.id)) return workspace;
+        return mapWorkspaceItems(workspace, (item) => item.id === child.item.id ? touch({...item, parentIds: [...item.parentIds, parent.item.id]}) : item);
+      });
+    case "unlink-parent":
+      return mapActiveWorkspace(state, (workspace) => mapWorkspaceItems(workspace, (item) => item.id === action.childId && item.parentIds.includes(action.parentId)
+        ? touch({...item, parentIds: item.parentIds.filter((id) => id !== action.parentId)})
+        : item));
     case "move":
       return mapActiveItems(state, (items) => {
         const moving = items.find((item) => item.id === action.id);
@@ -167,22 +198,32 @@ export function reducer(state: AppState, action: Action): AppState {
     case "toggle-note-resolved":
       return mapActiveItems(state, (items) => items.map((item) => (item.id === action.id ? touch(syncBlocked({...item, notes: item.notes.map((note) => (note.id === action.noteId ? {...note, resolved: !note.resolved, blocked: note.resolved ? note.blocked : false} : note))})) : item)));
     case "delete":
-      return mapActiveItems(state, (items) => items.filter((item) => item.id !== action.id));
+      return mapActiveWorkspace(state, (workspace) => {
+        const activeId = workspace.activeProjectId;
+        return {...workspace, projects: workspace.projects.map((project) => ({
+          ...project,
+          items: project.id === activeId
+            ? project.items.filter((item) => item.id !== action.id).map((item) => item.parentIds.includes(action.id) ? {...item, parentIds: item.parentIds.filter((id) => id !== action.id)} : item)
+            : project.items.map((item) => item.parentIds.includes(action.id) ? {...item, parentIds: item.parentIds.filter((id) => id !== action.id)} : item),
+        }))};
+      });
     case "project-create":
       return mapActiveWorkspace(state, (workspace) => {
-        const project = newProject(action.name.trim() || "Untitled project", action.projectType);
+        const project = newProject(action.name.trim() || "Untitled project", action.projectType, action.id);
         return {...workspace, projects: [...workspace.projects, project], activeProjectId: project.id};
       });
     case "project-rename":
       return mapActiveWorkspace(state, (workspace) => ({...workspace, projects: workspace.projects.map((project) => (project.id === action.id ? {...project, name: action.name.trim() || project.name} : project))}));
     case "project-delete":
       return mapActiveWorkspace(state, (workspace) => {
+        const removedItemIds = new Set(workspace.projects.find((project) => project.id === action.id)?.items.map((item) => item.id) ?? []);
         const remaining = workspace.projects.filter((project) => project.id !== action.id);
         if (remaining.length === 0) {
           const project = newProject();
           return {...workspace, projects: [project], activeProjectId: project.id};
         }
-        return {...workspace, projects: remaining, activeProjectId: workspace.activeProjectId === action.id ? remaining[0].id : workspace.activeProjectId};
+        const cleaned = remaining.map((project) => ({...project, items: project.items.map((item) => ({...item, parentIds: item.parentIds.filter((id) => !removedItemIds.has(id))}))}));
+        return {...workspace, projects: cleaned, activeProjectId: workspace.activeProjectId === action.id ? cleaned[0].id : workspace.activeProjectId};
       });
     case "project-switch":
       return mapActiveWorkspace(state, (workspace) => (workspace.projects.some((project) => project.id === action.id) ? {...workspace, activeProjectId: action.id} : workspace));
@@ -258,7 +299,7 @@ export function activeProject(state: AppState): Project {
 }
 
 export function activeType(state: AppState): ProjectType {
-  return activeProject(state)?.type ?? "refactoring";
+  return activeProject(state)?.type ?? "coding";
 }
 
 function storageKey(base: string, scope?: string): string {
@@ -276,7 +317,12 @@ function fillCategories(list: unknown, type: ProjectType): CategoryDef[] {
 }
 
 function normalizeCategories(raw: unknown): CategoriesByType {
-  const source: Partial<Record<ProjectType, CategoryDef[]>> = Array.isArray(raw) ? {refactoring: raw as CategoryDef[]} : ((raw ?? {}) as Partial<Record<ProjectType, CategoryDef[]>>);
+  const value = Array.isArray(raw) ? {coding: raw as CategoryDef[]} : ((raw ?? {}) as Record<string, CategoryDef[]>);
+  const source: Partial<Record<ProjectType, CategoryDef[]>> = {
+    plan: value.plan,
+    task: value.task,
+    coding: value.coding ?? value.refactoring,
+  };
   return Object.fromEntries(PROJECT_TYPES.map((type) => [type, fillCategories(source[type], type)])) as CategoriesByType;
 }
 
@@ -288,17 +334,31 @@ function normalizeProjects(value: unknown): Project[] {
       const candidate = project as Project;
       return typeof candidate.id === "string" && Array.isArray(candidate.items) && candidate.items.every((item) => {
         if (!item || typeof item !== "object") return false;
-        const entry = item as RefactorItem;
+        const entry = item as WorkItem;
         return typeof entry.id === "string" && typeof entry.title === "string" && Array.isArray(entry.files) && Array.isArray(entry.tags) && Array.isArray(entry.notes) && entry.notes.every((note) => note && typeof note.id === "string" && typeof note.text === "string");
       });
     })
-    .map((project) => ({...project, type: project.type === "task" ? "task" : "refactoring", name: project.name || DEFAULT_PROJECT_NAME}));
+    .map((project) => {
+      const rawType = (project as Project & {type?: string}).type;
+      const type: ProjectType = rawType === "plan" ? "plan" : rawType === "task" ? "task" : "coding";
+      return {...project, type, name: project.name || DEFAULT_PROJECT_NAME, items: project.items.map((item) => ({...item, parentIds: Array.isArray(item.parentIds) ? item.parentIds.filter((id): id is string => typeof id === "string") : []}))};
+    });
+}
+
+function normalizeLinks(projects: Project[]): Project[] {
+  const index = new Map<string, ProjectType>();
+  for (const project of projects) for (const item of project.items) index.set(item.id, project.type);
+  return projects.map((project) => ({...project, items: project.items.map((item) => {
+    const expected = parentTypeFor(project.type);
+    const parentIds = expected ? [...new Set(item.parentIds)].filter((id) => id !== item.id && index.get(id) === expected) : [];
+    return {...item, parentIds};
+  })}));
 }
 
 export function normalizeWorkspace(value: unknown): Workspace | null {
   if (!value || typeof value !== "object") return null;
   const raw = value as Partial<Workspace>;
-  const projects = normalizeProjects(raw.projects);
+  const projects = normalizeLinks(normalizeProjects(raw.projects));
   if (typeof raw.id !== "string" || projects.length === 0) return null;
   return {
     id: raw.id,
@@ -365,7 +425,7 @@ function load(scope?: string): AppState {
       if (single) {
         const parsed = JSON.parse(single) as {items?: unknown};
         if (Array.isArray(parsed.items)) {
-          const project = {...newProject(), items: parsed.items as RefactorItem[]};
+          const project = {...newProject(), items: (parsed.items as WorkItem[]).map((item) => ({...item, parentIds: Array.isArray(item.parentIds) ? item.parentIds : []}))};
           const workspace = newWorkspace();
           workspace.projects = [project];
           workspace.activeProjectId = project.id;

@@ -31,13 +31,13 @@ Plain `npm run dev` is a Vite-only, local-storage workflow: it does not execute 
 
 ## Sign in with GitHub
 
-Chisel gates the board behind a GitHub sign-in and keeps each account's boards separate.
+Chisel gates the board behind an optional GitHub sign-in and keeps each account's boards separate.
 
 1. Create an OAuth App at **GitHub → Settings → Developer settings → OAuth Apps**, and enable **Device Flow**.
-2. Copy `.env.example` to `.env` and set `VITE_GITHUB_CLIENT_ID` to the app's Client ID.
-3. Restart `npm run dev` and click **Sign in with GitHub** — you'll get a short code to enter at github.com/login/device.
+2. Copy `.env.example` to `.env` and set `VITE_GITHUB_CLIENT_ID`, `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, and `GITHUB_REDIRECT_URI`.
+3. Run `npm run dev:vercel` and click **Sign in with GitHub** — GitHub will redirect back to the configured callback after authorization.
 
-Sign-in uses the [OAuth Device Flow](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps#device-flow), so no client secret is needed. GitHub's device/token endpoints don't send CORS headers, so the dev server proxies them (the `/gh` entry in [vite.config.ts](vite.config.ts)). A production deployment needs the same proxy in front of `github.com`.
+Sign-in uses GitHub's [web application OAuth flow](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps#web-application-flow). The authorization code is exchanged by the server, and the resulting token is stored in an HttpOnly session cookie. `GITHUB_CLIENT_SECRET` must never be exposed to browser code.
 
 ## Persistent storage
 
@@ -72,7 +72,7 @@ Deploy to production:
 vercel --prod
 ```
 
-Vercel should detect this as a Vite app, run `npm run build`, serve `dist/`, and deploy the `/api` functions. The [vercel.json](vercel.json) rewrite proxies `/gh/*` to GitHub so OAuth device-flow sign-in works in production too.
+Vercel should detect this as a Vite app, run `npm run build`, serve `dist/`, and deploy the `/api` functions. Configure the production OAuth callback as `https://your-domain.example/api/auth/callback` and set the server-side GitHub credentials in Vercel environment variables.
 
 ## The workflow
 

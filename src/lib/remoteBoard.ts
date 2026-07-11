@@ -47,13 +47,13 @@ async function parseResponse(res: Response): Promise<unknown> {
   }
 }
 
-async function requestBoard(token: string, init?: RequestInit): Promise<RemoteBoardSnapshot> {
+async function requestBoard(token: string | null, init?: RequestInit): Promise<RemoteBoardSnapshot> {
   const res = await fetch("/api/board", {
     ...init,
     headers: {
       ...(init?.headers ?? {}),
       Accept: "application/json",
-      Authorization: `Bearer ${token}`,
+      ...(token && token !== "session" ? {Authorization: `Bearer ${token}`} : {}),
     },
   });
   const data = await parseResponse(res);
@@ -70,11 +70,11 @@ async function requestBoard(token: string, init?: RequestInit): Promise<RemoteBo
   return snapshotFrom(data);
 }
 
-export function fetchRemoteBoard(token: string): Promise<RemoteBoardSnapshot> {
+export function fetchRemoteBoard(token: string | null): Promise<RemoteBoardSnapshot> {
   return requestBoard(token);
 }
 
-export function saveRemoteBoard(token: string, state: AppState, baseVersion: number): Promise<RemoteBoardSnapshot> {
+export function saveRemoteBoard(token: string | null, state: AppState, baseVersion: number): Promise<RemoteBoardSnapshot> {
   return requestBoard(token, {
     method: "PUT",
     headers: {"Content-Type": "application/json"},

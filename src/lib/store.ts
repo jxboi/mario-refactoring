@@ -449,6 +449,9 @@ export function useBoard(scope?: string, remoteToken?: string | null) {
   const remoteVersionRef = useRef(0);
   const skipNextRemoteSaveRef = useRef(false);
   const remotePausedRef = useRef(false);
+  const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const localDirtyRef = useRef(false);
+  const localRevisionRef = useRef(0);
 
   useEffect(() => {
     localStorage.setItem(storageKey(STORAGE_KEY, scope), JSON.stringify(state));
@@ -459,6 +462,8 @@ export function useBoard(scope?: string, remoteToken?: string | null) {
     remoteVersionRef.current = 0;
     skipNextRemoteSaveRef.current = false;
     remotePausedRef.current = false;
+    localDirtyRef.current = false;
+    localRevisionRef.current = 0;
     if (!token) {
       setRemoteReady(true);
       setSync({status: "local", message: "Local-only storage"});
@@ -493,19 +498,25 @@ export function useBoard(scope?: string, remoteToken?: string | null) {
     if (!token || !remoteReady || remotePausedRef.current) return;
     if (skipNextRemoteSaveRef.current) {
       skipNextRemoteSaveRef.current = false;
+      localDirtyRef.current = false;
       return;
     }
-    let cancelled = false;
+    localDirtyRef.current = true;
+    const revision = ++localRevisionRef.current;
+    setSync({status: "saving", message: "Saving to Neon..."});
     const timer = window.setTimeout(() => {
-      setSync({status: "saving", message: "Saving to Neon..."});
-      saveRemoteBoard(token, state, remoteVersionRef.current)
-        .then((remote) => {
-          if (cancelled) return;
+      saveQueueRef.current = saveQueueRef.current.then(async () => {
+        if (remotePausedRef.current) return;
+        try {
+          const remote = await saveRemoteBoard(token, state, remoteVersionRef.current);
           remoteVersionRef.current = remote.version;
-          setSync({status: "synced", message: "Synced to Neon", updatedAt: remote.updatedAt});
-        })
-        .catch((error) => {
-          if (cancelled) return;
+          if (revision === localRevisionRef.current) {
+            localDirtyRef.current = false;
+            setSync({status: "synced", message: "Synced to Neon", updatedAt: remote.updatedAt});
+          } else {
+            setSync({status: "saving", message: "Saving to Neon..."});
+          }
+        } catch (error) {
           if (error instanceof RemoteBoardConflict) {
             remotePausedRef.current = true;
             remoteVersionRef.current = error.remote.version;
@@ -513,13 +524,49 @@ export function useBoard(scope?: string, remoteToken?: string | null) {
           } else {
             setSync({status: "error", message: error instanceof Error ? error.message : "Cloud sync unavailable"});
           }
-        });
+        }
+      });
     }, 800);
+    return () => window.clearTimeout(timer);
+  }, [state, token, remoteReady]);
+
+  useEffect(() => {
+    if (!token || !remoteReady) return;
+    let cancelled = false;
+    let polling = false;
+
+    const poll = async () => {
+      if (cancelled || polling || document.visibilityState === "hidden" || remotePausedRef.current || localDirtyRef.current) return;
+      polling = true;
+      try {
+        const remote = await fetchRemoteBoard(token);
+        if (cancelled || localDirtyRef.current || remotePausedRef.current) return;
+        if (remote.state && remote.version > remoteVersionRef.current) {
+          const normalized = normalizeAppState(remote.state, readLegacySkills(scope));
+          if (!normalized) throw new Error("Cloud workspace data is invalid.");
+          remoteVersionRef.current = remote.version;
+          skipNextRemoteSaveRef.current = true;
+          dispatch({type: "hydrate", state: normalized});
+        }
+        setSync({status: "synced", message: "Synced to Neon", updatedAt: remote.updatedAt});
+      } catch (error) {
+        if (!cancelled) setSync({status: "error", message: error instanceof Error ? error.message : "Cloud sync unavailable"});
+      } finally {
+        polling = false;
+      }
+    };
+
+    const timer = window.setInterval(() => void poll(), 3000);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") void poll();
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
     return () => {
       cancelled = true;
-      window.clearTimeout(timer);
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
     };
-  }, [state, token, remoteReady]);
+  }, [dispatch, remoteReady, scope, token]);
 
   return {state, dispatch, sync};
 }

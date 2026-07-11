@@ -287,8 +287,7 @@ function BoardApp({session, onSignOut, initialWorkspaceName, onInitialWorkspaceN
         }}
         onProjectCreate={(name, projectType) => {
           dispatch({type: "project-create", name, projectType});
-          setSelectedId(null);
-          setFilters(EMPTY_FILTERS);
+          resetTransient();
           pushToast(`Project “${name}” created`, "success");
         }}
         onProjectRename={(id, name) => dispatch({type: "project-rename", id, name})}

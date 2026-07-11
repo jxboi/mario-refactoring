@@ -68,7 +68,7 @@ export function SkillsManager({skills, categories, config, onCreate, onUpdate, o
         </div>
 
         <p className="modal-intro">
-          Skills are reusable refactoring prompts. Author one, download it as a <code>.md</code> file, and hand it to an AI agent — it returns a JSON file you can drop into <strong>Import JSON</strong>.
+          Skills are reusable prompts shared within this workspace. Author one, download it as a <code>.md</code> file, and hand it to an AI agent — it returns JSON you can import into the active project.
         </p>
 
         <div className="skills-body">

@@ -44,7 +44,7 @@ export function guestSession(): Session {
   return {kind: "guest", token: null, user: {...GUEST_USER}};
 }
 
-/** localStorage namespace for a session's boards. */
+/** localStorage namespace for a session's workspace state. */
 export function boardScope(session: Session): string {
   return session.kind === "guest" ? "guest" : String(session.user.id);
 }

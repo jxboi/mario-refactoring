@@ -205,6 +205,14 @@ code,
   position: relative;
 }
 
+.workspace-btn {
+  max-width: 180px;
+}
+
+.workspace-menu .proj-menu-label {
+  padding-right: 5px;
+}
+
 .proj-btn {
   display: inline-flex;
   align-items: center;
@@ -1914,6 +1922,27 @@ code,
   color: var(--text-dim);
 }
 
+.workspace-import-summary {
+  align-items: flex-start;
+  flex-direction: column;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.workspace-import-summary span {
+  color: var(--text-dim);
+  font-size: 12.5px;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 18px;
+}
+
 .cat-manage-list {
   display: flex;
   flex-direction: column;
@@ -2917,7 +2946,7 @@ button.cat-manage-glyph:hover {
 }
 
 .account-menu-panel {
-  width: 220px;
+  width: 246px;
 }
 
 .account-menu-header {
@@ -2957,6 +2986,39 @@ button.cat-manage-glyph:hover {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.account-sync {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+  padding: 7px 10px;
+  color: var(--text-dim);
+  font-size: 12px;
+  line-height: 1.25;
+}
+
+.account-sync-dot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 7px;
+  border-radius: 50%;
+  background: var(--text-faint);
+}
+
+.account-sync-synced .account-sync-dot {
+  background: var(--green);
+}
+
+.account-sync-saving .account-sync-dot,
+.account-sync-loading .account-sync-dot {
+  background: var(--accent);
+}
+
+.account-sync-error .account-sync-dot,
+.account-sync-conflict .account-sync-dot {
+  background: var(--red);
 }
 
 .account-avatar {
@@ -3520,7 +3582,7 @@ button.cat-manage-glyph:hover {
   }
 
   .proj-btn {
-    max-width: clamp(72px, 24vw, 120px);
+    max-width: clamp(64px, 18vw, 110px);
   }
 
   .header-actions .btn {

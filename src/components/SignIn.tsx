@@ -1,5 +1,5 @@
 import {type FormEvent, useCallback, useEffect, useRef, useState} from "react";
-import {DEFAULT_PROJECT_NAME} from "../lib/store";
+import {DEFAULT_WORKSPACE_NAME} from "../lib/store";
 import {type DeviceCode, type Session, fetchUser, githubConfigured, isCancelled, pollForToken, requestDeviceCode} from "../lib/auth";
 import {BrandLogo} from "./BrandLogo";
 import {LandingArtwork} from "./LandingArtwork";
@@ -10,8 +10,8 @@ const GitHubMark = () => (
   </svg>
 );
 
-export function SignInScreen({onCreateProject, onSignIn}: {onCreateProject: (name: string) => void; onSignIn: (session: Session) => void}) {
-  const [projectName, setProjectName] = useState(DEFAULT_PROJECT_NAME);
+export function SignInScreen({onCreateWorkspace, onSignIn}: {onCreateWorkspace: (name: string) => void; onSignIn: (session: Session) => void}) {
+  const [workspaceName, setWorkspaceName] = useState(DEFAULT_WORKSPACE_NAME);
   const [device, setDevice] = useState<DeviceCode | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -19,12 +19,12 @@ export function SignInScreen({onCreateProject, onSignIn}: {onCreateProject: (nam
 
   useEffect(() => () => abortRef.current?.abort(), []);
 
-  const createProject = useCallback(
+  const createWorkspace = useCallback(
     (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
-      onCreateProject(projectName);
+      onCreateWorkspace(workspaceName);
     },
-    [onCreateProject, projectName],
+    [onCreateWorkspace, workspaceName],
   );
 
   const signInWithGitHub = useCallback(async () => {
@@ -92,19 +92,19 @@ export function SignInScreen({onCreateProject, onSignIn}: {onCreateProject: (nam
         </div>
 
         <div className="signin-card">
-          <h2 className="signin-title">Create a project</h2>
-          <p className="signin-sub">Name a project and jump straight into a local workspace. You can import JSON, add items, and feel how the board works before connecting anything.</p>
+          <h2 className="signin-title">Create a workspace</h2>
+          <p className="signin-sub">Name a workspace and jump into its first Coding project. Add more Coding or Task projects whenever you need them.</p>
 
-          <form className="project-start-form" onSubmit={createProject}>
-            <label className="project-start-label" htmlFor="project-name">
-              Project name
+          <form className="project-start-form" onSubmit={createWorkspace}>
+            <label className="project-start-label" htmlFor="workspace-name">
+              Workspace name
             </label>
-            <input id="project-name" className="project-start-input" value={projectName} onChange={(event) => setProjectName(event.target.value)} placeholder={DEFAULT_PROJECT_NAME} autoComplete="off" />
+            <input id="workspace-name" className="project-start-input" value={workspaceName} onChange={(event) => setWorkspaceName(event.target.value)} placeholder={DEFAULT_WORKSPACE_NAME} autoComplete="off" />
             <button className="btn btn-primary signin-btn" type="submit">
-              Create project
+              Create workspace
             </button>
           </form>
-          <p className="signin-guest-note">Starts locally on this device. Export your project anytime as JSON.</p>
+          <p className="signin-guest-note">Starts locally on this device. Export a project or the full workspace anytime as JSON.</p>
         </div>
 
         <div className="signin-support">

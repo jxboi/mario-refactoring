@@ -1,13 +1,15 @@
 import {useEffect, useRef, useState} from "react";
 import type {GitHubUser} from "../lib/auth";
+import type {BoardSyncState} from "../lib/store";
 
 interface Props {
   user: GitHubUser;
   isGuest: boolean;
+  sync: BoardSyncState;
   onSignOut: () => void;
 }
 
-export function AccountMenu({user, isGuest, onSignOut}: Props) {
+export function AccountMenu({user, isGuest, sync, onSignOut}: Props) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -33,6 +35,7 @@ export function AccountMenu({user, isGuest, onSignOut}: Props) {
   };
 
   const displayName = isGuest ? "Guest" : user.name || user.login;
+  const syncLabel = sync.status === "synced" && sync.updatedAt ? `${sync.message} ${new Date(sync.updatedAt).toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"})}` : sync.message;
 
   return (
     <div className="account-menu" ref={rootRef}>
@@ -71,6 +74,11 @@ export function AccountMenu({user, isGuest, onSignOut}: Props) {
               </div>
             </a>
           )}
+          <div className="settings-sep" />
+          <div className={`account-sync account-sync-${sync.status}`}>
+            <span className="account-sync-dot" aria-hidden="true" />
+            <span>{syncLabel}</span>
+          </div>
           <div className="settings-sep" />
           <button className="settings-item" role="menuitem" onClick={run(onSignOut)}>
             <span className="settings-item-icon">⏻</span> {isGuest ? "Exit" : "Sign out"}

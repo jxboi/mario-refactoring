@@ -1,17 +1,11 @@
 import {useEffect, useRef, useState} from "react";
 
 interface Props {
-  canImport: boolean;
-  canExport: boolean;
-  onImportClick: () => void;
-  onExportClick: () => void;
-  onImportWorkspaceClick: () => void;
-  onExportWorkspaceClick: () => void;
   onManageCategories: () => void;
   onManageSkills: () => void;
 }
 
-export function SettingsMenu({canImport, canExport, onImportClick, onExportClick, onImportWorkspaceClick, onExportWorkspaceClick, onManageCategories, onManageSkills}: Props) {
+export function SettingsMenu({onManageCategories, onManageSkills}: Props) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -52,20 +46,6 @@ export function SettingsMenu({canImport, canExport, onImportClick, onExportClick
           </button>
           <button className="settings-item" role="menuitem" onClick={run(onManageCategories)}>
             <span className="settings-item-icon">❖</span> Categories
-          </button>
-          <div className="settings-sep" />
-          <button className="settings-item" role="menuitem" onClick={run(onImportClick)} disabled={!canImport}>
-            <span className="settings-item-icon">⇡</span> Import project / items
-          </button>
-          <button className="settings-item" role="menuitem" onClick={run(onExportClick)} disabled={!canExport}>
-            <span className="settings-item-icon">⇣</span> Export project
-          </button>
-          <div className="settings-sep" />
-          <button className="settings-item" role="menuitem" onClick={run(onImportWorkspaceClick)}>
-            <span className="settings-item-icon">⇡</span> Import workspace
-          </button>
-          <button className="settings-item" role="menuitem" onClick={run(onExportWorkspaceClick)}>
-            <span className="settings-item-icon">⇣</span> Export workspace
           </button>
         </div>
       )}

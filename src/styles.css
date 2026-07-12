@@ -206,7 +206,8 @@ code,
 }
 
 .workspace-btn {
-  max-width: 180px;
+  width: min(220px, 24vw);
+  max-width: 220px;
 }
 
 .workspace-menu .proj-menu-label {
@@ -1347,6 +1348,93 @@ code,
   letter-spacing: 0.09em;
 }
 
+.workspace-kicker-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  margin-bottom: 14px;
+}
+
+.workspace-kicker-row .front-kicker {
+  margin-bottom: 0;
+}
+
+.workspace-transfer {
+  position: relative;
+}
+
+.workspace-transfer-trigger {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  color: var(--text-dim);
+  font-size: 15px;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.workspace-transfer-trigger:hover,
+.workspace-transfer-trigger.open {
+  border-color: rgba(232, 180, 90, 0.45);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.workspace-transfer-menu {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 7px);
+  left: 0;
+  width: 240px;
+  padding: 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: var(--shadow-modal);
+}
+
+.workspace-transfer-menu button {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 8px;
+  width: 100%;
+  padding: 10px;
+  border-radius: 8px;
+  color: var(--text-dim);
+  text-align: left;
+}
+
+.workspace-transfer-menu button:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.workspace-transfer-menu button > span:first-child {
+  color: var(--accent);
+  font-size: 15px;
+  text-align: center;
+}
+
+.workspace-transfer-menu strong,
+.workspace-transfer-menu small {
+  display: block;
+}
+
+.workspace-transfer-menu strong {
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.workspace-transfer-menu small {
+  margin-top: 2px;
+  color: var(--text-faint);
+  font-size: 10.5px;
+}
+
 .front-kicker::before {
   content: "";
   width: 6px;
@@ -1396,13 +1484,91 @@ code,
 }
 
 .project-overview-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
   cursor: pointer;
-  min-height: 180px;
+  min-height: 168px;
+  padding: 22px;
+  overflow: hidden;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.018));
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.025) inset;
+  transition: transform 0.16s var(--ease), border-color 0.16s, background 0.16s, box-shadow 0.16s;
 }
 
 .project-overview-card:hover {
-  border-color: var(--amber);
+  border-color: rgba(232, 180, 90, 0.5);
+  background: linear-gradient(145deg, rgba(232, 180, 90, 0.07), rgba(255, 255, 255, 0.022));
   transform: translateY(-2px);
+  box-shadow: var(--shadow-lift);
+}
+
+.project-overview-card:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.project-card-menu {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  opacity: 0.65;
+}
+
+.project-overview-card:hover .project-card-menu,
+.project-overview-card:focus-within .project-card-menu {
+  opacity: 1;
+}
+
+.project-card-copy {
+  padding-right: 28px;
+}
+
+.project-overview-card .project-card-copy h2 {
+  margin-bottom: 8px;
+  color: var(--text);
+  font-size: 16px;
+  letter-spacing: -0.01em;
+}
+
+.project-overview-card .project-card-copy p {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--text-dim);
+  font-size: 13px;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.project-card-footer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: auto;
+  padding-top: 24px;
+}
+
+.project-card-progress {
+  flex: 1;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.project-card-progress span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--accent), var(--green));
+}
+
+.project-card-count {
+  min-width: 34px;
+  color: var(--text-dim);
+  font-family: var(--mono);
+  font-size: 11px;
+  text-align: right;
 }
 
 .front-value {
@@ -3831,6 +3997,11 @@ button.cat-manage-glyph:hover {
 
   .proj-btn {
     max-width: clamp(64px, 18vw, 110px);
+  }
+
+  .workspace-btn {
+    width: clamp(108px, 30vw, 160px);
+    max-width: none;
   }
 
   .header-actions .btn {

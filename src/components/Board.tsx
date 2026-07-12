@@ -12,7 +12,6 @@ interface BoardProps {
   onMove: (id: string, stage: Stage, beforeId?: string) => void;
   onSelect: (id: string) => void;
   onAddItem: (stage: Stage) => void;
-  onImportClick: () => void;
   onLoadSample: () => void;
 }
 
@@ -33,7 +32,7 @@ function slotBeforeId(container: HTMLElement, clientY: number): string | null {
   return null;
 }
 
-export function Board({items, totalCount, categories, config, onMove, onSelect, onAddItem, onImportClick, onLoadSample}: BoardProps) {
+export function Board({items, totalCount, categories, config, onMove, onSelect, onAddItem, onLoadSample}: BoardProps) {
   const [dragId, setDragId] = useState<string | null>(null);
   const [overStage, setOverStage] = useState<Stage | null>(null);
   // Where a placeholder should show while dragging: the target stage and the id
@@ -69,7 +68,6 @@ export function Board({items, totalCount, categories, config, onMove, onSelect, 
             <p className="front-lede">Create tasks, prioritize the work, and move it through delivery.</p>
             <div className="front-actions">
               <button className="btn btn-primary" onClick={() => onAddItem("queued")}>+ New Task</button>
-              <button className="btn btn-ghost" onClick={onImportClick}><span className="btn-icon">⇡</span> Import JSON</button>
               <button className="btn btn-ghost" onClick={onLoadSample}>Explore sample</button>
             </div>
             <div className="front-value-grid">

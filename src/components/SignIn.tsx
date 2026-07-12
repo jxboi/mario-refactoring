@@ -55,14 +55,14 @@ export function SignInScreen({onCreateWorkspace}: {onCreateWorkspace: (name: str
               Create workspace
             </button>
           </form>
-          <p className="signin-guest-note">Starts locally on this device. Export a project or the full workspace anytime as JSON.</p>
+          <p className="signin-guest-note">Starts locally on this device. Export the full workspace anytime as JSON.</p>
         </div>
 
         <div className="signin-support">
           <div className="signin-value-list">
             <div>
               <strong>Structure the chaos</strong>
-              <span>Import JSON or create items manually with categories, tags, effort, and priority.</span>
+              <span>Import a workspace or create items manually with categories, tags, effort, and priority.</span>
             </div>
             <div>
               <strong>Protect focus</strong>

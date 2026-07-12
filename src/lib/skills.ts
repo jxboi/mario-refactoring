@@ -4,8 +4,7 @@ import {slugifyCategory, uid} from "../types";
 /**
  * A "skill" is a reusable, user-authored prompt template for structured work discovery.
  * The user exports it as a Markdown file to hand to an AI/Copilot agent; the
- * agent then produces a JSON file in Chisel's import schema, which the user
- * uploads through the normal Import JSON flow.
+ * agent then produces structured JSON in Chisel's task schema.
  */
 export interface Skill {
   id: string;

@@ -206,8 +206,25 @@ code,
 }
 
 .workspace-btn {
-  width: min(220px, 24vw);
-  max-width: 220px;
+  width: fit-content;
+  max-width: min(320px, 40vw);
+}
+
+.workspace-btn .proj-name {
+  min-width: 0;
+}
+
+.workspace-btn .settings-caret {
+  flex-shrink: 0;
+  margin-left: auto;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.workspace-btn:hover .settings-caret,
+.workspace-btn:focus-visible .settings-caret,
+.workspace-btn.open .settings-caret {
+  opacity: 1;
 }
 
 .workspace-menu .proj-menu-label {
@@ -1577,19 +1594,6 @@ code,
   gap: 12px;
   margin-top: auto;
   padding-top: 24px;
-}
-
-.project-card-open {
-  color: var(--text-dim);
-  font-size: 11px;
-  font-weight: 600;
-  white-space: nowrap;
-  transition: color 0.16s;
-}
-
-.project-overview-card:hover .project-card-open,
-.project-overview-card:focus-visible .project-card-open {
-  color: var(--accent);
 }
 
 .project-card-progress {
@@ -3391,6 +3395,14 @@ button.cat-manage-glyph:hover {
 
 .account-trigger .settings-caret {
   color: var(--text-faint);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.account-trigger:hover .settings-caret,
+.account-trigger:focus-visible .settings-caret,
+.account-trigger.open .settings-caret {
+  opacity: 1;
 }
 
 .account-trigger.open,
@@ -4073,8 +4085,8 @@ button.cat-manage-glyph:hover {
   }
 
   .workspace-btn {
-    width: clamp(108px, 30vw, 160px);
-    max-width: none;
+    width: fit-content;
+    max-width: min(240px, 45vw);
   }
 
   .header-actions .btn {

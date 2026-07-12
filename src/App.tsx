@@ -27,7 +27,7 @@ function ProjectOverview({projects,onOpen,onEdit,onCreate,onImport,onExport}:{pr
    <button className="icon-btn project-card-menu" onClick={e=>{e.stopPropagation();onEdit(p.id)}} aria-label={`Edit ${p.title||"project"}`}><span aria-hidden="true">✎</span></button>
    <div className="project-card-copy"><h2>{p.title||"Untitled project"}</h2><p>{p.description||"No outcome added yet."}</p></div>
    {p.tags.length>0&&<div className="project-card-tags" aria-label="Project tags">{p.tags.slice(0,3).map(tag=><span key={tag}>{tag}</span>)}{p.tags.length>3&&<span>+{p.tags.length-3}</span>}</div>}
-   <div className="project-card-footer"><span className="project-card-open">Open task board <span aria-hidden="true">→</span></span><div className="project-card-progress" aria-hidden="true"><span style={{width:`${pct}%`}}/></div><span className="project-card-count" aria-label={`${done} of ${p.tasks.length} tasks done`}>{done}/{p.tasks.length}</span></div>
+   <div className="project-card-footer"><div className="project-card-progress" aria-hidden="true"><span style={{width:`${pct}%`}}/></div><span className="project-card-count" aria-label={`${done} of ${p.tasks.length} tasks done`}>{done}/{p.tasks.length}</span></div>
   </article>})}</div>
  </div></section></main>
 }

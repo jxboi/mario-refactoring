@@ -20,8 +20,9 @@ function ProjectOverview({projects,onOpen,onEdit,onCreate,onImport,onExport}:{pr
   <h1>Projects, without the extra layers</h1><p className="front-lede">Choose a project to open its task board, or create a new one.</p>
   <div className="front-actions"><button className="btn btn-primary" onClick={onCreate}>+ New Project</button></div>
   <div className="project-overview-grid">{projects.map(p=>{const done=p.tasks.filter(t=>t.stage==="deployed").length,pct=p.tasks.length?done/p.tasks.length*100:0;return <article className="front-value project-overview-card" key={p.id} onClick={()=>onOpen(p.id)} tabIndex={0} onKeyDown={e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();onOpen(p.id)}}}>
-   <button className="icon-btn project-card-menu" onClick={e=>{e.stopPropagation();onEdit(p.id)}} aria-label={`Edit ${p.title||"project"}`}>⋯</button>
+   <button className="icon-btn project-card-menu" onClick={e=>{e.stopPropagation();onEdit(p.id)}} aria-label={`Edit ${p.title||"project"}`}><span aria-hidden="true">✎</span></button>
    <div className="project-card-copy"><h2>{p.title||"Untitled project"}</h2><p>{p.description||"No outcome added yet."}</p></div>
+   {p.tags.length>0&&<div className="project-card-tags" aria-label="Project tags">{p.tags.slice(0,3).map(tag=><span key={tag}>{tag}</span>)}{p.tags.length>3&&<span>+{p.tags.length-3}</span>}</div>}
    <div className="project-card-footer"><div className="project-card-progress" aria-hidden="true"><span style={{width:`${pct}%`}}/></div><span className="project-card-count" aria-label={`${done} of ${p.tasks.length} tasks done`}>{done}/{p.tasks.length}</span></div>
   </article>})}</div>
  </div></section></main>

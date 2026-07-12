@@ -1515,6 +1515,11 @@ code,
   opacity: 0.65;
 }
 
+.project-card-menu span {
+  font-size: 15px;
+  line-height: 1;
+}
+
 .project-overview-card:hover .project-card-menu,
 .project-overview-card:focus-within .project-card-menu {
   opacity: 1;
@@ -1538,6 +1543,28 @@ code,
   font-size: 13px;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
+}
+
+.project-card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 15px;
+  padding-right: 24px;
+}
+
+.project-card-tags span {
+  overflow: hidden;
+  max-width: 140px;
+  padding: 3px 8px;
+  border: 1px solid rgba(232, 180, 90, 0.2);
+  border-radius: 999px;
+  background: rgba(232, 180, 90, 0.07);
+  color: var(--text-dim);
+  font-size: 10.5px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .project-card-footer {

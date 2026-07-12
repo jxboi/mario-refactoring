@@ -4,20 +4,24 @@
   "version": "0.1.0",
   "type": "module",
   "engines": {
-    "node": "^20.0.0 || >=22.0.0"
+    "node": "22.x"
   },
   "scripts": {
     "dev": "node scripts/dev.mjs",
     "dev:vite": "vite",
-    "dev:vercel": "dotenv -c development -- vercel dev",
+    "dev:vercel": "node scripts/dev.mjs",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "test": "vitest run"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
+    "@react-email/components": "^1.0.12",
+    "@react-email/render": "^2.1.0",
+    "@vercel/queue": "^0.4.0",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "resend": "^6.17.2"
   },
   "devDependencies": {
     "@types/node": "^26.1.0",

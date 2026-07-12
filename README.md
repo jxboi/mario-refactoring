@@ -37,3 +37,29 @@ npm run build
 ```
 
 The app is built with React, TypeScript, Vite, and Vitest.
+
+## Email automations
+
+Signed-in workspaces can create rules under **Account → Automations**. A rule can watch every project or one project, match an exact or wildcard source stage, and send an email when a task reaches the selected destination stage. Rules and their recent delivery history are stored in Postgres and are intentionally excluded from workspace exports.
+
+The delivery path uses Resend and Vercel Queues. Configure these server-side variables before testing:
+
+```bash
+RESEND_API_KEY=re_...
+RESEND_FROM_EMAIL="Chisel <notifications@your-verified-domain.example>"
+CRON_SECRET=a-random-string-at-least-16-characters
+```
+
+Verify the sender domain in Resend before sending to production recipients. For local queue testing, link and pull the Vercel project credentials, then use the Vercel development server:
+
+For an initial sandbox test before domain verification, set `RESEND_FROM_EMAIL="Chisel <onboarding@resend.dev>"`. Resend only allows that sender to deliver to the email address associated with your Resend account; use a verified custom domain for other recipients.
+
+```bash
+vercel link
+vercel env pull
+npm run dev:vercel
+```
+
+The queue client uses `VERCEL_OIDC_TOKEN` from the pulled environment during local development and explicitly opts out of deployment pinning when `VERCEL_DEPLOYMENT_ID` is unavailable. If the token expires or queue authentication fails, run `vercel env pull .env.local --environment=development --yes` and restart the dev server. A dedicated `VERCEL_QUEUE_API_TOKEN` can be used instead when running outside Vercel.
+
+The `/api/automation-dispatch` cron is a daily safety net for outbox rows that could not be published immediately. Queue delivery retries transient email failures automatically; a `sent` run means Resend accepted the message, not that the recipient inbox confirmed delivery.

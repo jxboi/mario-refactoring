@@ -7,6 +7,7 @@
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
     "isolatedModules": true,
+    "jsx": "react-jsx",
     "moduleDetection": "force",
     "composite": true,
     "emitDeclarationOnly": true,
@@ -14,5 +15,5 @@
     "strict": true,
     "types": ["node"]
   },
-  "include": ["vite.config.ts", "api/**/*.ts"]
+  "include": ["vite.config.ts", "api/**/*.ts", "api/**/*.tsx", "src/types.ts", "src/lib/store.ts", "src/lib/skills.ts", "src/lib/remoteBoard.ts", "src/lib/automations.ts"]
 }

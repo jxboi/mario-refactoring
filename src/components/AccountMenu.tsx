@@ -6,10 +6,12 @@ interface Props {
   user: GitHubUser;
   isGuest: boolean;
   sync: BoardSyncState;
+  onManageCategories: () => void;
+  onManageSkills: () => void;
   onSignOut: () => void;
 }
 
-export function AccountMenu({user, isGuest, sync, onSignOut}: Props) {
+export function AccountMenu({user, isGuest, sync, onManageCategories, onManageSkills, onSignOut}: Props) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -79,6 +81,13 @@ export function AccountMenu({user, isGuest, sync, onSignOut}: Props) {
             <span className="account-sync-dot" aria-hidden="true" />
             <span>{syncLabel}</span>
           </div>
+          <div className="settings-sep" />
+          <button className="settings-item" role="menuitem" onClick={run(onManageSkills)}>
+            <span className="settings-item-icon">✦</span> Skills
+          </button>
+          <button className="settings-item" role="menuitem" onClick={run(onManageCategories)}>
+            <span className="settings-item-icon">❖</span> Categories
+          </button>
           <div className="settings-sep" />
           <button className="settings-item" role="menuitem" onClick={run(onSignOut)}>
             <span className="settings-item-icon">⏻</span> {isGuest ? "Exit" : "Sign out"}

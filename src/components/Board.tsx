@@ -1,7 +1,6 @@
 import {Fragment, useEffect, useRef, useState} from "react";
 import type {CategoryDef, ItemConfig, Stage, Task} from "../types";
 import {categoryMeta} from "../types";
-import {LandingArtwork} from "./LandingArtwork";
 import {EffortDots, RiskPill} from "./ui";
 
 interface BoardProps {
@@ -33,6 +32,7 @@ function slotBeforeId(container: HTMLElement, clientY: number): string | null {
 }
 
 export function Board({items, totalCount, categories, config, onMove, onSelect, onAddItem, onLoadSample}: BoardProps) {
+  const [showIntro, setShowIntro] = useState(true);
   const [dragId, setDragId] = useState<string | null>(null);
   const [overStage, setOverStage] = useState<Stage | null>(null);
   // Where a placeholder should show while dragging: the target stage and the id
@@ -52,43 +52,19 @@ export function Board({items, totalCount, categories, config, onMove, onSelect, 
       return next;
     });
 
-  if (totalCount === 0) {
-    const valuePoints = [
-          ["Capture the full list", "Bring in JSON or create tasks one by one with priority, effort, tags, and custom categories."],
-          ["Keep work moving", "Use the board to spot blocked items, review handoffs, and what is ready to finish next."],
-          ["Share a clean snapshot", "Export the project as structured JSON when the team needs the current plan."],
-        ];
-
+  if (showIntro || totalCount === 0) {
     return (
       <main className="board-empty">
-        <section className="front-page">
+        <section className="front-page front-page-simple">
           <div className="front-copy">
             <span className="front-kicker">Task board</span>
             <h1>Turn the project into clear, actionable tasks</h1>
             <p className="front-lede">Create tasks, prioritize the work, and move it through delivery.</p>
             <div className="front-actions">
               <button className="btn btn-primary" onClick={() => onAddItem("queued")}>+ New Task</button>
-              <button className="btn btn-ghost" onClick={onLoadSample}>Explore sample</button>
-            </div>
-            <div className="front-value-grid">
-              {valuePoints.map(([title, text]) => (
-                <article className="front-value" key={title}>
-                  <span className="front-value-mark" />
-                  <h2>{title}</h2>
-                  <p>{text}</p>
-                </article>
-              ))}
-            </div>
-          </div>
-
-          <div className="front-visual">
-            <LandingArtwork compact />
-            <div className="front-schema-card">
-              <div className="front-schema-head">
-                <span>Example import</span>
-                <strong>{config.metricLabel.toLowerCase()} + effort</strong>
-              </div>
-              <pre className="front-schema">{config.schema}</pre>
+              {totalCount > 0
+                ? <button className="btn btn-ghost" onClick={() => setShowIntro(false)}>Open Tasks ({totalCount})</button>
+                : <button className="btn btn-ghost" onClick={onLoadSample}>Explore sample</button>}
             </div>
           </div>
         </section>

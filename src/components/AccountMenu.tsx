@@ -9,10 +9,11 @@ interface Props {
   onManageCategories: () => void;
   onManageSkills: () => void;
   onManageAutomations: () => void;
+  onShowShortcuts: () => void;
   onSignOut: () => void;
 }
 
-export function AccountMenu({user, isGuest, sync, onManageCategories, onManageSkills, onManageAutomations, onSignOut}: Props) {
+export function AccountMenu({user, isGuest, sync, onManageCategories, onManageSkills, onManageAutomations, onShowShortcuts, onSignOut}: Props) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -91,6 +92,9 @@ export function AccountMenu({user, isGuest, sync, onManageCategories, onManageSk
           </button>
           <button className="settings-item" role="menuitem" onClick={run(onManageAutomations)}>
             <span className="settings-item-icon">↗</span> Automations
+          </button>
+          <button className="settings-item" role="menuitem" onClick={run(onShowShortcuts)}>
+            <span className="settings-item-icon">⌨</span> Shortcuts
           </button>
           <div className="settings-sep" />
           <button className="settings-item" role="menuitem" onClick={run(onSignOut)}>

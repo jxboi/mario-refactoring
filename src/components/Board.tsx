@@ -10,6 +10,8 @@ interface BoardProps {
   config: ItemConfig;
   onMove: (id: string, stage: Stage, beforeId?: string) => void;
   onSelect: (id: string) => void;
+  onDuplicate: (id: string) => void;
+  onDelete: (id: string) => void;
   onAddItem: (stage: Stage) => void;
   onLoadSample: () => void;
 }
@@ -31,7 +33,7 @@ function slotBeforeId(container: HTMLElement, clientY: number): string | null {
   return null;
 }
 
-export function Board({items, totalCount, categories, config, onMove, onSelect, onAddItem, onLoadSample}: BoardProps) {
+export function Board({items, totalCount, categories, config, onMove, onSelect, onDuplicate, onDelete, onAddItem, onLoadSample}: BoardProps) {
   const [showIntro, setShowIntro] = useState(true);
   const [dragId, setDragId] = useState<string | null>(null);
   const [overStage, setOverStage] = useState<Stage | null>(null);
@@ -196,6 +198,8 @@ export function Board({items, totalCount, categories, config, onMove, onSelect, 
                     categories={categories}
                     dragging={dragId === item.id}
                     onSelect={() => onSelect(item.id)}
+                    onDuplicate={() => onDuplicate(item.id)}
+                    onDelete={() => onDelete(item.id)}
                     onDragStart={(e) => {
                       e.dataTransfer.setData(DRAG_MIME, item.id);
                       e.dataTransfer.effectAllowed = "move";
@@ -281,12 +285,34 @@ interface CardProps {
   categories: CategoryDef[];
   dragging: boolean;
   onSelect: () => void;
+  onDuplicate: () => void;
+  onDelete: () => void;
   onDragStart: (e: React.DragEvent) => void;
   onDragEnd: () => void;
 }
 
-function Card({item, categories, dragging, onSelect, onDragStart, onDragEnd}: CardProps) {
+function Card({item, categories, dragging, onSelect, onDuplicate, onDelete, onDragStart, onDragEnd}: CardProps) {
   const cat = categoryMeta(item.category, categories);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const close = (e: MouseEvent) => {
+      if (!menuRef.current?.contains(e.target as Node)) { setMenuOpen(false); setConfirmDelete(false); }
+    };
+    const escape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { setMenuOpen(false); setConfirmDelete(false); }
+    };
+    window.addEventListener("mousedown", close);
+    window.addEventListener("keydown", escape);
+    return () => {
+      window.removeEventListener("mousedown", close);
+      window.removeEventListener("keydown", escape);
+    };
+  }, [menuOpen]);
+
   return (
     <article
       className={`card${dragging ? " dragging" : ""}${item.blocked ? " card-blocked" : ""}${item.stage === "deployed" ? " card-landed" : ""}`}
@@ -307,6 +333,10 @@ function Card({item, categories, dragging, onSelect, onDragStart, onDragEnd}: Ca
             Blocked
           </span>
         )}
+        <div className="card-menu" ref={menuRef} onMouseDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
+          <button type="button" className={`card-menu-btn${menuOpen ? " open" : ""}`} aria-label={`Options for ${item.title || "Untitled task"}`} aria-haspopup="menu" aria-expanded={menuOpen} onClick={() => { setMenuOpen((open) => !open); setConfirmDelete(false); }}>⋯</button>
+          {menuOpen && <div className="card-menu-pop" role="menu">{confirmDelete ? <div className="card-menu-confirm"><span>Delete this task?</span><div><button type="button" className="danger" onClick={() => { setMenuOpen(false); onDelete(); }}>Delete</button><button type="button" onClick={() => setConfirmDelete(false)}>Cancel</button></div></div> : <><button type="button" role="menuitem" onClick={() => { setMenuOpen(false); onDuplicate(); }}><span aria-hidden="true">⧉</span> Duplicate task</button><button type="button" className="danger" role="menuitem" onClick={() => setConfirmDelete(true)}><span aria-hidden="true">×</span> Delete task</button></>}</div>}
+        </div>
       </div>
       <div className={`card-title${item.title ? "" : " untitled"}`}>{item.title || "Untitled"}</div>
       <div className="card-meta">

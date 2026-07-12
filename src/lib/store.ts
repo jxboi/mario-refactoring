@@ -15,7 +15,7 @@ export type BoardSyncState = {status:"local"|"loading"|"saving"|"synced"|"error"
 export type Action =
  | {type:"hydrate";state:AppState}|{type:"workspace-create";name:string}|{type:"workspace-import";workspace:Workspace}|{type:"workspace-rename";id:string;name:string}|{type:"workspace-delete";id:string}|{type:"workspace-switch";id:string}
  | {type:"project-create";project:Project}|{type:"project-select";id:string|null}|{type:"project-update";id:string;patch:Partial<Omit<Project,"id"|"notes"|"tasks">>}|{type:"project-delete";id:string}
- | {type:"task-add";projectId:string;task:Task}|{type:"task-update";projectId:string;id:string;patch:Partial<Omit<Task,"id"|"notes">>}|{type:"task-move";projectId:string;id:string;stage:Stage;beforeId?:string}|{type:"task-delete";projectId:string;id:string}
+ | {type:"task-add";projectId:string;task:Task}|{type:"task-duplicate";projectId:string;id:string;duplicateId:string}|{type:"task-update";projectId:string;id:string;patch:Partial<Omit<Task,"id"|"notes">>}|{type:"task-move";projectId:string;id:string;stage:Stage;beforeId?:string}|{type:"task-delete";projectId:string;id:string}
  | {type:"note-add";entity:"project"|"task";projectId:string;taskId?:string;text:string}|{type:"note-edit";entity:"project"|"task";projectId:string;taskId?:string;noteId:string;text:string}|{type:"note-delete";entity:"project"|"task";projectId:string;taskId?:string;noteId:string}|{type:"note-toggle-block"|"note-toggle-resolved";entity:"project"|"task";projectId:string;taskId?:string;noteId:string}
  | {type:"category-add";label:string;groupId:string}|{type:"category-rename";id:string;label:string}|{type:"category-set-glyph";id:string;glyph:string}|{type:"category-delete";id:string}|{type:"category-move";id:string;groupId:string}|{type:"category-reorder";id:string;direction:-1|1}|{type:"categories-merge";categories:CategoryDef[]}
  | {type:"category-group-add";label:string}|{type:"category-group-rename";id:string;label:string}|{type:"category-group-delete";id:string}|{type:"category-group-reorder";id:string;direction:-1|1}
@@ -23,6 +23,7 @@ export type Action =
 
 export function newProject(title=""):Project { const now=Date.now(); return {id:uid(),title,description:"",risk:"medium",effort:"medium",tags:[],stage:"queued",blocked:false,blockReason:"",notes:[],createdAt:now,updatedAt:now,tasks:[]}; }
 export function newTask(stage:Stage="queued"):Task { const now=Date.now(); return {id:uid(),title:"",description:"",risk:"medium",effort:"medium",category:"other",tags:[],stage,blocked:false,blockReason:"",notes:[],createdAt:now,updatedAt:now}; }
+export function duplicateTask(task:Task,id=uid()):Task { const now=Date.now(); return {...task,id,title:task.title?`${task.title} (copy)`:"",tags:[...task.tags],notes:task.notes.map(note=>({...note,id:uid(),createdAt:now})),createdAt:now,updatedAt:now}; }
 export function newWorkspace(name=DEFAULT_WORKSPACE_NAME):Workspace { return {id:uid(),name:name.trim()||"Untitled workspace",createdAt:Date.now(),projects:[],activeProjectId:null,categories:TASK_CATEGORIES.map(x=>({...x})),categoryGroups:CATEGORY_GROUPS.map(x=>({...x})),skills:defaultSkills()}; }
 const mapWs=(s:AppState,fn:(w:Workspace)=>Workspace):AppState=>({...s,workspaces:s.workspaces.map(w=>w.id===s.activeWorkspaceId?fn(w):w)});
 const touch=<T extends {updatedAt:number}>(x:T):T=>({...x,updatedAt:Date.now()});
@@ -40,6 +41,7 @@ export function reducer(state:AppState,a:Action):AppState {
   case"project-update":return mapWs(state,w=>updateEntity(w,a.id,undefined,x=>touch({...x,...a.patch}) as Project));
   case"project-delete":return mapWs(state,w=>({...w,projects:w.projects.filter(p=>p.id!==a.id),activeProjectId:w.activeProjectId===a.id?null:w.activeProjectId}));
   case"task-add":return mapWs(state,w=>({...w,projects:w.projects.map(p=>p.id===a.projectId?{...p,tasks:[...p.tasks,a.task]}:p)}));
+  case"task-duplicate":return mapWs(state,w=>({...w,projects:w.projects.map(p=>{if(p.id!==a.projectId)return p;const index=p.tasks.findIndex(t=>t.id===a.id);if(index<0)return p;const tasks=[...p.tasks];tasks.splice(index+1,0,duplicateTask(tasks[index],a.duplicateId));return{...p,tasks};})}));
   case"task-update":return mapWs(state,w=>updateEntity(w,a.projectId,a.id,x=>touch({...x,...a.patch}) as Task));
   case"task-delete":return mapWs(state,w=>({...w,projects:w.projects.map(p=>p.id===a.projectId?{...p,tasks:p.tasks.filter(t=>t.id!==a.id)}:p)}));
   case"task-move":return mapWs(state,w=>({...w,projects:w.projects.map(p=>{if(p.id!==a.projectId)return p;const item=p.tasks.find(t=>t.id===a.id);if(!item)return p;const rest=p.tasks.filter(t=>t.id!==a.id);const moved=touch({...item,stage:a.stage});const at=a.beforeId?rest.findIndex(t=>t.id===a.beforeId):-1;at<0?rest.push(moved):rest.splice(at,0,moved);return{...p,tasks:rest};})}));

@@ -1,4 +1,5 @@
-import {authenticateUserId,queryValue,type ApiResponse} from "./_auth.js";
+import {authenticateUser,queryValue,type ApiResponse} from "./_auth.js";
+import {mergeCollaborations,upsertUserProfile} from "./_collaboration.js";
 import {ensureSchema,getQuery} from "./_db.js";
 import {errorStatus,sendError,type BodyRequest} from "./_http.js";
 import {loadUserBoard} from "./_automation.js";
@@ -12,10 +13,10 @@ function decodeCursor(value:string):{at:string;id:string}|null{try{const parsed=
 
 export default async function handler(req:BodyRequest,res:ApiResponse){res.setHeader("Cache-Control","no-store");try{
   if(req.method!=="GET"){res.setHeader("Allow","GET");sendError(res,405,"Method not allowed.");return;}
-  const userId=await authenticateUserId(req);await ensureSchema();
+  const{userId,user}=await authenticateUser(req);await ensureSchema();const sql=getQuery();await upsertUserProfile(sql,userId,user);
   const workspaceId=queryValue(req.query,"workspaceId"),projectId=queryValue(req.query,"projectId")||null;
   const rawFamily=queryValue(req.query,"family"),family=FAMILIES.has(rawFamily as ActivityFamily)?rawFamily as ActivityFamily:null;const q=queryValue(req.query,"q").trim().toLowerCase().slice(0,120),pattern=`%${q}%`;const limit=Math.min(50,Math.max(1,Number(queryValue(req.query,"limit"))||50));const cursorValue=queryValue(req.query,"cursor"),cursor=cursorValue?decodeCursor(cursorValue):null;if(cursorValue&&!cursor)throw Object.assign(new Error("Invalid activity cursor."),{status:400});
-  const cursorAt=cursor?.at??null,cursorId=cursor?.id??null,sql=getQuery();const rowsPromise=sql`
+  const cursorAt=cursor?.at??null,cursorId=cursor?.id??null;const rowsPromise=sql`
     select id,event,occurred_at from activity_events
     where user_id=${userId} and workspace_id=${workspaceId}
       and (${projectId}::text is null or project_id=${projectId})
@@ -32,7 +33,7 @@ export default async function handler(req:BodyRequest,res:ApiResponse){res.setHe
   ` as unknown as Promise<{today:number;this_week:number;items_touched:number}[]>;
   const deletedRowsPromise=sql`select distinct on (project_id) project_id,event from activity_events where user_id=${userId} and workspace_id=${workspaceId} and event->>'action'='project.deleted' order by project_id,occurred_at desc` as unknown as Promise<{project_id:string;event:ActivityEvent}[]>;
   const[rawState,rows,summaries,deletedRows]=await Promise.all([loadUserBoard(userId),rowsPromise,summariesPromise,deletedRowsPromise]);
-  const state=normalizeAppState(rawState);if(!state)throw Object.assign(new Error("Workspace not found."),{status:404});
+  const state=await mergeCollaborations(sql,userId,normalizeAppState(rawState));if(!state)throw Object.assign(new Error("Workspace not found."),{status:404});
   const workspace=state.workspaces.find(item=>item.id===workspaceId);if(!workspace)throw Object.assign(new Error("Workspace not found."),{status:404});
   if(projectId&&!workspace.projects.some(project=>project.id===projectId)&&!deletedRows.some(row=>row.project_id===projectId)){
     const historic=await sql`select 1 from activity_events where user_id=${userId} and workspace_id=${workspaceId} and project_id=${projectId} limit 1` as unknown[];if(!historic.length)throw Object.assign(new Error("Project not found."),{status:404});

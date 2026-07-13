@@ -112,10 +112,10 @@ export function WorkspaceMenu({workspaces, activeId, onSwitch, onCreate, onRenam
                         setOpen(false);
                       }}
                     >
-                      <span className="proj-row-name">{workspace.name}</span>
+                      <span className="proj-row-name">{workspace.collaboration ? "◎ " : ""}{workspace.name}</span>
                       <span className="proj-row-count">{workspace.projects.length}</span>
                     </button>
-                    <span className="proj-row-actions">
+                    {!workspace.collaboration && <span className="proj-row-actions">
                       <button
                         className="proj-row-action"
                         title="Rename workspace"
@@ -126,7 +126,7 @@ export function WorkspaceMenu({workspaces, activeId, onSwitch, onCreate, onRenam
                         }}
                       >✎</button>
                       <button className="proj-row-action danger" title="Delete workspace" aria-label={`Delete ${workspace.name}`} onClick={() => setConfirmId(workspace.id)}>✕</button>
-                    </span>
+                    </span>}
                   </>
                 )}
               </div>

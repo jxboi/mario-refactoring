@@ -1,0 +1,27 @@
+import {useCallback, useEffect, useState} from "react";
+import type {GitHubUser} from "../lib/auth";
+import {collaborationAction, fetchProjectCollaboration, type ProjectCollaboration} from "../lib/collaborationApi";
+import type {Workspace} from "../lib/store";
+import type {Project} from "../types";
+
+interface Props { workspace:Workspace; project:Project; user:GitHubUser; isGuest:boolean; onClose:()=>void; }
+
+export function CollaborationManager({workspace,project,user,isGuest,onClose}:Props){
+  const[data,setData]=useState<ProjectCollaboration|null>(null),[login,setLogin]=useState(""),[loading,setLoading]=useState(!isGuest),[saving,setSaving]=useState(false),[error,setError]=useState<string|null>(null);
+  const load=useCallback(async()=>{if(isGuest)return;setLoading(true);setError(null);try{setData(await fetchProjectCollaboration(project.id))}catch(reason){setError(reason instanceof Error?reason.message:"Could not load collaborators.")}finally{setLoading(false)}},[isGuest,project.id]);
+  useEffect(()=>{void load()},[load]);
+  useEffect(()=>{const key=(event:KeyboardEvent)=>{if(event.key==="Escape")onClose()};window.addEventListener("keydown",key);return()=>window.removeEventListener("keydown",key)},[onClose]);
+  const act=async(body:Record<string,unknown>,reloadPage=false)=>{setSaving(true);setError(null);try{await collaborationAction(body);if(reloadPage)window.location.reload();else await load()}catch(reason){setError(reason instanceof Error?reason.message:"Could not update access.")}finally{setSaving(false)}};
+  const invite=async(event:React.FormEvent)=>{event.preventDefault();const value=login.trim();if(!value)return;setSaving(true);setError(null);try{await collaborationAction({action:"invite",workspaceId:workspace.id,projectId:project.id,login:value});setLogin("");if(!data?.share)window.location.reload();else await load()}catch(reason){setError(reason instanceof Error?reason.message:"Could not send invitation.")}finally{setSaving(false)}};
+  const owner=data?.share?.role!=="editor";
+  return <div className="modal-veil" role="presentation" onMouseDown={event=>{if(event.target===event.currentTarget)onClose()}}><section className="collaboration-modal" role="dialog" aria-modal="true" aria-labelledby="collaboration-title">
+    <header className="collaboration-head"><div><span className="front-kicker">Project access</span><h2 id="collaboration-title">Share “{project.title||"Untitled project"}”</h2><p>{project.collaboration?.role==="editor"?`Owned by @${project.collaboration.ownerLogin}`:"Invite teammates to work on this task board."}</p></div><button className="icon-btn" onClick={onClose} aria-label="Close collaboration settings">×</button></header>
+    {isGuest?<div className="collaboration-guest"><span aria-hidden="true">◎</span><h3>Sign in to collaborate</h3><p>Shared projects use GitHub accounts to keep access secure and changes in sync.</p></div>:<div className="collaboration-body">
+      {owner&&<form className="collaboration-invite" onSubmit={invite}><label className="field"><span className="field-label">GitHub username</span><div className="collaboration-invite-row"><input className="input" value={login} onChange={event=>setLogin(event.target.value)} placeholder="octocat" autoComplete="off"/><button className="btn btn-primary" disabled={saving||!login.trim()}>Invite</button></div></label><p>They’ll see the invitation after signing in to Chisel with GitHub.</p></form>}
+      {error&&<div className="automation-error" role="alert">{error}</div>}
+      <section className="collaboration-section"><div className="collaboration-section-title"><h3>People with access</h3>{loading&&<small>Loading…</small>}</div><div className="collaboration-list">{data?.members.map(member=><article className="collaboration-person" key={member.userId}>{member.avatarUrl?<img src={member.avatarUrl} alt=""/>:<span className="collaboration-avatar">@</span>}<div><strong>{member.name||member.login}{member.userId===`github:${user.id}`?" (you)":""}</strong><small>@{member.login}</small></div><span className="collaboration-role">{member.role}</span>{owner&&member.role!=="owner"&&<button className="btn-link danger" disabled={saving} onClick={()=>{if(window.confirm(`Remove @${member.login} from this project?`))void act({action:"remove-member",shareId:data.share?.id,userId:member.userId})}}>Remove</button>}</article>)}</div></section>
+      {owner&&!!data?.invitations.length&&<section className="collaboration-section"><h3>Pending invitations</h3><div className="collaboration-list">{data.invitations.map(invitation=><article className="collaboration-person" key={invitation.id}><span className="collaboration-avatar">@</span><div><strong>@{invitation.login}</strong><small>Invited {new Date(invitation.createdAt).toLocaleDateString()}</small></div><span className="collaboration-role">pending</span><button className="btn-link danger" disabled={saving} onClick={()=>void act({action:"revoke",shareId:data.share?.id,invitationId:invitation.id})}>Revoke</button></article>)}</div></section>}
+      {!owner&&data?.share&&<div className="collaboration-leave"><p>You can edit tasks and project details. Only the owner can manage access or delete the project.</p><button className="btn btn-danger" disabled={saving} onClick={()=>{if(window.confirm("Leave this shared project?"))void act({action:"leave",shareId:data.share?.id},true)}}>Leave project</button></div>}
+    </div>}
+  </section></div>
+}

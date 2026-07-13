@@ -7,7 +7,7 @@ config({path: [".env.local", ".env"], quiet: true});
 const vercel = fileURLToPath(new URL("../node_modules/vercel/dist/index.js", import.meta.url));
 const child = spawn(process.execPath, [vercel, "dev", "--listen", "5180"], {
   stdio: "inherit",
-  env: process.env,
+  env: {...process.env, NODE_ENV: "development"},
 });
 
 for (const signal of ["SIGINT", "SIGTERM"]) {

@@ -1,4 +1,15 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "devCommand": "npm run dev:vite -- --port $PORT"
+  "devCommand": "npm run dev:vite -- --port $PORT",
+  "functions": {
+    "api/queues/task-automation-actions.ts": {
+      "experimentalTriggers": [{
+        "type": "queue/v2beta",
+        "topic": "task-automation-actions",
+        "retryAfterSeconds": 10,
+        "initialDelaySeconds": 0
+      }]
+    }
+  },
+  "crons": [{"path": "/api/automation-dispatch", "schedule": "0 3 * * *"}]
 }

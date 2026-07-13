@@ -1,19 +1,18 @@
 import {Fragment, useEffect, useRef, useState} from "react";
-import type {CategoryDef, Stage, TypeConfig, WorkItem} from "../types";
+import type {CategoryDef, ItemConfig, Stage, Task} from "../types";
 import {categoryMeta} from "../types";
-import {LandingArtwork} from "./LandingArtwork";
 import {EffortDots, RiskPill} from "./ui";
 
 interface BoardProps {
-  items: WorkItem[];
+  items: Task[];
   totalCount: number;
   categories: CategoryDef[];
-  config: TypeConfig;
-  relationshipCounts: Record<string, {parents: number; children: number; completedChildren: number}>;
+  config: ItemConfig;
   onMove: (id: string, stage: Stage, beforeId?: string) => void;
   onSelect: (id: string) => void;
+  onDuplicate: (id: string) => void;
+  onDelete: (id: string) => void;
   onAddItem: (stage: Stage) => void;
-  onImportClick: () => void;
   onLoadSample: () => void;
 }
 
@@ -34,7 +33,8 @@ function slotBeforeId(container: HTMLElement, clientY: number): string | null {
   return null;
 }
 
-export function Board({items, totalCount, categories, config, relationshipCounts, onMove, onSelect, onAddItem, onImportClick, onLoadSample}: BoardProps) {
+export function Board({items, totalCount, categories, config, onMove, onSelect, onDuplicate, onDelete, onAddItem, onLoadSample}: BoardProps) {
+  const [showIntro, setShowIntro] = useState(true);
   const [dragId, setDragId] = useState<string | null>(null);
   const [overStage, setOverStage] = useState<Stage | null>(null);
   // Where a placeholder should show while dragging: the target stage and the id
@@ -54,62 +54,19 @@ export function Board({items, totalCount, categories, config, relationshipCounts
       return next;
     });
 
-  if (totalCount === 0) {
-    const valuePoints = config.id === "plan"
-      ? [
-          ["Shape the outcome", "Capture goals and initiatives with enough context to make good product decisions."],
-          ["Assign clearly", "Create or link tasks while keeping every delivery thread connected to its plan."],
-          ["See delivery progress", "Direct-child rollups show how assigned work is moving without changing plan status."],
-        ]
-      : config.showFiles
-      ? [
-          ["Import without cleanup", "Bring in JSON, file paths, tags, priority, and effort so rough backlog notes become structured work."],
-          ["See what deserves attention", "Priority, blockers, categories, and stages keep technical work visible and actionable."],
-          ["Show progress clearly", "Move work from queued to deployed and keep implementation connected to its upstream task."],
-        ]
-      : [
-          ["Capture the full list", "Bring in JSON or create tasks one by one with priority, effort, tags, and custom categories."],
-          ["Keep work moving", "Use the board to spot blocked items, review handoffs, and what is ready to finish next."],
-          ["Share a clean snapshot", "Export the project as structured JSON when the team needs the current plan."],
-        ];
-
+  if (showIntro || totalCount === 0) {
     return (
       <main className="board-empty">
-        <section className="front-page">
+        <section className="front-page front-page-simple">
           <div className="front-copy">
-            <span className="front-kicker">{config.label} workspace</span>
-            <h1>{config.tagline}</h1>
-            <p className="front-lede">{config.blurb}</p>
+            <span className="front-kicker">Task board</span>
+            <h1>Turn the project into clear, actionable tasks</h1>
+            <p className="front-lede">Create tasks, prioritize the work, and move it through delivery.</p>
             <div className="front-actions">
-              <button className="btn btn-primary" onClick={onImportClick}>
-                <span className="btn-icon">⇡</span> Import JSON
-              </button>
-              <button className="btn btn-ghost" onClick={() => onAddItem("queued")}>
-                + New item
-              </button>
-              <button className="btn btn-ghost" onClick={onLoadSample}>
-                Explore sample
-              </button>
-            </div>
-            <div className="front-value-grid">
-              {valuePoints.map(([title, text]) => (
-                <article className="front-value" key={title}>
-                  <span className="front-value-mark" />
-                  <h2>{title}</h2>
-                  <p>{text}</p>
-                </article>
-              ))}
-            </div>
-          </div>
-
-          <div className="front-visual">
-            <LandingArtwork compact />
-            <div className="front-schema-card">
-              <div className="front-schema-head">
-                <span>Example import</span>
-                <strong>{config.metricLabel.toLowerCase()} + effort</strong>
-              </div>
-              <pre className="front-schema">{config.schema}</pre>
+              <button className="btn btn-primary" onClick={() => onAddItem("queued")}>+ New Task</button>
+              {totalCount > 0
+                ? <button className="btn btn-ghost" onClick={() => setShowIntro(false)}>Open Tasks ({totalCount})</button>
+                : <button className="btn btn-ghost" onClick={onLoadSample}>Explore sample</button>}
             </div>
           </div>
         </section>
@@ -128,7 +85,7 @@ export function Board({items, totalCount, categories, config, relationshipCounts
   };
 
   // A placeholder is pointless when it marks the dragged card's current slot.
-  const isNoOp = (beforeId: string | null, list: WorkItem[]) => {
+  const isNoOp = (beforeId: string | null, list: Task[]) => {
     if (dragId == null) return false;
     const di = list.findIndex((i) => i.id === dragId);
     if (di < 0) return false; // dragging in from another column — always a real move
@@ -239,10 +196,10 @@ export function Board({items, totalCount, categories, config, relationshipCounts
                   <Card
                     item={item}
                     categories={categories}
-                    showFiles={config.showFiles}
-                    relationships={relationshipCounts[item.id]}
                     dragging={dragId === item.id}
                     onSelect={() => onSelect(item.id)}
+                    onDuplicate={() => onDuplicate(item.id)}
+                    onDelete={() => onDelete(item.id)}
                     onDragStart={(e) => {
                       e.dataTransfer.setData(DRAG_MIME, item.id);
                       e.dataTransfer.effectAllowed = "move";
@@ -324,18 +281,38 @@ function ColumnMenu({label, canAdd, onAdd, onCollapse}: ColumnMenuProps) {
 }
 
 interface CardProps {
-  item: WorkItem;
+  item: Task;
   categories: CategoryDef[];
-  showFiles: boolean;
-  relationships?: {parents: number; children: number; completedChildren: number};
   dragging: boolean;
   onSelect: () => void;
+  onDuplicate: () => void;
+  onDelete: () => void;
   onDragStart: (e: React.DragEvent) => void;
   onDragEnd: () => void;
 }
 
-function Card({item, categories, showFiles, relationships, dragging, onSelect, onDragStart, onDragEnd}: CardProps) {
+function Card({item, categories, dragging, onSelect, onDuplicate, onDelete, onDragStart, onDragEnd}: CardProps) {
   const cat = categoryMeta(item.category, categories);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const close = (e: MouseEvent) => {
+      if (!menuRef.current?.contains(e.target as Node)) { setMenuOpen(false); setConfirmDelete(false); }
+    };
+    const escape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { setMenuOpen(false); setConfirmDelete(false); }
+    };
+    window.addEventListener("mousedown", close);
+    window.addEventListener("keydown", escape);
+    return () => {
+      window.removeEventListener("mousedown", close);
+      window.removeEventListener("keydown", escape);
+    };
+  }, [menuOpen]);
+
   return (
     <article
       className={`card${dragging ? " dragging" : ""}${item.blocked ? " card-blocked" : ""}${item.stage === "deployed" ? " card-landed" : ""}`}
@@ -356,14 +333,12 @@ function Card({item, categories, showFiles, relationships, dragging, onSelect, o
             Blocked
           </span>
         )}
+        <div className="card-menu" ref={menuRef} onMouseDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
+          <button type="button" className={`card-menu-btn${menuOpen ? " open" : ""}`} aria-label={`Options for ${item.title || "Untitled task"}`} aria-haspopup="menu" aria-expanded={menuOpen} onClick={() => { setMenuOpen((open) => !open); setConfirmDelete(false); }}>⋯</button>
+          {menuOpen && <div className="card-menu-pop" role="menu">{confirmDelete ? <div className="card-menu-confirm"><span>Delete this task?</span><div><button type="button" className="danger" onClick={() => { setMenuOpen(false); onDelete(); }}>Delete</button><button type="button" onClick={() => setConfirmDelete(false)}>Cancel</button></div></div> : <><button type="button" role="menuitem" onClick={() => { setMenuOpen(false); onDuplicate(); }}><span aria-hidden="true">⧉</span> Duplicate task</button><button type="button" className="danger" role="menuitem" onClick={() => setConfirmDelete(true)}><span aria-hidden="true">×</span> Delete task</button></>}</div>}
+        </div>
       </div>
       <div className={`card-title${item.title ? "" : " untitled"}`}>{item.title || "Untitled"}</div>
-      {showFiles && item.files.length > 0 && (
-        <div className="card-file">
-          <code>{item.files[0]}</code>
-          {item.files.length > 1 && <span className="card-file-more">+{item.files.length - 1}</span>}
-        </div>
-      )}
       <div className="card-meta">
         <span className="card-meta-right">
           {item.notes.length > 0 && (
@@ -373,8 +348,6 @@ function Card({item, categories, showFiles, relationships, dragging, onSelect, o
           )}
           <EffortDots effort={item.effort} />
           <RiskPill risk={item.risk} />
-          {(relationships?.parents ?? 0) > 0 && <span className="card-rel" title={`${relationships!.parents} linked parent${relationships!.parents === 1 ? "" : "s"}`}>↑{relationships!.parents}</span>}
-          {(relationships?.children ?? 0) > 0 && <span className="card-rel" title={`${relationships!.completedChildren} of ${relationships!.children} children complete`}>↓{relationships!.completedChildren}/{relationships!.children}</span>}
         </span>
       </div>
     </article>

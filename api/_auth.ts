@@ -68,3 +68,15 @@ export async function githubUser(token: string): Promise<GitHubUser> {
 export function isSecure(req: ApiRequest): boolean {
   return headerValue(req.headers, "x-forwarded-proto") === "https" || headerValue(req.headers, "host").includes("vercel.app");
 }
+
+export async function authenticateUserId(req: ApiRequest): Promise<string> {
+  const authorization = headerValue(req.headers, "authorization");
+  const token = authorization.match(/^Bearer\s+(.+)$/i)?.[1] ?? cookies(req)[SESSION_COOKIE];
+  if (!token) throw Object.assign(new Error("Sign in with GitHub to use cloud features."), {status: 401});
+  try {
+    const user = await githubUser(token);
+    return `github:${user.id}`;
+  } catch {
+    throw Object.assign(new Error("Invalid GitHub token."), {status: 401});
+  }
+}

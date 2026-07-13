@@ -5,6 +5,24 @@ create table if not exists boards (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists activity_events (
+  id text primary key,
+  user_id text not null,
+  workspace_id text not null,
+  project_id text,
+  family text not null check (family in ('status','updates','notes','organization')),
+  entity_type text not null,
+  entity_id text not null,
+  search_text text not null,
+  event jsonb not null,
+  board_version integer not null,
+  event_index integer not null,
+  occurred_at timestamptz not null default now(),
+  unique(user_id, board_version, event_index)
+);
+create index if not exists activity_events_scope on activity_events(user_id, workspace_id, occurred_at desc, id desc);
+create index if not exists activity_events_project on activity_events(user_id, workspace_id, project_id, occurred_at desc, id desc);
+
 create table if not exists automation_rules (
   id text primary key,
   user_id text not null,

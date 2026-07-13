@@ -5,6 +5,7 @@ import {ensureSchema, getQuery} from "./_db.js";
 import {errorStatus, readJson, sendError, type BodyRequest} from "./_http.js";
 import {buildAutomationEmailPayload, findTaskStageTransitions, ruleMatchesTransition} from "../src/lib/automations.js";
 import {normalizeAppState, type AppState} from "../src/lib/store.js";
+import {activitySearchText, deriveActivityEvents} from "../src/lib/activity.js";
 
 interface BoardRow {
   state: unknown;
@@ -82,6 +83,9 @@ export default async function handler(req: BodyRequest, res: ApiResponse) {
       if (previousState) {
         const runs = pendingRuns(userId, previousState, nextState, baseVersion + 1, await listRules(userId));
         const runJson = JSON.stringify(runs);
+        const activity = deriveActivityEvents(previousState, nextState).map((item, eventIndex) => ({id: item.id, workspace_id: item.workspaceId, project_id: item.projectId, family: item.family, entity_type: item.entityType, entity_id: item.entityId, search_text: activitySearchText(item), event: item, event_index: eventIndex}));
+        const activityJson = JSON.stringify(activity);
+        const removedJson = JSON.stringify(previousState.workspaces.filter(workspace => !nextState.workspaces.some(next => next.id === workspace.id)).map(workspace => ({workspace_id: workspace.id})));
         const updated = await sql`
           with updated_board as (
             update boards
@@ -91,12 +95,27 @@ export default async function handler(req: BodyRequest, res: ApiResponse) {
           ), run_input as (
             select * from jsonb_to_recordset(${runJson}::jsonb)
             as x(id text, workspace_id text, rule_id text, event_key text, payload jsonb)
+          ), activity_input as (
+            select * from jsonb_to_recordset(${activityJson}::jsonb)
+            as x(id text, workspace_id text, project_id text, family text, entity_type text, entity_id text, search_text text, event jsonb, event_index integer)
+          ), removed_workspace_input as (
+            select * from jsonb_to_recordset(${removedJson}::jsonb) as x(workspace_id text)
           ), inserted_runs as (
             insert into automation_runs (id, user_id, workspace_id, rule_id, event_key, status, payload)
             select input.id, ${userId}, input.workspace_id, input.rule_id, input.event_key, 'pending', input.payload
             from run_input input cross join updated_board
             on conflict (user_id, rule_id, event_key) do nothing
             returning id
+          ), inserted_activity as (
+            insert into activity_events (id, user_id, workspace_id, project_id, family, entity_type, entity_id, search_text, event, board_version, event_index, occurred_at)
+            select input.id, ${userId}, input.workspace_id, input.project_id, input.family, input.entity_type, input.entity_id, input.search_text, input.event, ${baseVersion + 1}, input.event_index, now()
+            from activity_input input cross join updated_board
+            on conflict (user_id, board_version, event_index) do nothing
+            returning id
+          ), deleted_activity as (
+            delete from activity_events history using removed_workspace_input removed, updated_board
+            where history.user_id = ${userId} and history.workspace_id = removed.workspace_id
+            returning history.id
           )
           select board.state, board.version, board.updated_at,
             coalesce((select json_agg(id) from inserted_runs), '[]'::json) as run_ids

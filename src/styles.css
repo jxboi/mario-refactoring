@@ -4434,6 +4434,57 @@ button.cat-manage-glyph:hover {
   animation: modal-in 0.22s var(--ease);
 }
 
+/* ————— Project collaboration ————— */
+.share-project-btn { gap: 7px; white-space: nowrap; }
+.shared-project-badge { margin-left: 8px; padding: 2px 7px; border: 1px solid var(--border); border-radius: 999px; color: var(--accent); font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.collaboration-modal, .invitations-modal { width: min(620px, calc(100vw - 32px)); max-height: min(760px, calc(100vh - 32px)); overflow: auto; border: 1px solid var(--border); border-radius: 18px; background: var(--surface); box-shadow: var(--shadow-modal); animation: modal-in .22s var(--ease); }
+.collaboration-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; padding: 26px 28px 22px; border-bottom: 1px solid var(--border); }
+.collaboration-head h2 { margin: 5px 0 4px; font-size: 21px; }
+.collaboration-head p { margin: 0; color: var(--text-dim); font-size: 13px; }
+.collaboration-body, .invitations-body { padding: 24px 28px 28px; }
+.collaboration-invite { padding: 18px; border: 1px solid var(--border); border-radius: 13px; background: var(--surface-raised); }
+.collaboration-invite-row { display: flex; gap: 10px; }
+.collaboration-invite-row .input { flex: 1; }
+.collaboration-invite > p, .collaboration-muted { margin: 8px 0 0; color: var(--text-dim); font-size: 12px; }
+.collaboration-section { margin-top: 25px; }
+.collaboration-section h3 { margin: 0 0 10px; font-size: 13px; }
+.collaboration-section-title { display: flex; justify-content: space-between; align-items: center; }
+.collaboration-section-title small { color: var(--text-dim); }
+.collaboration-list { overflow: hidden; border: 1px solid var(--border); border-radius: 12px; }
+.collaboration-person { display: grid; grid-template-columns: 34px minmax(0,1fr) auto auto; align-items: center; gap: 11px; min-height: 58px; padding: 9px 12px; border-bottom: 1px solid var(--border); }
+.collaboration-person:last-child { border-bottom: 0; }
+.collaboration-person img, .collaboration-avatar { width: 34px; height: 34px; border-radius: 50%; }
+.collaboration-person img { object-fit: cover; }
+.collaboration-avatar { display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); font-weight: 700; }
+.collaboration-person div { min-width: 0; }
+.collaboration-person strong, .collaboration-person small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.collaboration-person strong { font-size: 13px; }
+.collaboration-person small { margin-top: 2px; color: var(--text-dim); font-size: 11px; }
+.collaboration-role { padding: 3px 7px; border-radius: 999px; background: var(--surface-raised); color: var(--text-dim); font-size: 10px; text-transform: capitalize; }
+.btn-link { border: 0; background: transparent; color: var(--text-dim); cursor: pointer; font: inherit; font-size: 11px; }
+.btn-link:hover { color: var(--text); }
+.btn-link.danger:hover { color: var(--danger); }
+.collaboration-leave { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border); }
+.collaboration-leave p { margin: 0; color: var(--text-dim); font-size: 12px; line-height: 1.5; }
+.collaboration-guest, .collaboration-empty { display: grid; place-items: center; min-height: 280px; padding: 32px; text-align: center; }
+.collaboration-guest > span, .collaboration-empty > span { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 14px; background: var(--accent-soft); color: var(--accent); font-size: 22px; }
+.collaboration-guest h3, .collaboration-empty h3 { margin: 14px 0 4px; }
+.collaboration-guest p, .collaboration-empty p { margin: 0; max-width: 380px; color: var(--text-dim); }
+.invitation-list { display: grid; gap: 12px; }
+.invitation-card { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 16px; border: 1px solid var(--border); border-radius: 13px; background: var(--surface-raised); }
+.invitation-card > div { display: flex; align-items: center; gap: 12px; }
+.invitation-card h3 { margin: 0 0 3px; font-size: 14px; }
+.invitation-card p { margin: 0; color: var(--text-dim); font-size: 12px; }
+
+@media (max-width: 640px) {
+  .share-project-btn { padding-inline: 9px; font-size: 0; }
+  .share-project-btn span { font-size: 15px; }
+  .collaboration-head, .collaboration-body, .invitations-body { padding-left: 18px; padding-right: 18px; }
+  .collaboration-invite-row, .collaboration-leave, .invitation-card { align-items: stretch; flex-direction: column; }
+  .collaboration-person { grid-template-columns: 34px minmax(0,1fr) auto; }
+  .collaboration-person .btn-link { grid-column: 2 / -1; justify-self: start; }
+}
+
 .automation-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; padding: 20px 22px 18px; border-bottom: 1px solid var(--border); }
 .automation-head h2 { margin: 3px 0 2px; font-size: 20px; }
 .automation-head p { margin: 0; color: var(--text-dim); font-size: 13px; }

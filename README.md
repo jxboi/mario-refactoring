@@ -16,6 +16,12 @@ Chisel has one deliberately small hierarchy:
 
 There are no typed boards, cross-board ownership links, or Coding project types.
 
+## Project collaboration
+
+Signed-in users can share an individual project from its **Share** button. Invitations target a GitHub username and appear under **Account → Project invitations** for the recipient to accept or decline.
+
+Accepted projects appear in a dedicated shared workspace. Editors can update project details, tasks, stages, and notes, while the owner keeps control of membership, invitations, workspace settings, and project deletion. Only the selected project is shared; other projects in the owner's workspace remain private. Shared updates use optimistic version checks so concurrent edits never silently overwrite newer work.
+
 ## Data and migration
 
 Browser and cloud state use the nested v5 model. On first load, v4 state is migrated automatically:

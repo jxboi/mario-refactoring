@@ -1,0 +1,61 @@
+```mermaid
+flowchart TD
+    Start["Landing / Sign-in"]
+
+    Start -->|"Create local workspace"| Projects["Workspace · Projects"]
+    Start -->|"Sign in with GitHub"| OAuth["GitHub authentication"]
+    OAuth --> Projects
+
+    Projects -->|"Open project"| Board["Project · Task Board"]
+    Projects -->|"New Project"| NewProject["New Project setup"]
+    NewProject -->|"Create project"| Board
+    NewProject -->|"Back"| Projects
+
+    Projects -->|"Timeline tab"| WorkspaceTimeline["Workspace Timeline"]
+    WorkspaceTimeline -->|"Open project activity"| ProjectDetails["Project details drawer"]
+    WorkspaceTimeline -->|"Open task activity"| TaskDetails["Task details drawer"]
+    TaskDetails -.->|"May switch active project"| Board
+
+    Projects -->|"Edit project"| ProjectDetails
+    ProjectDetails -->|"Close"| Projects
+
+    Board -->|"Projects / logo"| Projects
+    Board -->|"Timeline tab"| ProjectTimeline["Project Timeline"]
+    ProjectTimeline -->|"Open activity"| ProjectOrTask["Project or task drawer"]
+    ProjectOrTask -->|"Close"| ProjectTimeline
+
+    Board -->|"Select task"| TaskDetails
+    Board -->|"New Task"| NewTask["New Task drawer"]
+    NewTask -->|"Create task"| TaskDetails
+    TaskDetails -->|"Close"| Board
+
+    Board -->|"Share"| Collaboration["Project collaboration dialog"]
+    Board -->|"Search / filters"| Board
+
+    Projects -->|"Import workspace"| Import["Workspace import dialog"]
+    Projects -->|"Export workspace"| Download["Download workspace backup"]
+
+    Projects --> WorkspaceMenu["Workspace menu"]
+    WorkspaceMenu -->|"Switch workspace"| Projects
+    WorkspaceMenu -->|"Create workspace"| Projects
+    WorkspaceMenu -->|"Rename / delete"| Projects
+
+    Projects --> Account["Account menu"]
+    Board --> Account
+    WorkspaceTimeline --> Account
+    ProjectTimeline --> Account
+
+    Account --> Skills["Skills manager"]
+    Account --> Categories["Categories manager"]
+    Account --> Automations["Automations manager"]
+    Account --> Shortcuts["Keyboard shortcuts"]
+    Account -->|"GitHub users only"| Invitations["Project invitations"]
+    Account -->|"GitHub profile"| GitHubProfile["GitHub profile ↗"]
+    Account -->|"Exit / Sign out"| Start
+
+    style Start fill:#f5f5f5,stroke:#777
+    style Projects fill:#e8f1ff,stroke:#3777bb
+    style Board fill:#e8f1ff,stroke:#3777bb
+    style WorkspaceTimeline fill:#e8f1ff,stroke:#3777bb
+    style ProjectTimeline fill:#e8f1ff,stroke:#3777bb
+```

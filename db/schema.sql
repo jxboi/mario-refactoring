@@ -5,6 +5,24 @@ create table if not exists boards (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists activity_events (
+  id text primary key,
+  user_id text not null,
+  workspace_id text not null,
+  project_id text,
+  family text not null check (family in ('status','updates','notes','organization')),
+  entity_type text not null,
+  entity_id text not null,
+  search_text text not null,
+  event jsonb not null,
+  board_version integer not null,
+  event_index integer not null,
+  occurred_at timestamptz not null default now(),
+  unique(user_id, board_version, event_index)
+);
+create index if not exists activity_events_scope on activity_events(user_id, workspace_id, occurred_at desc, id desc);
+create index if not exists activity_events_project on activity_events(user_id, workspace_id, project_id, occurred_at desc, id desc);
+
 create table if not exists automation_rules (
   id text primary key,
   user_id text not null,
@@ -37,3 +55,50 @@ create table if not exists automation_runs (
 );
 create index if not exists automation_runs_history on automation_runs(user_id, workspace_id, rule_id, created_at desc);
 create index if not exists automation_runs_pending on automation_runs(status, created_at) where status = 'pending';
+
+create table if not exists user_profiles (
+  user_id text primary key,
+  login text not null,
+  name text,
+  avatar_url text not null default '',
+  updated_at timestamptz not null default now()
+);
+create unique index if not exists user_profiles_login on user_profiles(lower(login));
+
+create table if not exists shared_projects (
+  share_id text primary key,
+  project_id text not null,
+  owner_user_id text not null,
+  source_workspace_id text not null,
+  source_workspace_name text not null,
+  project jsonb not null,
+  categories jsonb not null,
+  category_groups jsonb not null,
+  version integer not null default 1,
+  updated_at timestamptz not null default now(),
+  unique(owner_user_id, project_id)
+);
+create index if not exists shared_projects_owner on shared_projects(owner_user_id, source_workspace_id);
+
+create table if not exists project_members (
+  share_id text not null,
+  user_id text not null,
+  role text not null check (role in ('owner','editor')),
+  joined_at timestamptz not null default now(),
+  primary key(share_id, user_id)
+);
+create index if not exists project_members_user on project_members(user_id, joined_at desc);
+
+create table if not exists project_invitations (
+  id text primary key,
+  share_id text not null,
+  inviter_user_id text not null,
+  invitee_login text not null,
+  invitee_user_id text,
+  role text not null default 'editor' check (role = 'editor'),
+  status text not null default 'pending' check (status in ('pending','accepted','declined','revoked')),
+  created_at timestamptz not null default now(),
+  responded_at timestamptz
+);
+create index if not exists project_invitations_invitee on project_invitations(lower(invitee_login), status, created_at desc);
+create unique index if not exists project_invitations_pending on project_invitations(share_id, lower(invitee_login)) where status = 'pending';

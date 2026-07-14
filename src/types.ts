@@ -10,7 +10,14 @@ export interface BaseItem {
   createdAt: number; updatedAt: number;
 }
 export interface Task extends BaseItem { category: Category; }
-export interface Project extends BaseItem { tasks: Task[]; }
+export interface ProjectCollaboration {
+  shareId: string;
+  ownerId: string;
+  ownerLogin: string;
+  role: "owner" | "editor";
+  version: number;
+}
+export interface Project extends BaseItem { tasks: Task[]; collaboration?: ProjectCollaboration; }
 
 export type StageGroup = "backlog" | "active" | "done" | "deferred";
 export interface StageDef { id: Stage; label: string; hint: string; group: StageGroup; recentDays?: number; hiddenByDefault?: boolean; }

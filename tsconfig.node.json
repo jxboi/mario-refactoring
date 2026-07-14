@@ -15,5 +15,5 @@
     "strict": true,
     "types": ["node"]
   },
-  "include": ["vite.config.ts", "api/**/*.ts", "api/**/*.tsx", "src/types.ts", "src/lib/store.ts", "src/lib/skills.ts", "src/lib/remoteBoard.ts", "src/lib/automations.ts"]
+  "include": ["vite.config.ts", "api/**/*.ts", "api/**/*.tsx", "src/types.ts", "src/lib/store.ts", "src/lib/skills.ts", "src/lib/remoteBoard.ts", "src/lib/automations.ts", "src/lib/activity.ts"]
 }

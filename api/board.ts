@@ -1,10 +1,12 @@
-import {authenticateUserId, type ApiResponse} from "./_auth.js";
+import {authenticateUser, type ApiResponse} from "./_auth.js";
+import {CollaborationConflict, mergeCollaborations, prepareCollaborativeSave, upsertUserProfile} from "./_collaboration.js";
 import {listRules, newRunId} from "./_automation.js";
 import {dispatchPendingRuns} from "./_automationQueue.js";
 import {ensureSchema, getQuery} from "./_db.js";
 import {errorStatus, readJson, sendError, type BodyRequest} from "./_http.js";
 import {buildAutomationEmailPayload, findTaskStageTransitions, ruleMatchesTransition} from "../src/lib/automations.js";
 import {normalizeAppState, type AppState} from "../src/lib/store.js";
+import {activitySearchText, deriveActivityEvents} from "../src/lib/activity.js";
 
 interface BoardRow {
   state: unknown;
@@ -47,21 +49,38 @@ export default async function handler(req: BodyRequest, res: ApiResponse) {
       sendError(res, 405, "Method not allowed.");
       return;
     }
-    const userId = await authenticateUserId(req);
+    const {userId, user} = await authenticateUser(req);
     await ensureSchema();
     const sql = getQuery();
+    await upsertUserProfile(sql, userId, user);
     if (req.method === "GET") {
       const rows = await sql`select state, version, updated_at from boards where user_id = ${userId} limit 1` as BoardRow[];
       void dispatchPendingRuns(userId);
-      res.status(200).json(snapshot(rows[0]));
+      const base = normalizeAppState(rows[0]?.state);
+      const merged = await mergeCollaborations(sql, userId, base);
+      res.status(200).json({...snapshot(rows[0]), state:merged});
       return;
     }
 
     const body = await readJson(req) as {state?: unknown; baseVersion?: unknown} | null;
-    const nextState = normalizeAppState(body?.state);
-    if (!nextState) {
+    const requestedState = normalizeAppState(body?.state);
+    if (!requestedState) {
       sendError(res, 400, "Missing or invalid board state.");
       return;
+    }
+    const collaborationBaseRows = await sql`select state, version, updated_at from boards where user_id=${userId} limit 1` as BoardRow[];
+    const collaborationPrevious = await mergeCollaborations(sql, userId, normalizeAppState(collaborationBaseRows[0]?.state));
+    let nextState: AppState;
+    try {
+      nextState = await prepareCollaborativeSave(sql, userId, requestedState);
+    } catch (error) {
+      if (error instanceof CollaborationConflict) {
+        const rows = await sql`select state, version, updated_at from boards where user_id=${userId} limit 1` as BoardRow[];
+        const remote = await mergeCollaborations(sql, userId, normalizeAppState(rows[0]?.state));
+        res.status(409).json({error:error.message, remote:{...snapshot(rows[0]), state:remote}});
+        return;
+      }
+      throw error;
     }
     const baseVersion = typeof body?.baseVersion === "number" && Number.isInteger(body.baseVersion) ? body.baseVersion : 0;
     const stateJson = JSON.stringify(nextState);
@@ -73,15 +92,19 @@ export default async function handler(req: BodyRequest, res: ApiResponse) {
         returning state, version, updated_at
       ` as BoardRow[];
       if (inserted.length) {
-        res.status(200).json(snapshot(inserted[0]));
+        const merged = await mergeCollaborations(sql, userId, normalizeAppState(inserted[0].state));
+        res.status(200).json({...snapshot(inserted[0]), state:merged});
         return;
       }
     } else {
       const currentRows = await sql`select state, version, updated_at from boards where user_id = ${userId} and version = ${baseVersion} limit 1` as BoardRow[];
-      const previousState = normalizeAppState(currentRows[0]?.state);
+      const previousState = Number(collaborationBaseRows[0]?.version) === baseVersion ? collaborationPrevious : normalizeAppState(currentRows[0]?.state);
       if (previousState) {
-        const runs = pendingRuns(userId, previousState, nextState, baseVersion + 1, await listRules(userId));
+        const runs = pendingRuns(userId, previousState, requestedState, baseVersion + 1, await listRules(userId));
         const runJson = JSON.stringify(runs);
+        const activity = deriveActivityEvents(previousState, requestedState).map((item, eventIndex) => ({id: item.id, workspace_id: item.workspaceId, project_id: item.projectId, family: item.family, entity_type: item.entityType, entity_id: item.entityId, search_text: activitySearchText(item), event: item, event_index: eventIndex}));
+        const activityJson = JSON.stringify(activity);
+        const removedJson = JSON.stringify(previousState.workspaces.filter(workspace => !requestedState.workspaces.some(next => next.id === workspace.id)).map(workspace => ({workspace_id: workspace.id})));
         const updated = await sql`
           with updated_board as (
             update boards
@@ -91,12 +114,27 @@ export default async function handler(req: BodyRequest, res: ApiResponse) {
           ), run_input as (
             select * from jsonb_to_recordset(${runJson}::jsonb)
             as x(id text, workspace_id text, rule_id text, event_key text, payload jsonb)
+          ), activity_input as (
+            select * from jsonb_to_recordset(${activityJson}::jsonb)
+            as x(id text, workspace_id text, project_id text, family text, entity_type text, entity_id text, search_text text, event jsonb, event_index integer)
+          ), removed_workspace_input as (
+            select * from jsonb_to_recordset(${removedJson}::jsonb) as x(workspace_id text)
           ), inserted_runs as (
             insert into automation_runs (id, user_id, workspace_id, rule_id, event_key, status, payload)
             select input.id, ${userId}, input.workspace_id, input.rule_id, input.event_key, 'pending', input.payload
             from run_input input cross join updated_board
             on conflict (user_id, rule_id, event_key) do nothing
             returning id
+          ), inserted_activity as (
+            insert into activity_events (id, user_id, workspace_id, project_id, family, entity_type, entity_id, search_text, event, board_version, event_index, occurred_at)
+            select input.id, ${userId}, input.workspace_id, input.project_id, input.family, input.entity_type, input.entity_id, input.search_text, input.event, ${baseVersion + 1}, input.event_index, now()
+            from activity_input input cross join updated_board
+            on conflict (user_id, board_version, event_index) do nothing
+            returning id
+          ), deleted_activity as (
+            delete from activity_events history using removed_workspace_input removed, updated_board
+            where history.user_id = ${userId} and history.workspace_id = removed.workspace_id
+            returning history.id
           )
           select board.state, board.version, board.updated_at,
             coalesce((select json_agg(id) from inserted_runs), '[]'::json) as run_ids
@@ -104,13 +142,15 @@ export default async function handler(req: BodyRequest, res: ApiResponse) {
         ` as BoardRow[];
         if (updated.length) {
           await dispatchPendingRuns(userId);
-          res.status(200).json(snapshot(updated[0]));
+          const merged = await mergeCollaborations(sql, userId, normalizeAppState(updated[0].state));
+          res.status(200).json({...snapshot(updated[0]), state:merged});
           return;
         }
       }
     }
     const rows = await sql`select state, version, updated_at from boards where user_id = ${userId} limit 1` as BoardRow[];
-    res.status(409).json({error: "Board changed in another session.", remote: snapshot(rows[0])});
+    const remote = await mergeCollaborations(sql, userId, normalizeAppState(rows[0]?.state));
+    res.status(409).json({error: "Board changed in another session.", remote: {...snapshot(rows[0]), state:remote}});
   } catch (error) {
     const status = errorStatus(error);
     if (status >= 500) console.error(error);

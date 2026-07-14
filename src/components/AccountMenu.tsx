@@ -53,9 +53,6 @@ export function AccountMenu({user, isGuest, sync, onManageCategories, onManageSk
           <img className="account-avatar" src={user.avatarUrl} alt="" width={26} height={26} />
         )}
         <span className="account-name">{displayName}</span>
-        <svg className="settings-caret" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
-          <path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
       </button>
 
       {open && (

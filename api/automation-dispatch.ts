@@ -1,6 +1,7 @@
 import type {ApiResponse} from "./_auth.js";
 import {headerValue} from "./_auth.js";
 import {dispatchPendingRuns} from "./_automationQueue.js";
+import {dispatchSchedulableReminders} from "./_reminderQueue.js";
 import {ensureSchema} from "./_db.js";
 import {sendError, type BodyRequest} from "./_http.js";
 
@@ -15,5 +16,6 @@ export default async function handler(req: BodyRequest, res: ApiResponse) {
   }
   await ensureSchema();
   await dispatchPendingRuns();
+  await dispatchSchedulableReminders();
   res.status(200).json({ok: true});
 }

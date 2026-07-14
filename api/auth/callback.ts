@@ -1,4 +1,4 @@
-import {cookie, cookies, githubUser, isSecure, queryValue, SESSION_COOKIE, STATE_COOKIE, type ApiRequest, type ApiResponse} from "../_auth.js";
+import {cookie,cookies,createSession,githubUser,isSecure,queryValue,SESSION_COOKIE,SESSION_MAX_AGE_SECONDS,STATE_COOKIE,type ApiRequest,type ApiResponse} from "../_auth.js";
 
 export default async function handler(req: ApiRequest, res: ApiResponse) {
   try {
@@ -17,8 +17,8 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     });
     const tokenData = (await tokenResponse.json()) as {access_token?: string; error_description?: string};
     if (!tokenResponse.ok || !tokenData.access_token) throw new Error(tokenData.error_description || "GitHub authorization failed.");
-    await githubUser(tokenData.access_token);
-    res.setHeader("Set-Cookie", [cookie(SESSION_COOKIE, tokenData.access_token, isSecure(req), 60 * 60 * 24 * 30), cookie(STATE_COOKIE, "", isSecure(req), 0)]);
+    const user=await githubUser(tokenData.access_token);
+    res.setHeader("Set-Cookie", [cookie(SESSION_COOKIE,createSession(user),isSecure(req),SESSION_MAX_AGE_SECONDS),cookie(STATE_COOKIE,"",isSecure(req),0)]);
     res.setHeader("Location", "/");
     res.status(302).end();
   } catch (error) {

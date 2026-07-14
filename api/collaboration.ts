@@ -5,6 +5,7 @@ import {ensureSchema, getQuery} from "./_db.js";
 import {errorStatus, readJson, sendError, type BodyRequest} from "./_http.js";
 import {loadUserBoard} from "./_automation.js";
 import {normalizeAppState} from "../src/lib/store.js";
+import {cancelUserShareReminders} from "./_reminders.js";
 
 interface InviteRow { id:string; share_id:string; invitee_login:string; role:"editor"; created_at:string|Date; project_title:string; inviter_login:string; }
 interface MemberRow { user_id:string; role:"owner"|"editor"; joined_at:string|Date; login:string; name:string|null; avatar_url:string; }
@@ -116,11 +117,13 @@ export default async function handler(req: BodyRequest, res: ApiResponse) {
       const memberUserId = typeof body?.userId === "string" ? body.userId : "";
       if (!memberUserId || memberUserId === userId) throw Object.assign(new Error("The project owner cannot be removed."), {status:400});
       await sql`delete from project_members where share_id=${shareId} and user_id=${memberUserId} and role='editor'`;
+      await cancelUserShareReminders(memberUserId,shareId);
       res.status(200).json({ok:true}); return;
     }
     if (action === "leave") {
       if (access[0].role === "owner") throw Object.assign(new Error("Project owners cannot leave their own project."), {status:400});
       await sql`delete from project_members where share_id=${shareId} and user_id=${userId}`;
+      await cancelUserShareReminders(userId,shareId);
       res.status(200).json({ok:true}); return;
     }
     throw Object.assign(new Error("Unknown collaboration action."), {status:400});

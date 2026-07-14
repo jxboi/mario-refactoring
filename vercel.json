@@ -9,6 +9,14 @@
         "retryAfterSeconds": 10,
         "initialDelaySeconds": 0
       }]
+    },
+    "api/queues/task-reminders.ts": {
+      "experimentalTriggers": [{
+        "type": "queue/v2beta",
+        "topic": "task-reminders",
+        "retryAfterSeconds": 10,
+        "initialDelaySeconds": 0
+      }]
     }
   },
   "crons": [{"path": "/api/automation-dispatch", "schedule": "0 3 * * *"}]

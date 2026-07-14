@@ -1,4 +1,4 @@
-import {randomBytes} from "node:crypto";
+import {createHmac,randomBytes,timingSafeEqual} from "node:crypto";
 
 export interface ApiRequest {
   headers: Record<string, string | string[] | undefined>;
@@ -22,6 +22,36 @@ export interface GitHubUser {
 
 export const SESSION_COOKIE = "chisel_github_session";
 export const STATE_COOKIE = "chisel_github_oauth_state";
+export const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 30;
+
+interface SessionPayload {v:1;user:GitHubUser;iat:number;exp:number;}
+
+function sessionSecret():string{
+  const secret=process.env.SESSION_SECRET||process.env.GITHUB_CLIENT_SECRET;
+  if(!secret)throw new Error("SESSION_SECRET or GITHUB_CLIENT_SECRET is required.");
+  return secret;
+}
+
+function sign(encoded:string):Buffer{return createHmac("sha256",sessionSecret()).update(encoded).digest()}
+
+export function createSession(user:GitHubUser,maxAgeSeconds=SESSION_MAX_AGE_SECONDS,now=Date.now()):string{
+  const iat=Math.floor(now/1000),payload:SessionPayload={v:1,user,iat,exp:iat+maxAgeSeconds};
+  const encoded=Buffer.from(JSON.stringify(payload)).toString("base64url");
+  return `${encoded}.${sign(encoded).toString("base64url")}`;
+}
+
+export function readSession(value:string,now=Date.now()):{userId:string;user:GitHubUser;expiresAt:number}|null{
+  const [encoded,signature,...rest]=value.split(".");if(!encoded||!signature||rest.length)return null;
+  let actual:Buffer;try{actual=Buffer.from(signature,"base64url")}catch{return null}
+  const expected=sign(encoded);if(actual.length!==expected.length||!timingSafeEqual(actual,expected))return null;
+  try{
+    const payload=JSON.parse(Buffer.from(encoded,"base64url").toString("utf8")) as Partial<SessionPayload>,user=payload.user as Partial<GitHubUser>|undefined;
+    const nowSeconds=Math.floor(now/1000);
+    if(payload.v!==1||typeof payload.iat!=="number"||typeof payload.exp!=="number"||payload.exp<=nowSeconds||payload.iat>nowSeconds+300||!user||typeof user.id!=="number"||typeof user.login!=="string"||!(typeof user.name==="string"||user.name===null)||typeof user.avatarUrl!=="string"||typeof user.htmlUrl!=="string")return null;
+    const validUser:GitHubUser={id:user.id,login:user.login,name:user.name,avatarUrl:user.avatarUrl,htmlUrl:user.htmlUrl};
+    return{userId:`github:${validUser.id}`,user:validUser,expiresAt:payload.exp*1000};
+  }catch{return null}
+}
 
 export function headerValue(headers: ApiRequest["headers"], name: string): string {
   const value = headers[name.toLowerCase()];
@@ -71,14 +101,11 @@ export function isSecure(req: ApiRequest): boolean {
 
 export async function authenticateUser(req: ApiRequest): Promise<{userId: string; user: GitHubUser}> {
   const authorization = headerValue(req.headers, "authorization");
-  const token = authorization.match(/^Bearer\s+(.+)$/i)?.[1] ?? cookies(req)[SESSION_COOKIE];
-  if (!token) throw Object.assign(new Error("Sign in with GitHub to use cloud features."), {status: 401});
-  try {
-    const user = await githubUser(token);
-    return {userId: `github:${user.id}`, user};
-  } catch {
-    throw Object.assign(new Error("Invalid GitHub token."), {status: 401});
-  }
+  const bearer=authorization.match(/^Bearer\s+(.+)$/i)?.[1];
+  if(bearer){try{const user=await githubUser(bearer);return{userId:`github:${user.id}`,user}}catch{throw Object.assign(new Error("Invalid GitHub token."),{status:401})}}
+  const value=cookies(req)[SESSION_COOKIE];if(!value)throw Object.assign(new Error("Sign in with GitHub to use cloud features."),{status:401});
+  const session=readSession(value);if(!session)throw Object.assign(new Error("Your session has expired. Sign in again."),{status:401});
+  return{userId:session.userId,user:session.user};
 }
 
 export async function authenticateUserId(req: ApiRequest): Promise<string> {

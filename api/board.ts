@@ -7,6 +7,7 @@ import {errorStatus, readJson, sendError, type BodyRequest} from "./_http.js";
 import {buildAutomationEmailPayload, findTaskStageTransitions, ruleMatchesTransition} from "../src/lib/automations.js";
 import {normalizeAppState, type AppState} from "../src/lib/store.js";
 import {activitySearchText, deriveActivityEvents} from "../src/lib/activity.js";
+import {findReminderCancellations} from "../src/lib/reminders.js";
 
 interface BoardRow {
   state: unknown;
@@ -105,6 +106,7 @@ export default async function handler(req: BodyRequest, res: ApiResponse) {
         const activity = deriveActivityEvents(previousState, requestedState).map((item, eventIndex) => ({id: item.id, workspace_id: item.workspaceId, project_id: item.projectId, family: item.family, entity_type: item.entityType, entity_id: item.entityId, search_text: activitySearchText(item), event: item, event_index: eventIndex}));
         const activityJson = JSON.stringify(activity);
         const removedJson = JSON.stringify(previousState.workspaces.filter(workspace => !requestedState.workspaces.some(next => next.id === workspace.id)).map(workspace => ({workspace_id: workspace.id})));
+        const reminderCancellationJson = JSON.stringify(findReminderCancellations(previousState, requestedState).map(item => ({workspace_id:item.workspaceId, project_id:item.projectId, task_id:item.taskId, share_id:item.shareId})));
         const updated = await sql`
           with updated_board as (
             update boards
@@ -119,6 +121,8 @@ export default async function handler(req: BodyRequest, res: ApiResponse) {
             as x(id text, workspace_id text, project_id text, family text, entity_type text, entity_id text, search_text text, event jsonb, event_index integer)
           ), removed_workspace_input as (
             select * from jsonb_to_recordset(${removedJson}::jsonb) as x(workspace_id text)
+          ), reminder_cancellation_input as (
+            select * from jsonb_to_recordset(${reminderCancellationJson}::jsonb) as x(workspace_id text, project_id text, task_id text, share_id text)
           ), inserted_runs as (
             insert into automation_runs (id, user_id, workspace_id, rule_id, event_key, status, payload)
             select input.id, ${userId}, input.workspace_id, input.rule_id, input.event_key, 'pending', input.payload
@@ -135,9 +139,17 @@ export default async function handler(req: BodyRequest, res: ApiResponse) {
             delete from activity_events history using removed_workspace_input removed, updated_board
             where history.user_id = ${userId} and history.workspace_id = removed.workspace_id
             returning history.id
+          ), cancelled_reminders as (
+            update task_reminders reminder set status='cancelled',cancelled_at=now(),updated_at=now()
+            from reminder_cancellation_input input,updated_board
+            where reminder.status in ('scheduled','queued') and reminder.project_id=input.project_id and reminder.task_id=input.task_id
+              and ((input.share_id is not null and reminder.share_id=input.share_id)
+                or (input.share_id is null and reminder.user_id=${userId} and reminder.workspace_id=input.workspace_id))
+            returning reminder.id
           )
           select board.state, board.version, board.updated_at,
-            coalesce((select json_agg(id) from inserted_runs), '[]'::json) as run_ids
+            coalesce((select json_agg(id) from inserted_runs), '[]'::json) as run_ids,
+            (select count(*) from cancelled_reminders) as cancelled_reminder_count
           from updated_board board
         ` as BoardRow[];
         if (updated.length) {

@@ -44,6 +44,8 @@ npm run build
 
 The app is built with React, TypeScript, Vite, and Vitest.
 
+GitHub is contacted once during OAuth to exchange the authorization code and load the user's profile. The app then stores a 30-day, HttpOnly signed session and verifies subsequent API requests locally. Configure a strong server-only `SESSION_SECRET`; `GITHUB_CLIENT_SECRET` remains a compatibility fallback. Existing raw-token cookies are upgraded once through the session endpoint after deployment.
+
 ## Email automations
 
 Signed-in workspaces can create rules under **Account → Automations**. A rule can watch every project or one project, match an exact or wildcard source stage, and send an email when a task reaches the selected destination stage. Rules and their recent delivery history are stored in Postgres and are intentionally excluded from workspace exports.
@@ -66,6 +68,12 @@ vercel env pull
 npm run dev:vercel
 ```
 
-The queue client uses `VERCEL_OIDC_TOKEN` from the pulled environment during local development and explicitly opts out of deployment pinning when `VERCEL_DEPLOYMENT_ID` is unavailable. If the token expires or queue authentication fails, run `vercel env pull .env.local --environment=development --yes` and restart the dev server. A dedicated `VERCEL_QUEUE_API_TOKEN` can be used instead when running outside Vercel.
+Deployed queue consumers authenticate with Vercel's request-scoped OIDC token. For direct queue publishing during local development, provide a dedicated `VERCEL_QUEUE_API_TOKEN`; pulled OIDC tokens expire and are intentionally ignored. Reminder alerts still work locally without queue credentials because alert polling materializes due reminders directly from Postgres.
 
 The `/api/automation-dispatch` cron is a daily safety net for outbox rows that could not be published immediately. Queue delivery retries transient email failures automatically; a `sent` run means Resend accepted the message, not that the recipient inbox confirmed delivery.
+
+## Task reminders
+
+Signed-in users can add one private reminder to any active task. Reminder times are entered in the browser's local timezone and stored as UTC. When a reminder fires, it appears in the account-wide alert feed; reminders and alerts are not included in workspace exports or shared with project collaborators.
+
+Reminder delivery reuses Vercel Queues and the authenticated daily dispatcher. Reminders within the queue's 24-hour retention window are queued immediately with delayed delivery. More distant reminders remain in Postgres until the dispatcher moves them inside that window. Alert polling also materializes overdue reminders directly from Postgres, so a transient queue outage cannot suppress an in-app alert. Completing or deleting a task cancels its pending reminders, including every collaborator's private reminder when the task belongs to a shared project.

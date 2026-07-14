@@ -70,6 +70,22 @@ export function ensureSchema(): Promise<void> {
       )`,
       tx`create index if not exists automation_runs_history on automation_runs(user_id, workspace_id, rule_id, created_at desc)`,
       tx`create index if not exists automation_runs_pending on automation_runs(status, created_at) where status = 'pending'`,
+      tx`create table if not exists task_reminders (
+        id text primary key, user_id text not null, workspace_id text not null, project_id text not null, task_id text not null,
+        share_id text, remind_at timestamptz not null, status text not null check (status in ('scheduled','queued','fired','cancelled')),
+        queue_message_id text, last_error text, created_at timestamptz not null default now(), updated_at timestamptz not null default now(),
+        queued_at timestamptz, fired_at timestamptz, cancelled_at timestamptz
+      )`,
+      tx`create unique index if not exists task_reminders_active on task_reminders(user_id, workspace_id, project_id, task_id) where status in ('scheduled','queued')`,
+      tx`create index if not exists task_reminders_dispatch on task_reminders(remind_at) where status = 'scheduled'`,
+      tx`create index if not exists task_reminders_shared on task_reminders(share_id, project_id, task_id) where status in ('scheduled','queued')`,
+      tx`create table if not exists task_alerts (
+        id text primary key, reminder_id text not null unique, user_id text not null, workspace_id text not null, project_id text not null,
+        task_id text not null, workspace_title text not null, project_title text not null, task_title text not null,
+        triggered_at timestamptz not null default now(), read_at timestamptz
+      )`,
+      tx`create index if not exists task_alerts_feed on task_alerts(user_id, triggered_at desc, id desc)`,
+      tx`create index if not exists task_alerts_unread on task_alerts(user_id, triggered_at desc) where read_at is null`,
       tx`create table if not exists user_profiles (
         user_id text primary key, login text not null, name text, avatar_url text not null default '', updated_at timestamptz not null default now()
       )`,

@@ -9,6 +9,7 @@ import {normalizeAppState} from "../src/lib/store.js";
 interface InviteRow { id:string; share_id:string; invitee_login:string; role:"editor"; created_at:string|Date; project_title:string; inviter_login:string; }
 interface MemberRow { user_id:string; role:"owner"|"editor"; joined_at:string|Date; login:string; name:string|null; avatar_url:string; }
 interface ShareAccessRow { share_id:string; owner_user_id:string; role:"owner"|"editor"; }
+interface ProjectAccessSnapshotRow extends ShareAccessRow { private_owned:boolean; members:MemberRow[]; invitations:InviteRow[]; }
 
 const iso = (value:string|Date) => value instanceof Date ? value.toISOString() : String(value);
 const loginValue = (value:unknown) => typeof value === "string" ? value.trim().replace(/^@/, "").slice(0, 39) : "";
@@ -20,41 +21,59 @@ export default async function handler(req: BodyRequest, res: ApiResponse) {
       res.setHeader("Allow", "GET, POST"); sendError(res, 405, "Method not allowed."); return;
     }
     const {userId, user} = await authenticateUser(req);
-    await ensureSchema();
     const sql = getQuery();
-    await upsertUserProfile(sql, userId, user);
 
     if (req.method === "GET") {
       const projectId = queryValue(req.query, "projectId");
       if (!projectId) {
-        const rows = await sql`select i.id, i.share_id, i.invitee_login, i.role, i.created_at,
+        const loadInvitations = () => sql`select i.id, i.share_id, i.invitee_login, i.role, i.created_at,
           coalesce(sp.project->>'title', 'Untitled project') as project_title,
           coalesce(profile.login, 'unknown') as inviter_login
           from project_invitations i join shared_projects sp on sp.share_id=i.share_id
           left join user_profiles profile on profile.user_id=i.inviter_user_id
           where i.status='pending' and (i.invitee_user_id=${userId} or lower(i.invitee_login)=lower(${user.login}))
-          order by i.created_at desc` as InviteRow[];
+          order by i.created_at desc` as unknown as Promise<InviteRow[]>;
+        let rows:InviteRow[];try{rows=await loadInvitations()}catch(error){if((error as {code?:string}).code!=="42P01")throw error;await ensureSchema();rows=await loadInvitations()}
         res.status(200).json({invitations: rows.map((row) => ({id:row.id, shareId:row.share_id, projectTitle:row.project_title, inviterLogin:row.inviter_login, role:row.role, createdAt:iso(row.created_at)}))});
         return;
       }
-      const access = await sql`select sp.share_id, sp.owner_user_id, pm.role from shared_projects sp
-        join project_members pm on pm.share_id=sp.share_id and pm.user_id=${userId}
-        where sp.project_id=${projectId} limit 1` as ShareAccessRow[];
-      if (!access.length) {
-        const state = normalizeAppState(await loadUserBoard(userId));
-        if (!state?.workspaces.some((workspace) => workspace.projects.some((project) => project.id === projectId))) throw Object.assign(new Error("Project not found."), {status:404});
+      const loadSnapshot = () => sql`with access as (
+          select sp.share_id,sp.owner_user_id,pm.role from shared_projects sp
+          join project_members pm on pm.share_id=sp.share_id and pm.user_id=${userId}
+          where sp.project_id=${projectId} limit 1
+        ), private_access as (
+          select 1 from boards b
+          cross join lateral jsonb_array_elements(coalesce(b.state->'workspaces','[]'::jsonb)) workspace
+          cross join lateral jsonb_array_elements(coalesce(workspace->'projects','[]'::jsonb)) project
+          where b.user_id=${userId} and project->>'id'=${projectId} limit 1
+        ) select
+          (select share_id from access) as share_id,(select owner_user_id from access) as owner_user_id,
+          (select role from access) as role,exists(select 1 from private_access) as private_owned,
+          coalesce((select jsonb_agg(jsonb_build_object(
+            'user_id',pm.user_id,'role',pm.role,'joined_at',pm.joined_at,'login',coalesce(profile.login,'unknown'),
+            'name',profile.name,'avatar_url',coalesce(profile.avatar_url,'')
+          ) order by case when pm.role='owner' then 0 else 1 end,pm.joined_at)
+          from project_members pm left join user_profiles profile on profile.user_id=pm.user_id
+          where pm.share_id=(select share_id from access)),'[]'::jsonb) as members,
+          coalesce((select jsonb_agg(jsonb_build_object(
+            'id',invitation.id,'share_id',invitation.share_id,'invitee_login',invitation.invitee_login,
+            'role',invitation.role,'created_at',invitation.created_at,'project_title','','inviter_login',''
+          ) order by invitation.created_at desc) from project_invitations invitation
+          where invitation.share_id=(select share_id from access) and invitation.status='pending'
+            and (select role from access)='owner'),'[]'::jsonb) as invitations` as unknown as Promise<ProjectAccessSnapshotRow[]>;
+      let snapshots:ProjectAccessSnapshotRow[];try{snapshots=await loadSnapshot()}catch(error){if((error as {code?:string}).code!=="42P01")throw error;await ensureSchema();snapshots=await loadSnapshot()}
+      const snapshot=snapshots[0];
+      if (!snapshot?.share_id) {
+        if (!snapshot?.private_owned) throw Object.assign(new Error("Project not found."), {status:404});
         res.status(200).json({share:null, members:[{userId, login:user.login, name:user.name, avatarUrl:user.avatarUrl, role:"owner"}], invitations:[]});
         return;
       }
-      const share = access[0];
-      const members = await sql`select pm.user_id, pm.role, pm.joined_at, coalesce(p.login, 'unknown') as login, p.name, coalesce(p.avatar_url, '') as avatar_url
-        from project_members pm left join user_profiles p on p.user_id=pm.user_id
-        where pm.share_id=${share.share_id} order by case when pm.role='owner' then 0 else 1 end, pm.joined_at` as MemberRow[];
-      const invitations = share.role === "owner" ? await sql`select i.id, i.share_id, i.invitee_login, i.role, i.created_at,
-        '' as project_title, '' as inviter_login from project_invitations i where i.share_id=${share.share_id} and i.status='pending' order by i.created_at desc` as InviteRow[] : [];
-      res.status(200).json({share:{id:share.share_id, role:share.role}, members:members.map((row) => ({userId:row.user_id, login:row.login, name:row.name, avatarUrl:row.avatar_url, role:row.role, joinedAt:iso(row.joined_at)})), invitations:invitations.map((row) => ({id:row.id, login:row.invitee_login, role:row.role, createdAt:iso(row.created_at)}))});
+      res.status(200).json({share:{id:snapshot.share_id, role:snapshot.role}, members:snapshot.members.map((row) => ({userId:row.user_id, login:row.login, name:row.name, avatarUrl:row.avatar_url, role:row.role, joinedAt:iso(row.joined_at)})), invitations:snapshot.invitations.map((row) => ({id:row.id, login:row.invitee_login, role:row.role, createdAt:iso(row.created_at)}))});
       return;
     }
+
+    await ensureSchema();
+    await upsertUserProfile(sql, userId, user);
 
     const body = await readJson(req) as Record<string, unknown> | null;
     const action = typeof body?.action === "string" ? body.action : "";

@@ -43,7 +43,7 @@ export function SignInScreen({onCreateWorkspace}: {onCreateWorkspace: (name: str
         </div>
 
         <div className="signin-card">
-          <h2 className="signin-title">Create a workspace</h2>
+          <h2 className="signin-title">Start locally</h2>
           <p className="signin-sub">Name a workspace, create projects, and organize each project into a focused task board.</p>
 
           <form className="project-start-form" onSubmit={createWorkspace}>
@@ -52,10 +52,10 @@ export function SignInScreen({onCreateWorkspace}: {onCreateWorkspace: (name: str
             </label>
             <input id="workspace-name" className="project-start-input" value={workspaceName} onChange={(event) => setWorkspaceName(event.target.value)} placeholder={DEFAULT_WORKSPACE_NAME} autoComplete="off" />
             <button className="btn btn-primary signin-btn" type="submit">
-              Create workspace
+              Create local workspace
             </button>
           </form>
-          <p className="signin-guest-note">Starts locally on this device. Export the full workspace anytime as JSON.</p>
+          <p className="signin-guest-note">No account required. Sign in with GitHub to sync and collaborate.</p>
         </div>
 
         <div className="signin-support">

@@ -1,13 +1,14 @@
 import {Fragment, useEffect, useRef, useState} from "react";
-import type {CategoryDef, ItemConfig, Stage, Task} from "../types";
-import {categoryMeta} from "../types";
-import {EffortDots, RiskPill} from "./ui";
+import type {CategoryDef, ItemConfig, Stage, Task, TaskLayout} from "../types";
+import {categoryMeta, EFFORT_LABELS} from "../types";
+import {EffortDots, RiskPill, timeAgo} from "./ui";
 
 interface BoardProps {
   items: Task[];
   totalCount: number;
   categories: CategoryDef[];
   config: ItemConfig;
+  layout: TaskLayout;
   onMove: (id: string, stage: Stage, beforeId?: string) => void;
   onSelect: (id: string) => void;
   onDuplicate: (id: string) => void;
@@ -33,8 +34,9 @@ function slotBeforeId(container: HTMLElement, clientY: number): string | null {
   return null;
 }
 
-export function Board({items, totalCount, categories, config, onMove, onSelect, onDuplicate, onDelete, onAddItem, onLoadSample}: BoardProps) {
-  const [showIntro, setShowIntro] = useState(true);
+export function Board({items, totalCount, categories, config, layout, onMove, onSelect, onDuplicate, onDelete, onAddItem, onLoadSample}: BoardProps) {
+  const [showIntro, setShowIntro] = useState(layout === "board");
+  const previousLayout = useRef(layout);
   const [dragId, setDragId] = useState<string | null>(null);
   const [overStage, setOverStage] = useState<Stage | null>(null);
   // Where a placeholder should show while dragging: the target stage and the id
@@ -45,6 +47,13 @@ export function Board({items, totalCount, categories, config, onMove, onSelect, 
   // Columns the user has collapsed. Seeded with any stage marked hiddenByDefault
   // (e.g. Deferred) so those start collapsed, but every column can be toggled.
   const [collapsed, setCollapsed] = useState<Set<Stage>>(() => new Set(config.stages.filter((s) => s.hiddenByDefault).map((s) => s.id)));
+
+  useEffect(() => {
+    if (previousLayout.current !== layout) {
+      previousLayout.current = layout;
+      setShowIntro(false);
+    }
+  }, [layout]);
 
   const setStageCollapsed = (stage: Stage, value: boolean) =>
     setCollapsed((prev) => {
@@ -71,6 +80,22 @@ export function Board({items, totalCount, categories, config, onMove, onSelect, 
           </div>
         </section>
       </main>
+    );
+  }
+
+  if (layout === "list") {
+    return (
+      <TaskList
+        items={items}
+        totalCount={totalCount}
+        categories={categories}
+        config={config}
+        onMove={onMove}
+        onSelect={onSelect}
+        onDuplicate={onDuplicate}
+        onDelete={onDelete}
+        onAddItem={onAddItem}
+      />
     );
   }
 
@@ -225,6 +250,184 @@ export function Board({items, totalCount, categories, config, onMove, onSelect, 
   );
 }
 
+interface TaskListProps {
+  items: Task[];
+  totalCount: number;
+  categories: CategoryDef[];
+  config: ItemConfig;
+  onMove: (id: string, stage: Stage) => void;
+  onSelect: (id: string) => void;
+  onDuplicate: (id: string) => void;
+  onDelete: (id: string) => void;
+  onAddItem: (stage: Stage) => void;
+}
+
+function TaskList({items, totalCount, categories, config, onMove, onSelect, onDuplicate, onDelete, onAddItem}: TaskListProps) {
+  const [collapsedStages, setCollapsedStages] = useState<Set<Stage>>(() => new Set());
+  const activeCount = items.filter((item) => item.stage === "active" || item.stage === "reviewing").length;
+  const blockedCount = items.filter((item) => item.blocked).length;
+
+  const toggleStage = (stage: Stage) => {
+    setCollapsedStages((current) => {
+      const next = new Set(current);
+      if (next.has(stage)) next.delete(stage);
+      else next.add(stage);
+      return next;
+    });
+  };
+
+  if (items.length === 0) {
+    return (
+      <main className="task-list-page task-list-empty">
+        <span className="task-list-empty-icon" aria-hidden="true">⌕</span>
+        <strong>No tasks match these filters</strong>
+        <p>Adjust the search or filters above to see more tasks.</p>
+      </main>
+    );
+  }
+
+  return (
+    <main className="task-list-page">
+      <div className="task-list-shell">
+        <header className="task-list-titlebar">
+          <div className="task-list-heading">
+            <span className="front-kicker">Project tasks</span>
+            <h1>All tasks</h1>
+            <div className="task-list-title-meta" aria-label="Task summary">
+              <span><strong>{items.length}</strong>{items.length === totalCount ? " total" : ` of ${totalCount} shown`}</span>
+              <span><i className="task-list-meta-dot active" aria-hidden="true" />{activeCount} active</span>
+              {blockedCount > 0 && <span className="blocked"><i className="task-list-meta-dot" aria-hidden="true" />{blockedCount} blocked</span>}
+            </div>
+          </div>
+          <button className="btn btn-primary task-list-new" aria-label="New task" onClick={() => onAddItem("queued")}><span aria-hidden="true">＋</span> New Task</button>
+        </header>
+        <div className="task-list-table" role="table" aria-label="Project tasks">
+          <div className="task-list-columns" role="row">
+            <span role="columnheader">Task</span>
+            <span role="columnheader">Category</span>
+            <span role="columnheader">Priority</span>
+            <span role="columnheader">Effort</span>
+            <span role="columnheader">Updated</span>
+            <span role="columnheader">Status</span>
+          </div>
+          {config.stages.map((stage) => {
+            const stageItems = items.filter((item) => item.stage === stage.id);
+            if (stageItems.length === 0) return null;
+            const isCollapsed = collapsedStages.has(stage.id);
+            return (
+              <section className={`task-list-group task-list-group-${stage.group}${isCollapsed ? " collapsed" : ""}`} key={stage.id} role="rowgroup" aria-label={stage.label}>
+                <header className="task-list-group-head">
+                  <button className="task-list-collapse" onClick={() => toggleStage(stage.id)} aria-label={`${isCollapsed ? "Expand" : "Collapse"} ${stage.label}`} aria-expanded={!isCollapsed} title={`${isCollapsed ? "Expand" : "Collapse"} ${stage.label}`}><span aria-hidden="true">⌄</span></button>
+                  <span className={`task-status-dot task-status-${stage.group}`} aria-hidden="true" />
+                  <h2>{stage.label}</h2>
+                  <span>{stageItems.length}</span>
+                  <button className="task-list-group-add" onClick={() => onAddItem(stage.id)} aria-label={`Add task to ${stage.label}`} title={`Add task to ${stage.label}`}>＋</button>
+                </header>
+                {!isCollapsed && stageItems.map((item) => (
+                  <TaskListRow
+                    key={item.id}
+                    item={item}
+                    categories={categories}
+                    config={config}
+                    onMove={(nextStage) => onMove(item.id, nextStage)}
+                    onSelect={() => onSelect(item.id)}
+                    onDuplicate={() => onDuplicate(item.id)}
+                    onDelete={() => onDelete(item.id)}
+                  />
+                ))}
+              </section>
+            );
+          })}
+        </div>
+      </div>
+    </main>
+  );
+}
+
+interface TaskListRowProps {
+  item: Task;
+  categories: CategoryDef[];
+  config: ItemConfig;
+  onMove: (stage: Stage) => void;
+  onSelect: () => void;
+  onDuplicate: () => void;
+  onDelete: () => void;
+}
+
+function TaskListRow({item, categories, config, onMove, onSelect, onDuplicate, onDelete}: TaskListRowProps) {
+  const cat = categoryMeta(item.category, categories);
+  const updated = new Date(item.updatedAt);
+  const stageGroup = config.stages.find((stage) => stage.id === item.stage)?.group ?? "backlog";
+  const hasSummary = item.blocked || item.description || item.tags.length > 0 || item.notes.length > 0;
+  return (
+    <div
+      className={`task-list-row${item.blocked ? " blocked" : ""}${item.stage === "deployed" ? " complete" : ""}`}
+      role="row"
+      tabIndex={0}
+      onClick={onSelect}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onSelect();
+        }
+      }}
+    >
+      <div className="task-list-primary" role="cell">
+        <span className={`task-list-name${item.title ? "" : " untitled"}`}>{item.title || "Untitled"}</span>
+        {hasSummary && <span className="task-list-summary">
+          {item.blocked && <strong title={item.blockReason || "Blocked"}>Blocked</strong>}
+          {item.description && <span className="task-list-description">{item.description}</span>}
+          {item.tags.length > 0 && <span className="task-list-tags" aria-label={`Tags: ${item.tags.join(", ")}`}>{item.tags.slice(0, 2).map((tag) => <i key={tag}>#{tag}</i>)}{item.tags.length > 2 && <i>+{item.tags.length - 2}</i>}</span>}
+          {item.notes.length > 0 && <span className="task-list-note-count" title={`${item.notes.length} notes`}>✎ {item.notes.length}</span>}
+        </span>}
+      </div>
+      <span className="task-list-category" role="cell"><i aria-hidden="true">{cat.glyph}</i>{cat.label}</span>
+      <span className="task-list-priority" role="cell"><RiskPill risk={item.risk} /></span>
+      <span className="task-list-effort" role="cell" title={`Effort: ${EFFORT_LABELS[item.effort]}`}><EffortDots effort={item.effort} /><small>{EFFORT_LABELS[item.effort]}</small></span>
+      <time className="task-list-updated" role="cell" dateTime={updated.toISOString()} title={updated.toLocaleString()}>{timeAgo(item.updatedAt)}</time>
+      <div className="task-list-controls" role="cell" onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()}>
+        <label className={`task-list-status task-list-status-${stageGroup}`}>
+          <span className="sr-only">Status for {item.title || "Untitled task"}</span>
+          <span className="task-list-status-mark" aria-hidden="true" />
+          <select value={item.stage} onChange={(event) => { const stage = event.target.value as Stage; if (stage !== item.stage) onMove(stage); }}>
+            {config.stages.map((stage) => <option value={stage.id} key={stage.id}>{stage.label}</option>)}
+          </select>
+        </label>
+        <TaskActions title={item.title} onDuplicate={onDuplicate} onDelete={onDelete} />
+      </div>
+    </div>
+  );
+}
+
+function TaskActions({title, onDuplicate, onDelete}: {title: string; onDuplicate: () => void; onDelete: () => void}) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const close = (event: MouseEvent) => {
+      if (!menuRef.current?.contains(event.target as Node)) { setMenuOpen(false); setConfirmDelete(false); }
+    };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") { setMenuOpen(false); setConfirmDelete(false); }
+    };
+    window.addEventListener("mousedown", close);
+    window.addEventListener("keydown", escape);
+    return () => {
+      window.removeEventListener("mousedown", close);
+      window.removeEventListener("keydown", escape);
+    };
+  }, [menuOpen]);
+
+  return (
+    <div className="card-menu" ref={menuRef} onMouseDown={(event) => event.stopPropagation()} onClick={(event) => event.stopPropagation()}>
+      <button type="button" className={`card-menu-btn${menuOpen ? " open" : ""}`} aria-label={`Options for ${title || "Untitled task"}`} aria-haspopup="menu" aria-expanded={menuOpen} onClick={() => { setMenuOpen((open) => !open); setConfirmDelete(false); }}>⋯</button>
+      {menuOpen && <div className="card-menu-pop" role="menu">{confirmDelete ? <div className="card-menu-confirm"><span>Delete this task?</span><div><button type="button" className="danger" onClick={() => { setMenuOpen(false); onDelete(); }}>Delete</button><button type="button" onClick={() => setConfirmDelete(false)}>Cancel</button></div></div> : <><button type="button" role="menuitem" onClick={() => { setMenuOpen(false); onDuplicate(); }}><span aria-hidden="true">⧉</span> Duplicate task</button><button type="button" className="danger" role="menuitem" onClick={() => setConfirmDelete(true)}><span aria-hidden="true">×</span> Delete task</button></>}</div>}
+    </div>
+  );
+}
+
 interface ColumnMenuProps {
   label: string;
   canAdd: boolean;
@@ -293,25 +496,6 @@ interface CardProps {
 
 function Card({item, categories, dragging, onSelect, onDuplicate, onDelete, onDragStart, onDragEnd}: CardProps) {
   const cat = categoryMeta(item.category, categories);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!menuOpen) return;
-    const close = (e: MouseEvent) => {
-      if (!menuRef.current?.contains(e.target as Node)) { setMenuOpen(false); setConfirmDelete(false); }
-    };
-    const escape = (e: KeyboardEvent) => {
-      if (e.key === "Escape") { setMenuOpen(false); setConfirmDelete(false); }
-    };
-    window.addEventListener("mousedown", close);
-    window.addEventListener("keydown", escape);
-    return () => {
-      window.removeEventListener("mousedown", close);
-      window.removeEventListener("keydown", escape);
-    };
-  }, [menuOpen]);
 
   return (
     <article
@@ -333,10 +517,7 @@ function Card({item, categories, dragging, onSelect, onDuplicate, onDelete, onDr
             Blocked
           </span>
         )}
-        <div className="card-menu" ref={menuRef} onMouseDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
-          <button type="button" className={`card-menu-btn${menuOpen ? " open" : ""}`} aria-label={`Options for ${item.title || "Untitled task"}`} aria-haspopup="menu" aria-expanded={menuOpen} onClick={() => { setMenuOpen((open) => !open); setConfirmDelete(false); }}>⋯</button>
-          {menuOpen && <div className="card-menu-pop" role="menu">{confirmDelete ? <div className="card-menu-confirm"><span>Delete this task?</span><div><button type="button" className="danger" onClick={() => { setMenuOpen(false); onDelete(); }}>Delete</button><button type="button" onClick={() => setConfirmDelete(false)}>Cancel</button></div></div> : <><button type="button" role="menuitem" onClick={() => { setMenuOpen(false); onDuplicate(); }}><span aria-hidden="true">⧉</span> Duplicate task</button><button type="button" className="danger" role="menuitem" onClick={() => setConfirmDelete(true)}><span aria-hidden="true">×</span> Delete task</button></>}</div>}
-        </div>
+        <TaskActions title={item.title} onDuplicate={onDuplicate} onDelete={onDelete} />
       </div>
       <div className={`card-title${item.title ? "" : " untitled"}`}>{item.title || "Untitled"}</div>
       <div className="card-meta">

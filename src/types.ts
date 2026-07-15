@@ -1,4 +1,5 @@
 export type Stage = "queued" | "active" | "reviewing" | "deployed" | "deferred";
+export type TaskLayout = "board" | "list";
 export type Risk = "low" | "medium" | "high";
 export type Effort = "low" | "medium" | "high" | "xhigh";
 export type Category = string;

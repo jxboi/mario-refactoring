@@ -1,5 +1,5 @@
 import {Fragment, useEffect, useRef, useState} from "react";
-import type {CategoryDef, ItemConfig, Stage, Task, TaskLayout} from "../types";
+import type {CategoryDef, ItemConfig, Stage, Task, TaskAssignee, TaskLayout} from "../types";
 import {categoryMeta, EFFORT_LABELS} from "../types";
 import {EffortDots, RiskPill, timeAgo} from "./ui";
 
@@ -358,7 +358,7 @@ function TaskListRow({item, categories, config, onMove, onSelect, onDuplicate, o
   const cat = categoryMeta(item.category, categories);
   const updated = new Date(item.updatedAt);
   const stageGroup = config.stages.find((stage) => stage.id === item.stage)?.group ?? "backlog";
-  const hasSummary = item.blocked || item.description || item.tags.length > 0 || item.notes.length > 0;
+  const hasSummary = item.blocked || item.assignee || item.description || item.tags.length > 0 || item.notes.length > 0;
   return (
     <div
       className={`task-list-row${item.blocked ? " blocked" : ""}${item.stage === "deployed" ? " complete" : ""}`}
@@ -376,6 +376,7 @@ function TaskListRow({item, categories, config, onMove, onSelect, onDuplicate, o
         <span className={`task-list-name${item.title ? "" : " untitled"}`}>{item.title || "Untitled"}</span>
         {hasSummary && <span className="task-list-summary">
           {item.blocked && <strong title={item.blockReason || "Blocked"}>Blocked</strong>}
+          {item.assignee && <span className="task-list-assignee" title={`Assigned to ${assigneeLabel(item.assignee)}`}><AssigneeAvatar assignee={item.assignee}/>{assigneeLabel(item.assignee)}</span>}
           {item.description && <span className="task-list-description">{item.description}</span>}
           {item.tags.length > 0 && <span className="task-list-tags" aria-label={`Tags: ${item.tags.join(", ")}`}>{item.tags.slice(0, 2).map((tag) => <i key={tag}>#{tag}</i>)}{item.tags.length > 2 && <i>+{item.tags.length - 2}</i>}</span>}
           {item.notes.length > 0 && <span className="task-list-note-count" title={`${item.notes.length} notes`}>✎ {item.notes.length}</span>}
@@ -521,6 +522,7 @@ function Card({item, categories, dragging, onSelect, onDuplicate, onDelete, onDr
       </div>
       <div className={`card-title${item.title ? "" : " untitled"}`}>{item.title || "Untitled"}</div>
       <div className="card-meta">
+        {item.assignee&&<span className="card-assignee" title={`Assigned to ${assigneeLabel(item.assignee)}`}><AssigneeAvatar assignee={item.assignee}/><span>{assigneeLabel(item.assignee)}</span></span>}
         <span className="card-meta-right">
           {item.notes.length > 0 && (
             <span className="card-notes" title={`${item.notes.length} notes`}>
@@ -534,3 +536,6 @@ function Card({item, categories, dragging, onSelect, onDuplicate, onDelete, onDr
     </article>
   );
 }
+
+function assigneeLabel(assignee:TaskAssignee){return assignee.name||`@${assignee.login}`}
+function AssigneeAvatar({assignee}:{assignee:TaskAssignee}){const label=assigneeLabel(assignee);return assignee.avatarUrl?<img className="assignee-avatar" src={assignee.avatarUrl} alt=""/>:<span className="assignee-avatar assignee-avatar-fallback" aria-hidden="true">{label.replace(/^@/,"").slice(0,1).toUpperCase()}</span>}

@@ -1289,8 +1289,47 @@ code,
   margin-top: 9px;
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: space-between;
   gap: 8px;
+}
+
+.assignee-avatar {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.assignee-avatar-fallback {
+  display: inline-grid;
+  place-items: center;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 9px;
+  font-weight: 750;
+}
+
+.card-assignee {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  gap: 6px;
+  color: var(--text-faint);
+  font-size: 10px;
+}
+
+.card-assignee .assignee-avatar {
+  width: 20px;
+  height: 20px;
+}
+
+.card-assignee > span:last-child {
+  max-width: 92px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .card-cat {
@@ -2129,6 +2168,23 @@ code,
 
 .field-wide {
   grid-column: 1 / -1;
+}
+
+.assignee-field {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.assignee-field .assignee-avatar {
+  position: absolute;
+  z-index: 1;
+  left: 10px;
+  pointer-events: none;
+}
+
+.assignee-field .assignee-avatar + select {
+  padding-left: 40px;
 }
 
 .field-label {
@@ -4674,6 +4730,22 @@ button.cat-manage-glyph:hover {
   color: var(--text-faint);
   font-size: 10.5px;
   line-height: 1.35;
+}
+
+.task-list-assignee {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 5px;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-list-assignee .assignee-avatar {
+  width: 18px;
+  height: 18px;
 }
 
 .task-list-summary strong {

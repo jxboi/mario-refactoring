@@ -10,7 +10,8 @@ export interface BaseItem {
   tags: string[]; stage: Stage; blocked: boolean; blockReason: string; notes: Note[];
   createdAt: number; updatedAt: number;
 }
-export interface Task extends BaseItem { category: Category; }
+export interface TaskAssignee { userId:string; login:string; name:string|null; avatarUrl:string; }
+export interface Task extends BaseItem { category: Category; assignee?:TaskAssignee|null; }
 export interface ProjectCollaboration {
   shareId: string;
   ownerId: string;

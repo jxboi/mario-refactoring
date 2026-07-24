@@ -1,5 +1,6 @@
 import {Fragment, useEffect, useRef, useState} from "react";
-import type {CategoryDef, ItemConfig, Stage, Task, TaskLayout} from "../types";
+import {createPortal} from "react-dom";
+import type {CategoryDef, ItemConfig, Stage, Task, TaskAssignee, TaskLayout} from "../types";
 import {categoryMeta, EFFORT_LABELS} from "../types";
 import {EffortDots, RiskPill, timeAgo} from "./ui";
 
@@ -14,7 +15,6 @@ interface BoardProps {
   onDuplicate: (id: string) => void;
   onDelete: (id: string) => void;
   onAddItem: (stage: Stage) => void;
-  onLoadSample: () => void;
 }
 
 const DRAG_MIME = "application/x-chisel-item";
@@ -34,9 +34,7 @@ function slotBeforeId(container: HTMLElement, clientY: number): string | null {
   return null;
 }
 
-export function Board({items, totalCount, categories, config, layout, onMove, onSelect, onDuplicate, onDelete, onAddItem, onLoadSample}: BoardProps) {
-  const [showIntro, setShowIntro] = useState(layout === "board");
-  const previousLayout = useRef(layout);
+export function Board({items, totalCount, categories, config, layout, onMove, onSelect, onDuplicate, onDelete, onAddItem}: BoardProps) {
   const [dragId, setDragId] = useState<string | null>(null);
   const [overStage, setOverStage] = useState<Stage | null>(null);
   // Where a placeholder should show while dragging: the target stage and the id
@@ -48,13 +46,6 @@ export function Board({items, totalCount, categories, config, layout, onMove, on
   // (e.g. Deferred) so those start collapsed, but every column can be toggled.
   const [collapsed, setCollapsed] = useState<Set<Stage>>(() => new Set(config.stages.filter((s) => s.hiddenByDefault).map((s) => s.id)));
 
-  useEffect(() => {
-    if (previousLayout.current !== layout) {
-      previousLayout.current = layout;
-      setShowIntro(false);
-    }
-  }, [layout]);
-
   const setStageCollapsed = (stage: Stage, value: boolean) =>
     setCollapsed((prev) => {
       const next = new Set(prev);
@@ -62,26 +53,6 @@ export function Board({items, totalCount, categories, config, layout, onMove, on
       else next.delete(stage);
       return next;
     });
-
-  if (showIntro || totalCount === 0) {
-    return (
-      <main className="board-empty">
-        <section className="front-page front-page-simple">
-          <div className="front-copy">
-            <span className="front-kicker">Task board</span>
-            <h1>Turn the project into clear, actionable tasks</h1>
-            <p className="front-lede">Create tasks, prioritize the work, and move it through delivery.</p>
-            <div className="front-actions">
-              <button className="btn btn-primary" onClick={() => onAddItem("queued")}>+ New Task</button>
-              {totalCount > 0
-                ? <button className="btn btn-ghost" onClick={() => setShowIntro(false)}>Open Tasks ({totalCount})</button>
-                : <button className="btn btn-ghost" onClick={onLoadSample}>Explore sample</button>}
-            </div>
-          </div>
-        </section>
-      </main>
-    );
-  }
 
   if (layout === "list") {
     return (
@@ -131,12 +102,10 @@ export function Board({items, totalCount, categories, config, layout, onMove, on
         // expanding.
         if (collapsed.has(stage.id)) {
           return (
-            <button
+            <section
               key={stage.id}
-              type="button"
               className={`column-collapsed${overStage === stage.id ? " drag-over" : ""}`}
-              title={`${stage.label} — ${stage.hint}. Click to show.`}
-              onClick={() => setStageCollapsed(stage.id, false)}
+              title={`${stage.label} — ${stage.hint}`}
               onDragOver={(e) => {
                 if (e.dataTransfer.types.includes(DRAG_MIME)) {
                   e.preventDefault();
@@ -153,10 +122,18 @@ export function Board({items, totalCount, categories, config, layout, onMove, on
               }}
               onDrop={handleDrop}
             >
-              <span className="column-collapsed-label">{stage.label}</span>
+              <button
+                type="button"
+                className="column-collapsed-label"
+                title={`Expand ${stage.label}`}
+                aria-label={`Expand ${stage.label}`}
+                onClick={() => setStageCollapsed(stage.id, false)}
+              >
+                {stage.label}
+              </button>
               <span className="column-count">{stageItems.length}</span>
               <span className="column-collapsed-hint">show</span>
-            </button>
+            </section>
           );
         }
 
@@ -171,7 +148,7 @@ export function Board({items, totalCount, categories, config, layout, onMove, on
         return (
           <section
             key={stage.id}
-            className={`column column-${stage.group}${overStage === stage.id ? " drag-over" : ""}`}
+            className={`column column-${stage.group} column-${stage.id}${overStage === stage.id ? " drag-over" : ""}`}
             onDragOver={(e) => {
               if (e.dataTransfer.types.includes(DRAG_MIME)) {
                 e.preventDefault();
@@ -188,20 +165,22 @@ export function Board({items, totalCount, categories, config, layout, onMove, on
             onDrop={handleDrop}
           >
             <header className="column-head" title={stage.hint}>
-              {stage.group === "active" && <span className="column-live-dot" aria-hidden="true" />}
-              {stage.group === "done" && (
-                <span className="column-done-check" aria-hidden="true">
-                  ✓
-                </span>
-              )}
-              <span className="column-title">{stage.label}</span>
+              {stage.id === "active" && <span className="column-live-dot" aria-hidden="true" />}
+              <button
+                type="button"
+                className="column-title"
+                title={`Collapse ${stage.label}`}
+                aria-label={`Collapse ${stage.label}`}
+                onClick={() => setStageCollapsed(stage.id, true)}
+              >
+                {stage.label}
+              </button>
               <span className="column-count">{colItems.length}</span>
               {!stage.hiddenByDefault && (
                 <button className="column-add-btn" title={`Add item to ${stage.label}`} aria-label={`Add item to ${stage.label}`} onClick={() => onAddItem(stage.id)}>
                   ＋
                 </button>
               )}
-              <ColumnMenu label={stage.label} canAdd={!stage.hiddenByDefault} onAdd={() => onAddItem(stage.id)} onCollapse={() => setStageCollapsed(stage.id, true)} />
             </header>
             <div
               className="column-body"
@@ -241,7 +220,6 @@ export function Board({items, totalCount, categories, config, layout, onMove, on
                 </Fragment>
               ))}
               {dropTarget?.stage === stage.id && dropTarget.beforeId === null && !isNoOp(null, colItems) && <div className="card-placeholder" style={dragHeight ? {height: dragHeight} : undefined} />}
-              {colItems.length === 0 && overStage !== stage.id && <div className="column-placeholder">Empty</div>}
             </div>
           </section>
         );
@@ -358,7 +336,7 @@ function TaskListRow({item, categories, config, onMove, onSelect, onDuplicate, o
   const cat = categoryMeta(item.category, categories);
   const updated = new Date(item.updatedAt);
   const stageGroup = config.stages.find((stage) => stage.id === item.stage)?.group ?? "backlog";
-  const hasSummary = item.blocked || item.description || item.tags.length > 0 || item.notes.length > 0;
+  const hasSummary = item.blocked || item.assignee || item.description || item.tags.length > 0 || item.notes.length > 0;
   return (
     <div
       className={`task-list-row${item.blocked ? " blocked" : ""}${item.stage === "deployed" ? " complete" : ""}`}
@@ -376,6 +354,7 @@ function TaskListRow({item, categories, config, onMove, onSelect, onDuplicate, o
         <span className={`task-list-name${item.title ? "" : " untitled"}`}>{item.title || "Untitled"}</span>
         {hasSummary && <span className="task-list-summary">
           {item.blocked && <strong title={item.blockReason || "Blocked"}>Blocked</strong>}
+          {item.assignee && <span className="task-list-assignee" title={`Assigned to ${assigneeLabel(item.assignee)}`}><AssigneeAvatar assignee={item.assignee}/>{assigneeLabel(item.assignee)}</span>}
           {item.description && <span className="task-list-description">{item.description}</span>}
           {item.tags.length > 0 && <span className="task-list-tags" aria-label={`Tags: ${item.tags.join(", ")}`}>{item.tags.slice(0, 2).map((tag) => <i key={tag}>#{tag}</i>)}{item.tags.length > 2 && <i>+{item.tags.length - 2}</i>}</span>}
           {item.notes.length > 0 && <span className="task-list-note-count" title={`${item.notes.length} notes`}>✎ {item.notes.length}</span>}
@@ -428,61 +407,6 @@ function TaskActions({title, onDuplicate, onDelete}: {title: string; onDuplicate
   );
 }
 
-interface ColumnMenuProps {
-  label: string;
-  canAdd: boolean;
-  onAdd: () => void;
-  onCollapse: () => void;
-}
-
-function ColumnMenu({label, canAdd, onAdd, onCollapse}: ColumnMenuProps) {
-  const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
-    };
-    window.addEventListener("mousedown", onDown);
-    return () => window.removeEventListener("mousedown", onDown);
-  }, [open]);
-
-  return (
-    <div className="col-menu" ref={rootRef}>
-      <button className={`col-menu-btn${open ? " open" : ""}`} title={`${label} options`} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
-        ⋯
-      </button>
-      {open && (
-        <div className="col-menu-pop" role="menu">
-          {canAdd && (
-            <button
-              className="col-menu-item"
-              role="menuitem"
-              onClick={() => {
-                onAdd();
-                setOpen(false);
-              }}
-            >
-              <span className="col-menu-icon">＋</span> New item
-            </button>
-          )}
-          <button
-            className="col-menu-item"
-            role="menuitem"
-            onClick={() => {
-              onCollapse();
-              setOpen(false);
-            }}
-          >
-            <span className="col-menu-icon">‹</span> Collapse
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
 interface CardProps {
   item: Task;
   categories: CategoryDef[];
@@ -496,41 +420,115 @@ interface CardProps {
 
 function Card({item, categories, dragging, onSelect, onDuplicate, onDelete, onDragStart, onDragEnd}: CardProps) {
   const cat = categoryMeta(item.category, categories);
+  const [menuAt, setMenuAt] = useState<{left: number; top: number} | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!menuAt) return;
+    const close = (event: MouseEvent) => {
+      if (!menuRef.current?.contains(event.target as Node)) {
+        setMenuAt(null);
+        setConfirmDelete(false);
+      }
+    };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setMenuAt(null);
+        setConfirmDelete(false);
+      }
+    };
+    window.addEventListener("mousedown", close);
+    window.addEventListener("keydown", escape);
+    return () => {
+      window.removeEventListener("mousedown", close);
+      window.removeEventListener("keydown", escape);
+    };
+  }, [menuAt]);
+
+  const openMenu = (left: number, top: number) => {
+    setConfirmDelete(false);
+    setMenuAt({
+      left: Math.max(8, Math.min(left, window.innerWidth - 178)),
+      top: Math.max(8, Math.min(top, window.innerHeight - 104)),
+    });
+  };
 
   return (
-    <article
-      className={`card${dragging ? " dragging" : ""}${item.blocked ? " card-blocked" : ""}${item.stage === "deployed" ? " card-landed" : ""}`}
-      data-id={item.id}
-      draggable
-      onDragStart={onDragStart}
-      onDragEnd={onDragEnd}
-      onClick={onSelect}
-      tabIndex={0}
-      onKeyDown={(e) => {
-        if (e.key === "Enter") onSelect();
-      }}
-    >
-      <div className="card-tags">
-        <span className="card-cat">{cat.label}</span>
+    <>
+      <article
+        className={`card${dragging ? " dragging" : ""}${item.blocked ? " card-blocked" : ""}${item.stage === "deployed" ? " card-landed" : ""}`}
+        data-id={item.id}
+        aria-label={`${item.title || "Untitled task"}, ${item.risk} priority. Right-click for actions.`}
+        draggable
+        onDragStart={onDragStart}
+        onDragEnd={onDragEnd}
+        onClick={onSelect}
+        onContextMenu={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          openMenu(event.clientX, event.clientY);
+        }}
+        tabIndex={0}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") onSelect();
+          if (event.key === "ContextMenu" || (event.shiftKey && event.key === "F10")) {
+            event.preventDefault();
+            const rect = event.currentTarget.getBoundingClientRect();
+            openMenu(rect.left + 16, rect.top + 16);
+          }
+        }}
+      >
+        <div className={`card-title${item.title ? "" : " untitled"}`}>{item.title || "Untitled"}</div>
         {item.blocked && (
           <span className="card-blocked-tag" title={item.blockReason || "Blocked"}>
             Blocked
           </span>
         )}
-        <TaskActions title={item.title} onDuplicate={onDuplicate} onDelete={onDelete} />
-      </div>
-      <div className={`card-title${item.title ? "" : " untitled"}`}>{item.title || "Untitled"}</div>
-      <div className="card-meta">
-        <span className="card-meta-right">
-          {item.notes.length > 0 && (
-            <span className="card-notes" title={`${item.notes.length} notes`}>
-              ✎{item.notes.length}
-            </span>
+        <div className="card-meta">
+          <span className="card-meta-left">
+            <span className="card-cat">{cat.label}</span>
+            <EffortDots effort={item.effort} priority={item.risk} />
+          </span>
+          <span className="card-meta-right">
+            {item.notes.length > 0 && (
+              <span className="card-notes" title={`${item.notes.length} notes`}>
+                ✎{item.notes.length}
+              </span>
+            )}
+            {item.assignee&&<span className="card-assignee" title={`Assigned to ${assigneeLabel(item.assignee)}`}><AssigneeAvatar assignee={item.assignee}/></span>}
+          </span>
+        </div>
+      </article>
+      {menuAt && createPortal(
+        <div
+          className="card-context-menu"
+          ref={menuRef}
+          role="menu"
+          style={menuAt}
+          onClick={(event) => event.stopPropagation()}
+          onContextMenu={(event) => event.preventDefault()}
+        >
+          {confirmDelete ? (
+            <div className="card-menu-confirm">
+              <span>Delete this task?</span>
+              <div>
+                <button type="button" className="danger" onClick={() => { setMenuAt(null); onDelete(); }}>Delete</button>
+                <button type="button" onClick={() => setConfirmDelete(false)}>Cancel</button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <button type="button" role="menuitem" onClick={() => { setMenuAt(null); onDuplicate(); }}><span aria-hidden="true">⧉</span> Duplicate task</button>
+              <button type="button" className="danger" role="menuitem" onClick={() => setConfirmDelete(true)}><span aria-hidden="true">×</span> Delete task</button>
+            </>
           )}
-          <EffortDots effort={item.effort} />
-          <RiskPill risk={item.risk} />
-        </span>
-      </div>
-    </article>
+        </div>,
+        document.body,
+      )}
+    </>
   );
 }
+
+function assigneeLabel(assignee:TaskAssignee){return assignee.name||`@${assignee.login}`}
+function AssigneeAvatar({assignee}:{assignee:TaskAssignee}){const label=assigneeLabel(assignee);return assignee.avatarUrl?<img className="assignee-avatar" src={assignee.avatarUrl} alt=""/>:<span className="assignee-avatar assignee-avatar-fallback" aria-hidden="true">{label.replace(/^@/,"").slice(0,1).toUpperCase()}</span>}

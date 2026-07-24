@@ -27,6 +27,7 @@ function baseChanges(before:Project|Task,after:Project|Task):ActivityChange[] {
   const changes:ActivityChange[]=[];
   for(const field of ["title","risk","effort","tags"] as const) if(stringify(before[field])!==stringify(after[field])) changes.push(change(field,before[field],after[field]));
   if("category" in before&&"category" in after&&before.category!==after.category)changes.push(change("category",before.category,after.category));
+  if("category" in before&&"category" in after&&before.assignee?.userId!==after.assignee?.userId)changes.push(change("assignee",before.assignee?.login,after.assignee?.login));
   if(before.description!==after.description)changes.push({field:"description"});
   return changes;
 }

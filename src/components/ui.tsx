@@ -5,10 +5,10 @@ export function RiskPill({risk}: {risk: Risk}) {
   return <span className={`risk-pill risk-${risk}`}>{RISK_LABELS[risk]}</span>;
 }
 
-export function EffortDots({effort}: {effort: Effort}) {
+export function EffortDots({effort, priority}: {effort: Effort; priority?: Risk}) {
   const level = EFFORTS.indexOf(effort) + 1;
   return (
-    <span className="effort-dots" title={`Effort: ${EFFORT_LABELS[effort]}`}>
+    <span className={`effort-dots${priority ? ` effort-priority-${priority}` : ""}`} title={`Effort: ${EFFORT_LABELS[effort]}`}>
       {EFFORTS.map((_, i) => (
         <span key={i} className={`effort-dot${i < level ? " on" : ""}`} />
       ))}

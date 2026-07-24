@@ -9,7 +9,7 @@ import {getCachedActivity,invalidateActivityCache,loadActivity,type ActivityRequ
 interface Props{workspaceId:string;projects:Project[];projectId?:string|null;isGuest:boolean;user:GitHubUser;syncKey?:string|null;onOpen:(event:ActivityEvent)=>void;}
 const FAMILIES:{id:ActivityFamily|null;label:string}[]=[{id:null,label:"All activity"},{id:"status",label:"Status"},{id:"updates",label:"Updates"},{id:"notes",label:"Notes"},{id:"organization",label:"Organization"}];
 const FAMILY_LABELS:Record<ActivityFamily,string>={status:"Status Changed",updates:"Details Updated",notes:"Note Updated",organization:"Organization"};
-const NOTE_LABELS:Record<string,string>={"note.added":"Note Added","note.deleted":"Note Removed","note.edited":"Note Edited","note.blocked":"Note Blocked","note.unblocked":"Note Unblocked","note.resolved":"Note Resolved","note.reopened":"Note Reopened"};
+const NOTE_LABELS:Record<string,string>={"note.added":"Note Added","note.deleted":"Note Removed","note.edited":"Note Edited","note.colored":"Note Color"};
 const EMPTY:ActivityPage={events:[],nextCursor:null,projects:[],summary:{today:0,thisWeek:0,itemsTouched:0}};
 const stageLabel=(value:string)=>({queued:"To do",active:"In progress",reviewing:"Review",deployed:"Done",deferred:"On hold"}[value]??value);
 const displayValue=(field:string,value?:string)=>value===undefined?"":field==="status"?stageLabel(value):value||"None";

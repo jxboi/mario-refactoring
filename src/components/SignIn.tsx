@@ -70,7 +70,7 @@ export function SignInScreen({onCreateWorkspace}: {onCreateWorkspace: (name: str
             </div>
             <div>
               <strong>Make progress legible</strong>
-              <span>Use the board as a lightweight source of truth for what changed and what is blocked.</span>
+              <span>Use the board as a lightweight source of truth for what changed and what needs attention.</span>
             </div>
           </div>
 

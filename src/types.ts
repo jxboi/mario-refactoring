@@ -3,11 +3,12 @@ export type TaskLayout = "board" | "list";
 export type Risk = "low" | "medium" | "high";
 export type Effort = "low" | "medium" | "high";
 export type Category = string;
+export type NoteColor = "neutral" | "red" | "orange" | "green" | "blue" | "purple";
 
-export interface Note { id: string; text: string; createdAt: number; blocked?: boolean; resolved?: boolean; }
+export interface Note { id: string; text: string; createdAt: number; color?: NoteColor; }
 export interface BaseItem {
   id: string; title: string; description: string; risk: Risk; effort: Effort;
-  tags: string[]; stage: Stage; blocked: boolean; blockReason: string; notes: Note[];
+  tags: string[]; stage: Stage; notes: Note[];
   createdAt: number; updatedAt: number;
 }
 export interface TaskAssignee { userId:string; login:string; name:string|null; avatarUrl:string; }
@@ -61,4 +62,3 @@ export const TASK_CONFIG: ItemConfig = {kind:"task",label:"Task",itemNoun:"task"
 export function categoryMeta(id:string,categories:CategoryDef[]):CategoryDef { return categories.find(c=>c.id===id) ?? categories.find(c=>c.id===FALLBACK_CATEGORY_ID) ?? {id:"other",label:"Other",glyph:"·",groupId:"general"}; }
 export function slugifyCategory(label:string):string { return label.toLowerCase().trim().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"") || "category"; }
 export function uid():string { return Math.random().toString(36).slice(2,9)+Date.now().toString(36).slice(-4); }
-export function blockedFrom(notes:Note[]):{blocked:boolean;blockReason:string} { const blocked=notes.filter(n=>n.blocked); return {blocked:blocked.length>0,blockReason:blocked.map(n=>n.text).join(" · ")}; }

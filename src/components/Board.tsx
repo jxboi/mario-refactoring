@@ -242,7 +242,6 @@ interface TaskListProps {
 function TaskList({items, totalCount, categories, config, onMove, onSelect, onDuplicate, onDelete, onAddItem}: TaskListProps) {
   const [collapsedStages, setCollapsedStages] = useState<Set<Stage>>(() => new Set());
   const activeCount = items.filter((item) => item.stage === "active" || item.stage === "reviewing").length;
-  const blockedCount = items.filter((item) => item.blocked).length;
 
   const toggleStage = (stage: Stage) => {
     setCollapsedStages((current) => {
@@ -273,7 +272,6 @@ function TaskList({items, totalCount, categories, config, onMove, onSelect, onDu
             <div className="task-list-title-meta" aria-label="Task summary">
               <span><strong>{items.length}</strong>{items.length === totalCount ? " total" : ` of ${totalCount} shown`}</span>
               <span><i className="task-list-meta-dot active" aria-hidden="true" />{activeCount} active</span>
-              {blockedCount > 0 && <span className="blocked"><i className="task-list-meta-dot" aria-hidden="true" />{blockedCount} blocked</span>}
             </div>
           </div>
           <button className="btn btn-primary task-list-new" aria-label="New task" onClick={() => onAddItem("queued")}><span aria-hidden="true">＋</span> New Task</button>
@@ -335,10 +333,10 @@ function TaskListRow({item, categories, config, onMove, onSelect, onDuplicate, o
   const cat = categoryMeta(item.category, categories);
   const updated = new Date(item.updatedAt);
   const stageGroup = config.stages.find((stage) => stage.id === item.stage)?.group ?? "backlog";
-  const hasSummary = item.blocked || item.assignee || item.description || item.tags.length > 0 || item.notes.length > 0;
+  const hasSummary = item.assignee || item.description || item.tags.length > 0 || item.notes.length > 0;
   return (
     <div
-      className={`task-list-row${item.blocked ? " blocked" : ""}${item.stage === "deployed" ? " complete" : ""}`}
+      className={`task-list-row${item.stage === "deployed" ? " complete" : ""}`}
       role="row"
       tabIndex={0}
       onClick={onSelect}
@@ -352,7 +350,6 @@ function TaskListRow({item, categories, config, onMove, onSelect, onDuplicate, o
       <div className="task-list-primary" role="cell">
         <span className={`task-list-name${item.title ? "" : " untitled"}`}>{item.title || "Untitled"}</span>
         {hasSummary && <span className="task-list-summary">
-          {item.blocked && <strong title={item.blockReason || "Blocked"}>Blocked</strong>}
           {item.assignee && <span className="task-list-assignee" title={`Assigned to ${assigneeLabel(item.assignee)}`}><AssigneeAvatar assignee={item.assignee}/>{assigneeLabel(item.assignee)}</span>}
           {item.description && <span className="task-list-description">{item.description}</span>}
           {item.tags.length > 0 && <span className="task-list-tags" aria-label={`Tags: ${item.tags.join(", ")}`}>{item.tags.slice(0, 2).map((tag) => <i key={tag}>#{tag}</i>)}{item.tags.length > 2 && <i>+{item.tags.length - 2}</i>}</span>}
@@ -456,7 +453,7 @@ function Card({item, categories, dragging, onSelect, onDuplicate, onDelete, onDr
   return (
     <>
       <article
-        className={`card${dragging ? " dragging" : ""}${item.blocked ? " card-blocked" : ""}${item.stage === "deployed" ? " card-landed" : ""}`}
+        className={`card${dragging ? " dragging" : ""}${item.stage === "deployed" ? " card-landed" : ""}`}
         data-id={item.id}
         aria-label={`${item.title || "Untitled task"}, ${item.risk} priority. Right-click for actions.`}
         draggable
@@ -479,11 +476,6 @@ function Card({item, categories, dragging, onSelect, onDuplicate, onDelete, onDr
         }}
       >
         <div className={`card-title${item.title ? "" : " untitled"}`}>{item.title || "Untitled"}</div>
-        {item.blocked && (
-          <span className="card-blocked-tag" title={item.blockReason || "Blocked"}>
-            Blocked
-          </span>
-        )}
         <div className="card-meta">
           <span className="card-meta-left">
             <span className="card-cat">{cat.label}</span>

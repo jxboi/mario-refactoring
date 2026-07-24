@@ -4,7 +4,7 @@ import {slugifyCategory, uid} from "../types";
 /**
  * A "skill" is a reusable, user-authored prompt template for structured work discovery.
  * The user exports it as a Markdown file to hand to an AI/Copilot agent; the
- * agent then produces structured JSON in Chisel's task schema.
+ * agent then produces structured JSON in Chisely's task schema.
  */
 export interface Skill {
   id: string;
@@ -77,7 +77,7 @@ export function skillFileStem(skill: Skill): string {
 
 /**
  * Compose the full Markdown prompt for a skill. The user's instructions are
- * followed by an auto-generated "Output format" section describing Chisel's
+ * followed by an auto-generated "Output format" section describing Chisely's
  * import schema, so whatever agent runs the prompt returns importable JSON.
  */
 export function composeSkillMarkdown(skill: Skill, config: ItemConfig, categories: CategoryDef[]): string {
@@ -87,7 +87,7 @@ export function composeSkillMarkdown(skill: Skill, config: ItemConfig, categorie
   const parts = [`# ${name}`];
   if (skill.description.trim()) parts.push(skill.description.trim());
   parts.push(skill.body.trim());
-  parts.push(["## Output format", "", `Return a single JSON file containing a top-level array of ${config.itemNounPlural}. Each item supports:`, "", "- `title` (required) — a short, action-oriented summary.", "- `description` — the outcome or context.", `- \`priority\` — low | medium | high (${metric}).`, "- `effort` — low | medium | high | xhigh.", `- \`category\` — one of: ${catIds}.`, "- `tags` — array of short labels.", "- `status` — queued | active | reviewing | deployed | deferred.", "", "Example:", "", "```json", config.schema, "```"].filter(Boolean).join("\n"));
+  parts.push(["## Output format", "", `Return a single JSON file containing a top-level array of ${config.itemNounPlural}. Each item supports:`, "", "- `title` (required) — a short, action-oriented summary.", "- `description` — the outcome or context.", `- \`priority\` — low | medium | high (${metric}).`, "- `effort` — low | medium | high.", `- \`category\` — one of: ${catIds}.`, "- `tags` — array of short labels.", "- `status` — queued | active | reviewing | deployed | deferred.", "", "Example:", "", "```json", config.schema, "```"].filter(Boolean).join("\n"));
   return parts.join("\n\n") + "\n";
 }
 

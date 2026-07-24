@@ -1,7 +1,7 @@
 export type Stage = "queued" | "active" | "reviewing" | "deployed" | "deferred";
 export type TaskLayout = "board" | "list";
 export type Risk = "low" | "medium" | "high";
-export type Effort = "low" | "medium" | "high" | "xhigh";
+export type Effort = "low" | "medium" | "high";
 export type Category = string;
 
 export interface Note { id: string; text: string; createdAt: number; blocked?: boolean; resolved?: boolean; }
@@ -40,8 +40,8 @@ export const TASK_STAGES: StageDef[] = [
 ];
 export const RISKS: Risk[] = ["low","medium","high"];
 export const RISK_LABELS: Record<Risk,string> = {low:"low",medium:"med",high:"high"};
-export const EFFORTS: Effort[] = ["low","medium","high","xhigh"];
-export const EFFORT_LABELS: Record<Effort,string> = {low:"Low",medium:"Med",high:"High",xhigh:"X-High"};
+export const EFFORTS: Effort[] = ["low","medium","high"];
+export const EFFORT_LABELS: Record<Effort,string> = {low:"Low",medium:"Med",high:"High"};
 export interface CategoryDef { id:string; label:string; glyph:string; groupId:string; }
 export interface CategoryGroup { id:string; label:string; }
 export const FALLBACK_CATEGORY_ID = "other";

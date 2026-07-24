@@ -107,7 +107,7 @@ export function SkillsManager({skills, categories, config, onCreate, onUpdate, o
                   <textarea className="input mono skills-textarea" value={selected.body} placeholder="Describe what the agent should look for…" onChange={(e) => onUpdate(selected.id, {body: e.target.value})} />
                 </label>
                 <p className="skills-hint">
-                  On download, an <strong>Output format</strong> section describing Chisel's import schema is appended automatically, so the agent returns importable JSON.
+                  On download, an <strong>Output format</strong> section describing Chisely's import schema is appended automatically, so the agent returns importable JSON.
                 </p>
 
                 <div className="skills-actions">

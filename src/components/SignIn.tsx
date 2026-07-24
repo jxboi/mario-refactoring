@@ -38,8 +38,8 @@ export function SignInScreen({onCreateWorkspace}: {onCreateWorkspace: (name: str
         <div className="signin-story">
           <BrandLogo className="signin-brand brand-landing" />
 
-          <h1 className="signin-hero-title">Chisel your messy tasks into a focused board</h1>
-          <p className="signin-hero-copy">Chisel gives engineers a focused place to import messy backlog notes, prioritize what matters, track blockers, and show visible progress from queued work to shipped changes.</p>
+          <h1 className="signin-hero-title">Chisely turns your messy tasks into a focused board</h1>
+          <p className="signin-hero-copy">Chisely gives engineers a focused place to import messy backlog notes, prioritize what matters, track blockers, and show visible progress from queued work to shipped changes.</p>
         </div>
 
         <div className="signin-card">

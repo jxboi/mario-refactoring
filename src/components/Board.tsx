@@ -104,7 +104,7 @@ export function Board({items, totalCount, categories, config, layout, onMove, on
           return (
             <section
               key={stage.id}
-              className={`column-collapsed${overStage === stage.id ? " drag-over" : ""}`}
+              className={`column-collapsed column-collapsed-${stage.group} column-collapsed-stage-${stage.id}${overStage === stage.id ? " drag-over" : ""}`}
               title={`${stage.label} — ${stage.hint}`}
               onDragOver={(e) => {
                 if (e.dataTransfer.types.includes(DRAG_MIME)) {
@@ -132,7 +132,6 @@ export function Board({items, totalCount, categories, config, layout, onMove, on
                 {stage.label}
               </button>
               <span className="column-count">{stageItems.length}</span>
-              <span className="column-collapsed-hint">show</span>
             </section>
           );
         }

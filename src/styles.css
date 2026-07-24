@@ -1,4 +1,4 @@
-/* ————— Chisel design tokens ————— */
+/* ————— Chisely design tokens ————— */
 :root {
   --bg: #0e1014;
   --bg-raised: #14171d;
@@ -670,20 +670,16 @@ code,
   border-color: transparent;
 }
 
-.chip-low.active {
-  background: var(--green-soft);
-  color: var(--green);
-  box-shadow: inset 0 0 0 1px var(--green);
+.chip-sort span {
+  display: inline-block;
+  margin-left: 3px;
+  font-size: 13px;
+  line-height: 1;
 }
-.chip-medium.active {
-  background: var(--amber-soft);
-  color: var(--amber);
-  box-shadow: inset 0 0 0 1px var(--amber);
-}
-.chip-high.active {
-  background: var(--red-soft);
-  color: var(--red);
-  box-shadow: inset 0 0 0 1px var(--red);
+
+.chip-sort.active {
+  border-color: var(--border-strong);
+  background: var(--surface);
 }
 .chip-blocked.active {
   background: var(--red-soft);
@@ -761,6 +757,11 @@ code,
 }
 
 .btn-quiet-danger:hover {
+  color: var(--red);
+  border-color: var(--red);
+}
+
+.btn-task-delete {
   color: var(--red);
   border-color: var(--red);
 }
@@ -938,16 +939,6 @@ code,
   color: var(--text);
 }
 
-.column-collapsed-hint {
-  writing-mode: vertical-rl;
-  transform: rotate(180deg);
-  margin-top: auto;
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  opacity: 0.7;
-}
-
 .column-archived-note {
   margin: 4px 2px 0;
   padding: 8px 12px;
@@ -990,6 +981,38 @@ code,
 
 .column-collapsed .column-count {
   color: var(--text-faint);
+}
+
+.column-collapsed-done,
+.column-collapsed-done:hover,
+.column-collapsed-done .column-collapsed-label:hover,
+.column-collapsed-done .column-collapsed-label:focus-visible,
+.column-collapsed-done .column-count {
+  color: var(--green);
+}
+
+.column-collapsed-stage-active,
+.column-collapsed-stage-active:hover,
+.column-collapsed-stage-active .column-collapsed-label:hover,
+.column-collapsed-stage-active .column-collapsed-label:focus-visible,
+.column-collapsed-stage-active .column-count {
+  color: var(--accent);
+}
+
+.column-collapsed-stage-reviewing,
+.column-collapsed-stage-reviewing:hover,
+.column-collapsed-stage-reviewing .column-collapsed-label:hover,
+.column-collapsed-stage-reviewing .column-collapsed-label:focus-visible,
+.column-collapsed-stage-reviewing .column-count {
+  color: var(--blue);
+}
+
+.column-collapsed-stage-queued,
+.column-collapsed-stage-queued:hover,
+.column-collapsed-stage-queued .column-collapsed-label:hover,
+.column-collapsed-stage-queued .column-collapsed-label:focus-visible,
+.column-collapsed-stage-queued .column-count {
+  color: var(--text-dim);
 }
 
 .column-add-btn {
@@ -2163,12 +2186,17 @@ code,
   display: flex;
   justify-content: space-between;
   align-items: center;
+  min-height: 28px;
 }
 
 .stage-select {
   appearance: none;
+  display: block;
+  height: 24px;
+  box-sizing: border-box;
   font: inherit;
-  font-size: 12px;
+  font-size: 11px;
+  line-height: 1;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.07em;
@@ -2176,11 +2204,11 @@ code,
   background: var(--accent-soft);
   border: 1px solid transparent;
   border-radius: 999px;
-  padding: 4px 40px 4px 12px;
+  padding: 3px 36px 3px 11px;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 6l4 4 4-4' fill='none' stroke='%23e8b45a' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
-  background-position: right 16px center;
-  background-size: 14px 14px;
+  background-position: right 14px center;
+  background-size: 13px 13px;
   cursor: pointer;
   outline: none;
 }
@@ -2254,6 +2282,12 @@ code,
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--text-faint);
+}
+
+.effort-field-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .input {
@@ -2915,8 +2949,10 @@ button.cat-manage-glyph:hover {
 .seg-high.active {
   color: var(--red);
 }
-.seg-xhigh.active {
-  color: var(--red);
+
+.priority-field .seg-low.active,
+.effort-field .seg-btn.active {
+  color: var(--text);
 }
 
 .list-editor {
@@ -2924,6 +2960,13 @@ button.cat-manage-glyph:hover {
   flex-wrap: wrap;
   gap: 6px;
   align-items: center;
+}
+
+.tag-suggestions {
+  flex: 0 0 100%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .tag-suggestion {
@@ -3129,7 +3172,6 @@ button.cat-manage-glyph:hover {
 }
 
 .note-composer {
-  margin-top: 10px;
   display: flex;
   flex-direction: column;
   gap: 8px;

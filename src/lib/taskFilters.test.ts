@@ -18,6 +18,25 @@ describe("task category filters", () => {
     ]);
   });
 
+  it("sorts categories alphabetically with Other last", () => {
+    const categories = [
+      {id: "research", label: "Research", glyph: "R", groupId: "general"},
+      {id: "other", label: "Other", glyph: "·", groupId: "general"},
+      {id: "feature", label: "Feature", glyph: "F", groupId: "general"},
+    ];
+    const categoryTasks = categories.map((category) => ({
+      ...newTask(),
+      id: category.id,
+      category: category.id,
+    }));
+
+    expect(availableTaskCategories(categoryTasks, categories).map((category) => category.label)).toEqual([
+      "Feature",
+      "Research",
+      "Other",
+    ]);
+  });
+
   it("shows tasks from any selected category and combines with search", () => {
     expect(filterTasks(tasks, {query: "", categories: ["bug", "documentation"]}).map((task) => task.id)).toEqual([
       "bug",

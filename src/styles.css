@@ -260,6 +260,18 @@ code,
   white-space: nowrap;
 }
 
+.project-breadcrumb-current {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding-left: 11px;
+  min-width: 0;
+  max-width: 320px;
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+}
+
 .proj-caret {
   font-size: 9px;
   color: var(--text-faint);
@@ -917,6 +929,8 @@ code,
 }
 
 .column {
+  --column-drag-color: var(--text-dim);
+  --column-drag-background: rgba(154, 161, 173, 0.08);
   flex: 1 0 218px;
   min-width: 218px;
   max-width: 330px;
@@ -933,9 +947,9 @@ code,
 }
 
 .column.drag-over {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-  box-shadow: 0 0 0 1px var(--accent);
+  border-color: var(--column-drag-color);
+  background: var(--column-drag-background);
+  box-shadow: 0 0 0 1px var(--column-drag-color);
 }
 
 /* backlog columns recede; the in-flight zone is where the eye should land */
@@ -948,6 +962,8 @@ code,
 }
 
 .column-active {
+  --column-drag-color: var(--accent);
+  --column-drag-background: var(--accent-soft);
   border-color: var(--border);
   background: linear-gradient(180deg, rgba(232, 180, 90, 0.05), rgba(232, 180, 90, 0) 140px), var(--bg-raised);
 }
@@ -958,6 +974,8 @@ code,
 }
 
 .column-reviewing {
+  --column-drag-color: var(--blue);
+  --column-drag-background: var(--blue-soft);
   background: linear-gradient(180deg, rgba(116, 167, 223, 0.05), rgba(116, 167, 223, 0) 140px), var(--bg-raised);
 }
 
@@ -986,6 +1004,8 @@ code,
 }
 
 .column-done {
+  --column-drag-color: var(--green);
+  --column-drag-background: var(--green-soft);
   background: rgba(95, 200, 143, 0.03);
 }
 
@@ -996,6 +1016,8 @@ code,
 
 /* deferred: a muted, set-aside lane */
 .column-deferred {
+  --column-drag-color: var(--text-faint);
+  --column-drag-background: rgba(95, 101, 112, 0.08);
   background: repeating-linear-gradient(-45deg, rgba(255, 255, 255, 0.012), rgba(255, 255, 255, 0.012) 8px, transparent 8px, transparent 16px), var(--bg-raised);
   border-style: dashed;
 }
@@ -1011,6 +1033,8 @@ code,
 
 /* collapsed strip shown in place of a hidden-by-default column */
 .column-collapsed {
+  --column-drag-color: var(--text-dim);
+  --column-drag-background: rgba(154, 161, 173, 0.08);
   flex: 0 0 46px;
   min-width: 46px;
   max-width: 46px;
@@ -1035,10 +1059,30 @@ code,
 }
 
 .column-collapsed.drag-over {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-  box-shadow: 0 0 0 1px var(--accent);
-  color: var(--accent);
+  border-color: var(--column-drag-color);
+  background: var(--column-drag-background);
+  box-shadow: 0 0 0 1px var(--column-drag-color);
+  color: var(--column-drag-color);
+}
+
+.column-collapsed-active {
+  --column-drag-color: var(--accent);
+  --column-drag-background: var(--accent-soft);
+}
+
+.column-collapsed-stage-reviewing {
+  --column-drag-color: var(--blue);
+  --column-drag-background: var(--blue-soft);
+}
+
+.column-collapsed-done {
+  --column-drag-color: var(--green);
+  --column-drag-background: var(--green-soft);
+}
+
+.column-collapsed-deferred {
+  --column-drag-color: var(--text-faint);
+  --column-drag-background: rgba(95, 101, 112, 0.08);
 }
 
 .column-collapsed-label {
@@ -1166,9 +1210,9 @@ code,
 .card-placeholder {
   height: 46px;
   box-sizing: border-box;
-  border: 2px dashed var(--accent);
+  border: 2px dashed var(--column-drag-color);
   border-radius: var(--radius-sm);
-  background: var(--brand-bg);
+  background: var(--column-drag-background);
   opacity: 0.7;
   pointer-events: none;
   animation: card-in 0.15s var(--ease);

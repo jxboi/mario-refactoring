@@ -1,9 +1,10 @@
 interface BrandLogoProps {
   className?: string;
   onClick?: () => void;
+  showName?: boolean;
 }
 
-export function BrandLogo({className = "", onClick}: BrandLogoProps) {
+export function BrandLogo({className = "", onClick, showName = true}: BrandLogoProps) {
   const Tag = onClick ? "button" : "div";
   return (
     <Tag type={onClick ? "button" : undefined} className={`brand${onClick ? " brand-button" : ""} ${className}`.trim()} aria-label={onClick ? "Go to home" : "chisely"} onClick={onClick}>
@@ -15,7 +16,7 @@ export function BrandLogo({className = "", onClick}: BrandLogoProps) {
         <path className="brand-mark-fold" d="m14.1 10.7 4.8-4.7 8.2 8.2-5 5-5.9-5.9-5.4 5.4v-4.6l3.3-3.4Z" />
         <path className="brand-mark-highlight" d="M20 6.8h13.8" />
       </svg>
-      <span className="brand-name">chisely</span>
+      {showName && <span className="brand-name">chisely</span>}
     </Tag>
   );
 }

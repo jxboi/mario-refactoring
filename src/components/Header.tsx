@@ -72,6 +72,7 @@ export function Header({
   const categoryOptions = availableTaskCategories(items, categories);
   const optionIds = new Set(categoryOptions.map((category) => category.id));
   const selectedCategories = filters.categories.filter((id) => optionIds.has(id));
+  const activeWorkspace = workspaces.find((workspace) => workspace.id === activeWorkspaceId);
 
   useEffect(() => {
     const closeOnOutsideClick = (event: MouseEvent) => {
@@ -113,14 +114,18 @@ export function Header({
     <header className="header">
       <div className="header-row">
         <div className="header-left">
-          <BrandLogo onClick={onHome} />
-          <span className="brand-sep">/</span>
+          <BrandLogo onClick={onHome} showName={false} />
           {project ? (
-            <button className="proj-btn" onClick={onHome} title="Back to projects">
-              <span aria-hidden="true">←</span>
-              <span className="proj-name">{project.title || "Untitled project"}</span>
-              {project.collaboration?.role === "editor" && <span className="shared-project-badge">shared</span>}
-            </button>
+            <>
+              <button className="proj-btn workspace-back-btn" onClick={onHome} title="Back to workspace">
+                <span className="proj-name">{activeWorkspace?.name ?? "Workspace"}</span>
+              </button>
+              <span className="brand-sep">/</span>
+              <div className="project-breadcrumb-current" aria-current="page">
+                <span className="proj-name">{project.title || "Untitled project"}</span>
+                {project.collaboration?.role === "editor" && <span className="shared-project-badge">shared</span>}
+              </div>
+            </>
           ) : (
             <WorkspaceMenu
               workspaces={workspaces}
@@ -195,7 +200,7 @@ export function Header({
               aria-label={`Sort priority ${priorityDescending ? "high to low" : "low to high"}`}
               title={filters.sortBy === "priority" ? (priorityDescending ? "Currently high to low; click for low to high" : "Currently low to high; click for high to low") : "Sort by priority"}
             >
-              priority <span aria-hidden="true">{priorityDescending ? "↓" : "↑"}</span>
+              Priority <span aria-hidden="true">{priorityDescending ? "↓" : "↑"}</span>
             </button>
             <button
               className={`chip chip-sort${filters.sortBy === "effort" ? " active" : ""}`}
@@ -204,7 +209,7 @@ export function Header({
               aria-label={`Sort effort ${effortDescending ? "high to low" : "low to high"}`}
               title={filters.sortBy === "effort" ? (effortDescending ? "Currently high to low; click for low to high" : "Currently low to high; click for high to low") : "Sort by effort"}
             >
-              effort <span aria-hidden="true">{effortDescending ? "↓" : "↑"}</span>
+              Effort <span aria-hidden="true">{effortDescending ? "↓" : "↑"}</span>
             </button>
           </div>
           <div className="layout-toggle" role="group" aria-label="Task layout">

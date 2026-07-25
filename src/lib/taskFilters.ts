@@ -1,4 +1,5 @@
 import type {CategoryDef, Task} from "../types";
+import {FALLBACK_CATEGORY_ID} from "../types";
 
 export interface TaskFilterValues {
   query: string;
@@ -7,7 +8,13 @@ export interface TaskFilterValues {
 
 export function availableTaskCategories(tasks: Task[], categories: CategoryDef[]): CategoryDef[] {
   const usedCategoryIds = new Set(tasks.map((task) => task.category));
-  return categories.filter((category) => usedCategoryIds.has(category.id));
+  return categories
+    .filter((category) => usedCategoryIds.has(category.id))
+    .sort((left, right) => {
+      if (left.id === FALLBACK_CATEGORY_ID) return right.id === FALLBACK_CATEGORY_ID ? 0 : 1;
+      if (right.id === FALLBACK_CATEGORY_ID) return -1;
+      return left.label.localeCompare(right.label, undefined, {sensitivity: "base"});
+    });
 }
 
 export function filterTasks(tasks: Task[], filters: TaskFilterValues): Task[] {

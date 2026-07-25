@@ -10,7 +10,7 @@ export interface ActivityChange { field:string; before?:string; after?:string; }
 export interface ActivityEvent {
   id:string; workspaceId:string; projectId:string|null; projectTitle?:string; entityType:ActivityEntity; entityId:string;
   entityTitle:string; family:ActivityFamily; action:string; summary:string; changes:ActivityChange[];
-  occurredAt:number; deleted?:boolean; coalesceKey?:string;
+  occurredAt:number; deleted?:boolean; coalesceKey?:string; parentEntityType?:"project"|"task"; parentEntityId?:string;
 }
 export interface ActivitySummary { today:number; thisWeek:number; itemsTouched:number; }
 export interface ActivityProjectOption { id:string; title:string; deleted?:boolean; }
@@ -28,17 +28,17 @@ function baseChanges(before:Project|Task,after:Project|Task):ActivityChange[] {
   for(const field of ["title","risk","effort","tags"] as const) if(stringify(before[field])!==stringify(after[field])) changes.push(change(field,before[field],after[field]));
   if("category" in before&&"category" in after&&before.category!==after.category)changes.push(change("category",before.category,after.category));
   if("category" in before&&"category" in after&&before.assignee?.userId!==after.assignee?.userId)changes.push(change("assignee",before.assignee?.login,after.assignee?.login));
-  if(before.description!==after.description)changes.push({field:"description"});
+  if(before.description!==after.description)changes.push(change("description",before.description,after.description));
   return changes;
 }
 
 function noteEvents(workspaceId:string,projectId:string,projectTitle:string,entity:Project|Task,before:Note[],after:Note[],now:number):ActivityEvent[]{
-  const out:ActivityEvent[]=[];const entityType="category" in entity?"task":"project";const entityTitle=title(entity.title,entityType==="task"?"Untitled task":"Untitled project");
-  for(const note of after.filter(n=>!before.some(x=>x.id===n.id)))out.push(event({workspaceId,projectId,projectTitle,entityType:"note",entityId:note.id,entityTitle,family:"notes",action:"note.added",summary:`Added a note to ${entityTitle}`,changes:[]},now));
-  for(const note of before.filter(n=>!after.some(x=>x.id===n.id)))out.push(event({workspaceId,projectId,projectTitle,entityType:"note",entityId:note.id,entityTitle,family:"notes",action:"note.deleted",summary:`Removed a note from ${entityTitle}`,changes:[],deleted:true},now));
+  const out:ActivityEvent[]=[];const parentEntityType="category" in entity?"task":"project",parentEntityId=entity.id;const entityTitle=title(entity.title,parentEntityType==="task"?"Untitled task":"Untitled project");
+  for(const note of after.filter(n=>!before.some(x=>x.id===n.id)))out.push(event({workspaceId,projectId,projectTitle,entityType:"note",entityId:note.id,entityTitle,parentEntityType,parentEntityId,family:"notes",action:"note.added",summary:`Added a note to ${entityTitle}`,changes:[]},now));
+  for(const note of before.filter(n=>!after.some(x=>x.id===n.id)))out.push(event({workspaceId,projectId,projectTitle,entityType:"note",entityId:note.id,entityTitle,parentEntityType,parentEntityId,family:"notes",action:"note.deleted",summary:`Removed a note from ${entityTitle}`,changes:[],deleted:true},now));
   for(const old of before){const next=after.find(n=>n.id===old.id);if(!next)continue;
-    if(old.text!==next.text)out.push(event({workspaceId,projectId,projectTitle,entityType:"note",entityId:old.id,entityTitle,family:"notes",action:"note.edited",summary:`Edited a note on ${entityTitle}`,changes:[{field:"note"}],coalesceKey:`${workspaceId}:${old.id}:note`},now));
-    if((old.color??"neutral")!==(next.color??"neutral"))out.push(event({workspaceId,projectId,projectTitle,entityType:"note",entityId:old.id,entityTitle,family:"notes",action:"note.colored",summary:`Changed a note color on ${entityTitle}`,changes:[change("color",old.color??"neutral",next.color??"neutral")]},now));
+    if(old.text!==next.text)out.push(event({workspaceId,projectId,projectTitle,entityType:"note",entityId:old.id,entityTitle,parentEntityType,parentEntityId,family:"notes",action:"note.edited",summary:`Edited a note on ${entityTitle}`,changes:[change("note",old.text,next.text)],coalesceKey:`${workspaceId}:${old.id}:note`},now));
+    if((old.color??"neutral")!==(next.color??"neutral"))out.push(event({workspaceId,projectId,projectTitle,entityType:"note",entityId:old.id,entityTitle,parentEntityType,parentEntityId,family:"notes",action:"note.colored",summary:`Changed a note color on ${entityTitle}`,changes:[change("color",old.color??"neutral",next.color??"neutral")]},now));
   }return out;
 }
 
@@ -47,12 +47,10 @@ function taskEvents(workspaceId:string,project:Project,before:Task[],after:Task[
   const out:ActivityEvent[]=[];
   for(const task of after.filter(t=>!before.some(x=>x.id===t.id)))out.push(event({workspaceId,projectId:project.id,projectTitle,entityType:"task",entityId:task.id,entityTitle:title(task.title,"Untitled task"),family:"organization",action:"task.created",summary:`Created task ${title(task.title,"Untitled task")}`,changes:[]},now));
   for(const task of before.filter(t=>!after.some(x=>x.id===t.id)))out.push(event({workspaceId,projectId:project.id,projectTitle,entityType:"task",entityId:task.id,entityTitle:title(task.title,"Untitled task"),family:"organization",action:"task.deleted",summary:`Deleted task ${title(task.title,"Untitled task")}`,changes:[],deleted:true},now));
-  const canCompareOrder=sameIds(before,after);
   for(const old of before){const next=after.find(t=>t.id===old.id);if(!next)continue;const entityTitle=title(next.title,"Untitled task");
     if(old.stage!==next.stage)out.push(event({workspaceId,projectId:project.id,projectTitle,entityType:"task",entityId:next.id,entityTitle,family:"status",action:"task.stage",summary:`Moved ${entityTitle}`,changes:[change("status",old.stage,next.stage)]},now));
     const changes=baseChanges(old,next);if(changes.length)out.push(event({workspaceId,projectId:project.id,projectTitle,entityType:"task",entityId:next.id,entityTitle,family:"updates",action:"task.updated",summary:`Updated ${entityTitle}`,changes,coalesceKey:changes.every(c=>c.field==="title"||c.field==="description")?`${workspaceId}:${next.id}:content`:undefined},now));
     out.push(...noteEvents(workspaceId,project.id,projectTitle,next,old.notes,next.notes,now));
-    if(canCompareOrder&&old.stage===next.stage&&before.filter(t=>t.stage===old.stage).findIndex(t=>t.id===old.id)!==after.filter(t=>t.stage===next.stage).findIndex(t=>t.id===next.id))out.push(event({workspaceId,projectId:project.id,projectTitle,entityType:"task",entityId:next.id,entityTitle,family:"organization",action:"task.reordered",summary:`Reordered ${entityTitle} in ${next.stage}`,changes:[]},now));
   }return out;
 }
 
@@ -72,8 +70,8 @@ function collectionEvents<T extends{id:string;label?:string;name?:string;groupId
   for(const item of after.filter(x=>!before.some(y=>y.id===x.id)))out.push(event({workspaceId,projectId:null,entityType:kind,entityId:item.id,entityTitle:label(item),family:"organization",action:`${kind}.created`,summary:`Created ${kind.replace("-"," ")} ${label(item)}`,changes:[]},now));
   for(const item of before.filter(x=>!after.some(y=>y.id===x.id)))out.push(event({workspaceId,projectId:null,entityType:kind,entityId:item.id,entityTitle:label(item),family:"organization",action:`${kind}.deleted`,summary:`Deleted ${kind.replace("-"," ")} ${label(item)}`,changes:[],deleted:true},now));
   for(const old of before){const next=after.find(x=>x.id===old.id);if(!next)continue;const changes:ActivityChange[]=[];
-    for(const field of ["label","name","groupId","glyph","description"] as const)if(stringify(old[field])!==stringify(next[field]))changes.push(field==="description"?{field}:change(field,old[field],next[field]));
-    if(old.body!==next.body)changes.push({field:"body"});
+    for(const field of ["label","name","groupId","glyph","description"] as const)if(stringify(old[field])!==stringify(next[field]))changes.push(change(field,old[field],next[field]));
+    if(old.body!==next.body)changes.push(change("body",old.body,next.body));
     if(changes.length)out.push(event({workspaceId,projectId:null,entityType:kind,entityId:next.id,entityTitle:label(next),family:"organization",action:`${kind}.updated`,summary:`Updated ${kind.replace("-"," ")} ${label(next)}`,changes,coalesceKey:kind==="skill"&&changes.every(c=>["name","description","body"].includes(c.field))?`${workspaceId}:${next.id}:skill-content`:undefined},now));
   }
   if(sameIds(before,after)&&before.map(x=>x.id).join()!==after.map(x=>x.id).join())out.push(event({workspaceId,projectId:null,entityType:kind,entityId:workspaceId,entityTitle:"Workspace",family:"organization",action:`${kind}.reordered`,summary:`Reordered ${kind.replace("-"," ")}s`,changes:[]},now));

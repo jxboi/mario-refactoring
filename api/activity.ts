@@ -19,6 +19,7 @@ export default async function handler(req:BodyRequest,res:ApiResponse){res.setHe
   const cursorAt=cursor?.at??null,cursorId=cursor?.id??null;const rowsPromise=sql`
     select id,event,occurred_at from activity_events
     where user_id=${userId} and workspace_id=${workspaceId}
+      and event->>'action'<>'task.reordered'
       and (${projectId}::text is null or project_id=${projectId})
       and (${family}::text is null or family=${family})
       and (${q}::text='' or search_text like ${pattern})
@@ -29,7 +30,7 @@ export default async function handler(req:BodyRequest,res:ApiResponse){res.setHe
     count(*) filter(where occurred_at>=date_trunc('day',now()))::int as today,
     count(*) filter(where occurred_at>=now()-interval '7 days')::int as this_week,
     count(distinct entity_type||':'||entity_id)::int as items_touched
-    from activity_events where user_id=${userId} and workspace_id=${workspaceId} and (${projectId}::text is null or project_id=${projectId})
+    from activity_events where user_id=${userId} and workspace_id=${workspaceId} and event->>'action'<>'task.reordered' and (${projectId}::text is null or project_id=${projectId})
   ` as unknown as Promise<{today:number;this_week:number;items_touched:number}[]>;
   const deletedRowsPromise=sql`select distinct on (project_id) project_id,event from activity_events where user_id=${userId} and workspace_id=${workspaceId} and event->>'action'='project.deleted' order by project_id,occurred_at desc` as unknown as Promise<{project_id:string;event:ActivityEvent}[]>;
   const[rawState,rows,summaries,deletedRows]=await Promise.all([loadUserBoard(userId),rowsPromise,summariesPromise,deletedRowsPromise]);

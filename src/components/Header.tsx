@@ -13,6 +13,7 @@ interface Props {
   categories: CategoryDef[];
   project: Project | null;
   view: "work" | "timeline";
+  timelineRefreshing: boolean;
   taskLayout: TaskLayout;
   workspaces: Workspace[];
   activeWorkspaceId: string;
@@ -42,6 +43,7 @@ export function Header({
   categories,
   project,
   view,
+  timelineRefreshing,
   taskLayout,
   workspaces,
   activeWorkspaceId,
@@ -134,10 +136,13 @@ export function Header({
             />
           )}
         </div>
-        <nav className="view-tabs" aria-label={project ? "Project view" : "Workspace view"}>
-          <button className={view === "work" ? "active" : ""} onClick={() => onView("work")}>{project ? "Tasks" : "Projects"}</button>
-          <button className={view === "timeline" ? "active" : ""} onClick={() => onView("timeline")}>Timeline</button>
-        </nav>
+        <div className="view-tabs-wrap">
+          <nav className="view-tabs" aria-label={project ? "Project view" : "Workspace view"}>
+            <button className={view === "work" ? "active" : ""} onClick={() => onView("work")}>{project ? "Tasks" : "Projects"}</button>
+            <button className={view === "timeline" ? "active" : ""} onClick={() => onView("timeline")}>Timeline</button>
+          </nav>
+          {view === "timeline" && timelineRefreshing && <span className="timeline-refreshing" role="status"><span aria-hidden="true" />Updating</span>}
+        </div>
         <div className="header-right">
           {project && <button className="btn btn-ghost share-project-btn" onClick={onManageCollaboration}><span aria-hidden="true">◎</span> Share</button>}
           <AccountMenu

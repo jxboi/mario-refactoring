@@ -163,7 +163,7 @@ export function Header({
             onChange={(event) => onFilters({...filters, query: event.target.value})}
           />
           <div className="filter-chips">
-            {categoryOptions.length > 0 && (
+            {taskLayout === "board" && categoryOptions.length > 0 && (
               <details ref={categoryFilterRef} className="category-filter">
                 <summary className={`chip category-filter-trigger${hasCategoryFilterChanges ? " active" : ""}`}>
                   Category{selectedCategories.length ? ` (${selectedCategories.length})` : ""}
@@ -190,31 +190,33 @@ export function Header({
                 </div>
               </details>
             )}
-            <button
-              className={`chip chip-sort${!priorityDescending ? " active" : ""}`}
-              onClick={() => sort("priority")}
-              aria-pressed={!priorityDescending}
-              aria-label={`Sort priority ${priorityDescending ? "low to high" : "high to low"}`}
-              title={priorityDescending ? "Currently high to low; click for low to high" : "Currently low to high; click for high to low"}
-            >
-              Priority <span aria-hidden="true">{priorityDescending ? "↓" : "↑"}</span>
-            </button>
-            <button
-              className={`chip chip-sort${!effortDescending ? " active" : ""}`}
-              onClick={() => sort("effort")}
-              aria-pressed={!effortDescending}
-              aria-label={`Sort effort ${effortDescending ? "low to high" : "high to low"}`}
-              title={effortDescending ? "Currently high to low; click for low to high" : "Currently low to high; click for high to low"}
-            >
-              Effort <span aria-hidden="true">{effortDescending ? "↓" : "↑"}</span>
-            </button>
+            {taskLayout === "board" && <>
+              <button
+                className={`chip chip-sort${!priorityDescending ? " active" : ""}`}
+                onClick={() => sort("priority")}
+                aria-pressed={!priorityDescending}
+                aria-label={`Sort priority ${priorityDescending ? "low to high" : "high to low"}`}
+                title={priorityDescending ? "Currently high to low; click for low to high" : "Currently low to high; click for high to low"}
+              >
+                Priority <span aria-hidden="true">{priorityDescending ? "↓" : "↑"}</span>
+              </button>
+              <button
+                className={`chip chip-sort${effortDescending ? " active" : ""}`}
+                onClick={() => sort("effort")}
+                aria-pressed={effortDescending}
+                aria-label={`Sort effort ${effortDescending ? "low to high" : "high to low"}`}
+                title={effortDescending ? "Currently high to low; click for low to high" : "Currently low to high; click for high to low"}
+              >
+                Effort <span aria-hidden="true">{effortDescending ? "↓" : "↑"}</span>
+              </button>
+            </>}
           </div>
           <div className="layout-toggle" role="group" aria-label="Task layout">
-            <button className={taskLayout === "board" ? "active" : ""} aria-pressed={taskLayout === "board"} onClick={() => onTaskLayout("board")} title="Board view">
+            <button className={taskLayout === "board" ? "active" : ""} aria-pressed={taskLayout === "board"} onClick={() => onTaskLayout("board")} title="Kanban view">
               <span className="layout-icon layout-icon-board" aria-hidden="true"><i /><i /><i /></span>
-              <span>Board</span>
+              <span>Kanban</span>
             </button>
-            <button className={taskLayout === "list" ? "active" : ""} aria-pressed={taskLayout === "list"} onClick={() => onTaskLayout("list")} title="List view">
+            <button className={taskLayout === "list" ? "active" : ""} aria-pressed={taskLayout === "list"} onClick={() => { onFilters({...filters, categories: categories.map((category) => category.id)}); onTaskLayout("list"); }} title="List view">
               <span className="layout-icon layout-icon-list" aria-hidden="true"><i /><i /><i /></span>
               <span>List</span>
             </button>

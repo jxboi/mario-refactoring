@@ -2,23 +2,33 @@ import {Fragment, useEffect, useRef, useState} from "react";
 import {createPortal} from "react-dom";
 import type {CategoryDef, ItemConfig, Stage, Task, TaskAssignee, TaskLayout} from "../types";
 import {categoryMeta, EFFORT_LABELS} from "../types";
-import {filterTasksByRecentDays} from "../lib/taskFilters";
+import {filterTasksByRecentDays, type SortDirection} from "../lib/taskFilters";
 import {EffortDots, RiskPill, timeAgo} from "./ui";
 
 interface BoardProps {
   items: Task[];
-  totalCount: number;
   categories: CategoryDef[];
   config: ItemConfig;
   layout: TaskLayout;
+  listSort: "category" | "priority" | "effort" | "updated" | "status";
+  categorySort: SortDirection;
+  prioritySort: SortDirection;
+  effortSort: SortDirection;
+  updatedSort: SortDirection;
+  statusSort: SortDirection;
+  onCategorySort: () => void;
+  onPrioritySort: () => void;
+  onEffortSort: () => void;
+  onUpdatedSort: () => void;
+  onStatusSort: () => void;
   onMove: (id: string, stage: Stage, beforeId?: string) => void;
   onSelect: (id: string) => void;
   onDuplicate: (id: string) => void;
-  onDelete: (id: string) => void;
   onAddItem: (stage: Stage) => void;
 }
 
 const DRAG_MIME = "application/x-chisel-item";
+const LIST_LEVEL_RANK = {low: 0, medium: 1, high: 2};
 type DoneRange = "3" | "7" | "14" | "30" | "90" | "all";
 const DONE_RANGE_OPTIONS: Array<{value: DoneRange; label: string}> = [
   {value: "3", label: "Past 3 Days"},
@@ -131,7 +141,7 @@ function slotBeforeId(container: HTMLElement, clientY: number): string | null {
   return null;
 }
 
-export function Board({items, totalCount, categories, config, layout, onMove, onSelect, onDuplicate, onDelete, onAddItem}: BoardProps) {
+export function Board({items, categories, config, layout, listSort, categorySort, prioritySort, effortSort, updatedSort, statusSort, onCategorySort, onPrioritySort, onEffortSort, onUpdatedSort, onStatusSort, onMove, onSelect, onDuplicate, onAddItem}: BoardProps) {
   const [dragId, setDragId] = useState<string | null>(null);
   const [overStage, setOverStage] = useState<Stage | null>(null);
   // Where a placeholder should show while dragging: the target stage and the id
@@ -156,13 +166,22 @@ export function Board({items, totalCount, categories, config, layout, onMove, on
     return (
       <TaskList
         items={items}
-        totalCount={totalCount}
         categories={categories}
         config={config}
+        listSort={listSort}
+        categorySort={categorySort}
+        prioritySort={prioritySort}
+        effortSort={effortSort}
+        updatedSort={updatedSort}
+        statusSort={statusSort}
+        onCategorySort={onCategorySort}
+        onPrioritySort={onPrioritySort}
+        onEffortSort={onEffortSort}
+        onUpdatedSort={onUpdatedSort}
+        onStatusSort={onStatusSort}
         onMove={onMove}
         onSelect={onSelect}
         onDuplicate={onDuplicate}
-        onDelete={onDelete}
         onAddItem={onAddItem}
       />
     );
@@ -296,7 +315,6 @@ export function Board({items, totalCount, categories, config, layout, onMove, on
                     dragging={dragId === item.id}
                     onSelect={() => onSelect(item.id)}
                     onDuplicate={() => onDuplicate(item.id)}
-                    onDelete={() => onDelete(item.id)}
                     onDragStart={(e) => {
                       e.dataTransfer.setData(DRAG_MIME, item.id);
                       e.dataTransfer.effectAllowed = "move";
@@ -323,29 +341,26 @@ export function Board({items, totalCount, categories, config, layout, onMove, on
 
 interface TaskListProps {
   items: Task[];
-  totalCount: number;
   categories: CategoryDef[];
   config: ItemConfig;
+  listSort: "category" | "priority" | "effort" | "updated" | "status";
+  categorySort: SortDirection;
+  prioritySort: SortDirection;
+  effortSort: SortDirection;
+  updatedSort: SortDirection;
+  statusSort: SortDirection;
+  onCategorySort: () => void;
+  onPrioritySort: () => void;
+  onEffortSort: () => void;
+  onUpdatedSort: () => void;
+  onStatusSort: () => void;
   onMove: (id: string, stage: Stage) => void;
   onSelect: (id: string) => void;
   onDuplicate: (id: string) => void;
-  onDelete: (id: string) => void;
   onAddItem: (stage: Stage) => void;
 }
 
-function TaskList({items, totalCount, categories, config, onMove, onSelect, onDuplicate, onDelete, onAddItem}: TaskListProps) {
-  const [collapsedStages, setCollapsedStages] = useState<Set<Stage>>(() => new Set());
-  const activeCount = items.filter((item) => item.stage === "active" || item.stage === "reviewing").length;
-
-  const toggleStage = (stage: Stage) => {
-    setCollapsedStages((current) => {
-      const next = new Set(current);
-      if (next.has(stage)) next.delete(stage);
-      else next.add(stage);
-      return next;
-    });
-  };
-
+function TaskList({items, categories, config, listSort, categorySort, prioritySort, effortSort, updatedSort, statusSort, onCategorySort, onPrioritySort, onEffortSort, onUpdatedSort, onStatusSort, onMove, onSelect, onDuplicate, onAddItem}: TaskListProps) {
   if (items.length === 0) {
     return (
       <main className="task-list-page task-list-empty">
@@ -356,57 +371,69 @@ function TaskList({items, totalCount, categories, config, onMove, onSelect, onDu
     );
   }
 
+  const direction = listSort === "category" ? categorySort : listSort === "priority" ? prioritySort : listSort === "effort" ? effortSort : listSort === "updated" ? updatedSort : statusSort;
+  const stageRank = new Map(config.stages.map((stage, index) => [stage.id, index]));
+  const sortedItems = [...items].sort((left, right) => {
+    const difference = listSort === "category"
+      ? categoryMeta(left.category, categories).label.localeCompare(categoryMeta(right.category, categories).label, undefined, {sensitivity: "base"})
+      : listSort === "priority"
+        ? LIST_LEVEL_RANK[left.risk] - LIST_LEVEL_RANK[right.risk]
+        : listSort === "effort"
+          ? LIST_LEVEL_RANK[left.effort] - LIST_LEVEL_RANK[right.effort]
+          : listSort === "updated"
+            ? left.updatedAt - right.updatedAt
+            : (stageRank.get(left.stage) ?? 0) - (stageRank.get(right.stage) ?? 0);
+    return direction === "desc" ? -difference : difference;
+  });
   return (
     <main className="task-list-page">
       <div className="task-list-shell">
         <header className="task-list-titlebar">
-          <div className="task-list-heading">
-            <span className="front-kicker">Project tasks</span>
-            <h1>All tasks</h1>
-            <div className="task-list-title-meta" aria-label="Task summary">
-              <span><strong>{items.length}</strong>{items.length === totalCount ? " total" : ` of ${totalCount} shown`}</span>
-              <span><i className="task-list-meta-dot active" aria-hidden="true" />{activeCount} active</span>
-            </div>
-          </div>
           <button className="btn btn-primary task-list-new" aria-label="New task" onClick={() => onAddItem("queued")}><span aria-hidden="true">＋</span> New Task</button>
         </header>
         <div className="task-list-table" role="table" aria-label="Project tasks">
           <div className="task-list-columns" role="row">
             <span role="columnheader">Task</span>
-            <span role="columnheader">Category</span>
-            <span role="columnheader">Priority</span>
-            <span role="columnheader">Effort</span>
-            <span role="columnheader">Updated</span>
-            <span role="columnheader">Status</span>
+            <span role="columnheader" aria-sort={listSort === "category" ? categorySort === "asc" ? "ascending" : "descending" : undefined}>
+              <button className="task-list-column-sort" onClick={onCategorySort} aria-label={`Sort category ${categorySort === "asc" ? "reverse alphabetical" : "alphabetically"}`}>
+                Category <svg className={categorySort === "asc" ? "ascending" : ""} viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4" /></svg>
+              </button>
+            </span>
+            <span role="columnheader" aria-sort={listSort === "priority" ? prioritySort === "asc" ? "ascending" : "descending" : undefined}>
+              <button className="task-list-column-sort" onClick={onPrioritySort} aria-label={`Sort priority ${prioritySort === "asc" ? "high to low" : "low to high"}`}>
+                Priority <svg className={prioritySort === "asc" ? "ascending" : ""} viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4" /></svg>
+              </button>
+            </span>
+            <span role="columnheader" aria-sort={listSort === "effort" ? effortSort === "asc" ? "ascending" : "descending" : undefined}>
+              <button className="task-list-column-sort" onClick={onEffortSort} aria-label={`Sort effort ${effortSort === "asc" ? "high to low" : "low to high"}`}>
+                Effort <svg className={effortSort === "asc" ? "ascending" : ""} viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4" /></svg>
+              </button>
+            </span>
+            <span role="columnheader">Assigned to</span>
+            <span role="columnheader" aria-sort={listSort === "updated" ? updatedSort === "asc" ? "ascending" : "descending" : undefined}>
+              <button className="task-list-column-sort" onClick={onUpdatedSort} aria-label={`Sort updated ${updatedSort === "asc" ? "newest first" : "oldest first"}`}>
+                Updated <svg className={updatedSort === "asc" ? "ascending" : ""} viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4" /></svg>
+              </button>
+            </span>
+            <span role="columnheader" aria-sort={listSort === "status" ? statusSort === "asc" ? "ascending" : "descending" : undefined}>
+              <button className="task-list-column-sort" onClick={onStatusSort} aria-label={`Sort status ${statusSort === "asc" ? "reverse workflow order" : "workflow order"}`}>
+                Status <svg className={statusSort === "asc" ? "ascending" : ""} viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4" /></svg>
+              </button>
+            </span>
           </div>
-          {config.stages.map((stage) => {
-            const stageItems = items.filter((item) => item.stage === stage.id);
-            if (stageItems.length === 0) return null;
-            const isCollapsed = collapsedStages.has(stage.id);
-            return (
-              <section className={`task-list-group task-list-group-${stage.group}${isCollapsed ? " collapsed" : ""}`} key={stage.id} role="rowgroup" aria-label={stage.label}>
-                <header className="task-list-group-head">
-                  <button className="task-list-collapse" onClick={() => toggleStage(stage.id)} aria-label={`${isCollapsed ? "Expand" : "Collapse"} ${stage.label}`} aria-expanded={!isCollapsed} title={`${isCollapsed ? "Expand" : "Collapse"} ${stage.label}`}><span aria-hidden="true">⌄</span></button>
-                  <span className={`task-status-dot task-status-${stage.group}`} aria-hidden="true" />
-                  <h2>{stage.label}</h2>
-                  <span>{stageItems.length}</span>
-                  <button className="task-list-group-add" onClick={() => onAddItem(stage.id)} aria-label={`Add task to ${stage.label}`} title={`Add task to ${stage.label}`}>＋</button>
-                </header>
-                {!isCollapsed && stageItems.map((item) => (
-                  <TaskListRow
-                    key={item.id}
-                    item={item}
-                    categories={categories}
-                    config={config}
-                    onMove={(nextStage) => onMove(item.id, nextStage)}
-                    onSelect={() => onSelect(item.id)}
-                    onDuplicate={() => onDuplicate(item.id)}
-                    onDelete={() => onDelete(item.id)}
-                  />
-                ))}
-              </section>
-            );
-          })}
+          <div className="task-list-body" role="rowgroup">
+            {sortedItems.map((item) => (
+              <TaskListRow
+                key={item.id}
+                item={item}
+                categories={categories}
+                config={config}
+                onMove={(nextStage) => onMove(item.id, nextStage)}
+                onSelect={() => onSelect(item.id)}
+                onDuplicate={() => onDuplicate(item.id)}
+              />
+            ))}
+          </div>
         </div>
       </div>
     </main>
@@ -420,17 +447,15 @@ interface TaskListRowProps {
   onMove: (stage: Stage) => void;
   onSelect: () => void;
   onDuplicate: () => void;
-  onDelete: () => void;
 }
 
-function TaskListRow({item, categories, config, onMove, onSelect, onDuplicate, onDelete}: TaskListRowProps) {
+function TaskListRow({item, categories, config, onMove, onSelect, onDuplicate}: TaskListRowProps) {
   const cat = categoryMeta(item.category, categories);
   const updated = new Date(item.updatedAt);
-  const stageGroup = config.stages.find((stage) => stage.id === item.stage)?.group ?? "backlog";
-  const hasSummary = item.assignee || item.description || item.tags.length > 0 || item.notes.length > 0;
+  const hasSummary = item.description || item.tags.length > 0 || item.notes.length > 0;
   return (
     <div
-      className={`task-list-row${item.stage === "deployed" ? " complete" : ""}`}
+      className={`task-list-row task-list-row-stage-${item.stage}${item.stage === "deployed" ? " complete" : ""}`}
       role="row"
       tabIndex={0}
       onClick={onSelect}
@@ -444,42 +469,42 @@ function TaskListRow({item, categories, config, onMove, onSelect, onDuplicate, o
       <div className="task-list-primary" role="cell">
         <span className={`task-list-name${item.title ? "" : " untitled"}`}>{item.title || "Untitled"}</span>
         {hasSummary && <span className="task-list-summary">
-          {item.assignee && <span className="task-list-assignee" title={`Assigned to ${assigneeLabel(item.assignee)}`}><AssigneeAvatar assignee={item.assignee}/>{assigneeLabel(item.assignee)}</span>}
           {item.description && <span className="task-list-description">{item.description}</span>}
           {item.tags.length > 0 && <span className="task-list-tags" aria-label={`Tags: ${item.tags.join(", ")}`}>{item.tags.slice(0, 2).map((tag) => <i key={tag}>#{tag}</i>)}{item.tags.length > 2 && <i>+{item.tags.length - 2}</i>}</span>}
           {item.notes.length > 0 && <span className="task-list-note-count" title={`${item.notes.length} notes`}>✎ {item.notes.length}</span>}
         </span>}
       </div>
-      <span className="task-list-category" role="cell"><i aria-hidden="true">{cat.glyph}</i>{cat.label}</span>
+      <span className="task-list-category" role="cell">{cat.label}</span>
       <span className="task-list-priority" role="cell"><RiskPill risk={item.risk} /></span>
-      <span className="task-list-effort" role="cell" title={`Effort: ${EFFORT_LABELS[item.effort]}`}><EffortDots effort={item.effort} /><small>{EFFORT_LABELS[item.effort]}</small></span>
+      <span className="task-list-effort" role="cell" title={`Effort: ${EFFORT_LABELS[item.effort]}`}><EffortDots effort={item.effort} /></span>
+      <span className={`task-list-assignee${item.assignee ? "" : " unassigned"}`} role="cell" title={item.assignee ? `Assigned to ${assigneeLabel(item.assignee)}` : "Unassigned"}>
+        {item.assignee ? <><AssigneeAvatar assignee={item.assignee}/><span>{assigneeLabel(item.assignee)}</span></> : <span>-</span>}
+      </span>
       <time className="task-list-updated" role="cell" dateTime={updated.toISOString()} title={updated.toLocaleString()}>{timeAgo(item.updatedAt)}</time>
       <div className="task-list-controls" role="cell" onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()}>
-        <label className={`task-list-status task-list-status-${stageGroup}`}>
+        <label className={`task-list-status task-list-status-${item.stage}`}>
           <span className="sr-only">Status for {item.title || "Untitled task"}</span>
-          <span className="task-list-status-mark" aria-hidden="true" />
           <select value={item.stage} onChange={(event) => { const stage = event.target.value as Stage; if (stage !== item.stage) onMove(stage); }}>
             {config.stages.map((stage) => <option value={stage.id} key={stage.id}>{stage.label}</option>)}
           </select>
         </label>
-        <TaskActions title={item.title} onDuplicate={onDuplicate} onDelete={onDelete} />
+        <TaskActions title={item.title} onDuplicate={onDuplicate} />
       </div>
     </div>
   );
 }
 
-function TaskActions({title, onDuplicate, onDelete}: {title: string; onDuplicate: () => void; onDelete: () => void}) {
+function TaskActions({title, onDuplicate}: {title: string; onDuplicate: () => void}) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!menuOpen) return;
     const close = (event: MouseEvent) => {
-      if (!menuRef.current?.contains(event.target as Node)) { setMenuOpen(false); setConfirmDelete(false); }
+      if (!menuRef.current?.contains(event.target as Node)) setMenuOpen(false);
     };
     const escape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") { setMenuOpen(false); setConfirmDelete(false); }
+      if (event.key === "Escape") setMenuOpen(false);
     };
     window.addEventListener("mousedown", close);
     window.addEventListener("keydown", escape);
@@ -491,8 +516,8 @@ function TaskActions({title, onDuplicate, onDelete}: {title: string; onDuplicate
 
   return (
     <div className="card-menu" ref={menuRef} onMouseDown={(event) => event.stopPropagation()} onClick={(event) => event.stopPropagation()}>
-      <button type="button" className={`card-menu-btn${menuOpen ? " open" : ""}`} aria-label={`Options for ${title || "Untitled task"}`} aria-haspopup="menu" aria-expanded={menuOpen} onClick={() => { setMenuOpen((open) => !open); setConfirmDelete(false); }}>⋯</button>
-      {menuOpen && <div className="card-menu-pop" role="menu">{confirmDelete ? <div className="card-menu-confirm"><span>Delete this task?</span><div><button type="button" className="danger" onClick={() => { setMenuOpen(false); onDelete(); }}>Delete</button><button type="button" onClick={() => setConfirmDelete(false)}>Cancel</button></div></div> : <><button type="button" role="menuitem" onClick={() => { setMenuOpen(false); onDuplicate(); }}><span aria-hidden="true">⧉</span> Duplicate task</button><button type="button" className="danger" role="menuitem" onClick={() => setConfirmDelete(true)}><span aria-hidden="true">×</span> Delete task</button></>}</div>}
+      <button type="button" className={`card-menu-btn${menuOpen ? " open" : ""}`} aria-label={`Options for ${title || "Untitled task"}`} aria-haspopup="menu" aria-expanded={menuOpen} onClick={() => setMenuOpen((open) => !open)}>⋯</button>
+      {menuOpen && <div className="card-menu-pop" role="menu"><button type="button" role="menuitem" onClick={() => { setMenuOpen(false); onDuplicate(); }}><span aria-hidden="true">⧉</span> Duplicate task</button></div>}
     </div>
   );
 }
@@ -503,30 +528,22 @@ interface CardProps {
   dragging: boolean;
   onSelect: () => void;
   onDuplicate: () => void;
-  onDelete: () => void;
   onDragStart: (e: React.DragEvent) => void;
   onDragEnd: () => void;
 }
 
-function Card({item, categories, dragging, onSelect, onDuplicate, onDelete, onDragStart, onDragEnd}: CardProps) {
+function Card({item, categories, dragging, onSelect, onDuplicate, onDragStart, onDragEnd}: CardProps) {
   const cat = categoryMeta(item.category, categories);
   const [menuAt, setMenuAt] = useState<{left: number; top: number} | null>(null);
-  const [confirmDelete, setConfirmDelete] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!menuAt) return;
     const close = (event: MouseEvent) => {
-      if (!menuRef.current?.contains(event.target as Node)) {
-        setMenuAt(null);
-        setConfirmDelete(false);
-      }
+      if (!menuRef.current?.contains(event.target as Node)) setMenuAt(null);
     };
     const escape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setMenuAt(null);
-        setConfirmDelete(false);
-      }
+      if (event.key === "Escape") setMenuAt(null);
     };
     window.addEventListener("mousedown", close);
     window.addEventListener("keydown", escape);
@@ -537,10 +554,9 @@ function Card({item, categories, dragging, onSelect, onDuplicate, onDelete, onDr
   }, [menuAt]);
 
   const openMenu = (left: number, top: number) => {
-    setConfirmDelete(false);
     setMenuAt({
       left: Math.max(8, Math.min(left, window.innerWidth - 178)),
-      top: Math.max(8, Math.min(top, window.innerHeight - 104)),
+      top: Math.max(8, Math.min(top, window.innerHeight - 54)),
     });
   };
 
@@ -594,20 +610,7 @@ function Card({item, categories, dragging, onSelect, onDuplicate, onDelete, onDr
           onClick={(event) => event.stopPropagation()}
           onContextMenu={(event) => event.preventDefault()}
         >
-          {confirmDelete ? (
-            <div className="card-menu-confirm">
-              <span>Delete this task?</span>
-              <div>
-                <button type="button" className="danger" onClick={() => { setMenuAt(null); onDelete(); }}>Delete</button>
-                <button type="button" onClick={() => setConfirmDelete(false)}>Cancel</button>
-              </div>
-            </div>
-          ) : (
-            <>
-              <button type="button" role="menuitem" onClick={() => { setMenuAt(null); onDuplicate(); }}><span aria-hidden="true">⧉</span> Duplicate task</button>
-              <button type="button" className="danger" role="menuitem" onClick={() => setConfirmDelete(true)}><span aria-hidden="true">×</span> Delete task</button>
-            </>
-          )}
+          <button type="button" role="menuitem" onClick={() => { setMenuAt(null); onDuplicate(); }}><span aria-hidden="true">⧉</span> Duplicate task</button>
         </div>,
         document.body,
       )}

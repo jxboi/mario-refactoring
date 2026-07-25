@@ -38,8 +38,7 @@ function noteEvents(workspaceId:string,projectId:string,projectTitle:string,enti
   for(const note of before.filter(n=>!after.some(x=>x.id===n.id)))out.push(event({workspaceId,projectId,projectTitle,entityType:"note",entityId:note.id,entityTitle,family:"notes",action:"note.deleted",summary:`Removed a note from ${entityTitle}`,changes:[],deleted:true},now));
   for(const old of before){const next=after.find(n=>n.id===old.id);if(!next)continue;
     if(old.text!==next.text)out.push(event({workspaceId,projectId,projectTitle,entityType:"note",entityId:old.id,entityTitle,family:"notes",action:"note.edited",summary:`Edited a note on ${entityTitle}`,changes:[{field:"note"}],coalesceKey:`${workspaceId}:${old.id}:note`},now));
-    if(Boolean(old.blocked)!==Boolean(next.blocked))out.push(event({workspaceId,projectId,projectTitle,entityType:"note",entityId:old.id,entityTitle,family:"notes",action:next.blocked?"note.blocked":"note.unblocked",summary:`${next.blocked?"Marked":"Unmarked"} a note as blocking on ${entityTitle}`,changes:[]},now));
-    if(Boolean(old.resolved)!==Boolean(next.resolved))out.push(event({workspaceId,projectId,projectTitle,entityType:"note",entityId:old.id,entityTitle,family:"notes",action:next.resolved?"note.resolved":"note.reopened",summary:`${next.resolved?"Resolved":"Reopened"} a note on ${entityTitle}`,changes:[]},now));
+    if((old.color??"neutral")!==(next.color??"neutral"))out.push(event({workspaceId,projectId,projectTitle,entityType:"note",entityId:old.id,entityTitle,family:"notes",action:"note.colored",summary:`Changed a note color on ${entityTitle}`,changes:[change("color",old.color??"neutral",next.color??"neutral")]},now));
   }return out;
 }
 

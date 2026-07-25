@@ -1,13 +1,14 @@
 export type Stage = "queued" | "active" | "reviewing" | "deployed" | "deferred";
 export type TaskLayout = "board" | "list";
 export type Risk = "low" | "medium" | "high";
-export type Effort = "low" | "medium" | "high" | "xhigh";
+export type Effort = "low" | "medium" | "high";
 export type Category = string;
+export type NoteColor = "neutral" | "red" | "orange" | "green" | "blue" | "purple";
 
-export interface Note { id: string; text: string; createdAt: number; blocked?: boolean; resolved?: boolean; }
+export interface Note { id: string; text: string; createdAt: number; color?: NoteColor; }
 export interface BaseItem {
   id: string; title: string; description: string; risk: Risk; effort: Effort;
-  tags: string[]; stage: Stage; blocked: boolean; blockReason: string; notes: Note[];
+  tags: string[]; stage: Stage; notes: Note[];
   createdAt: number; updatedAt: number;
 }
 export interface TaskAssignee { userId:string; login:string; name:string|null; avatarUrl:string; }
@@ -23,7 +24,7 @@ export interface Project extends BaseItem { tasks: Task[]; collaboration?: Proje
 
 export type StageGroup = "backlog" | "active" | "done" | "deferred";
 export interface StageDef { id: Stage; label: string; hint: string; group: StageGroup; recentDays?: number; hiddenByDefault?: boolean; }
-export const DEPLOYED_WINDOW_DAYS = 14;
+export const DEPLOYED_WINDOW_DAYS = 7;
 export const PROJECT_STAGES: StageDef[] = [
   {id:"queued",label:"Idea",hint:"An opportunity worth considering",group:"backlog"},
   {id:"active",label:"Planning",hint:"Defining the outcome and approach",group:"active"},
@@ -40,8 +41,8 @@ export const TASK_STAGES: StageDef[] = [
 ];
 export const RISKS: Risk[] = ["low","medium","high"];
 export const RISK_LABELS: Record<Risk,string> = {low:"low",medium:"med",high:"high"};
-export const EFFORTS: Effort[] = ["low","medium","high","xhigh"];
-export const EFFORT_LABELS: Record<Effort,string> = {low:"Low",medium:"Med",high:"High",xhigh:"X-High"};
+export const EFFORTS: Effort[] = ["low","medium","high"];
+export const EFFORT_LABELS: Record<Effort,string> = {low:"Low",medium:"Med",high:"High"};
 export interface CategoryDef { id:string; label:string; glyph:string; groupId:string; }
 export interface CategoryGroup { id:string; label:string; }
 export const FALLBACK_CATEGORY_ID = "other";
@@ -61,4 +62,3 @@ export const TASK_CONFIG: ItemConfig = {kind:"task",label:"Task",itemNoun:"task"
 export function categoryMeta(id:string,categories:CategoryDef[]):CategoryDef { return categories.find(c=>c.id===id) ?? categories.find(c=>c.id===FALLBACK_CATEGORY_ID) ?? {id:"other",label:"Other",glyph:"·",groupId:"general"}; }
 export function slugifyCategory(label:string):string { return label.toLowerCase().trim().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"") || "category"; }
 export function uid():string { return Math.random().toString(36).slice(2,9)+Date.now().toString(36).slice(-4); }
-export function blockedFrom(notes:Note[]):{blocked:boolean;blockReason:string} { const blocked=notes.filter(n=>n.blocked); return {blocked:blocked.length>0,blockReason:blocked.map(n=>n.text).join(" · ")}; }

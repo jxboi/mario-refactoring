@@ -1,10 +1,10 @@
-# Chisel
+# Chisely
 
 A focused workspace for turning projects into actionable tasks.
 
 ## Model
 
-Chisel has one deliberately small hierarchy:
+Chisely has one deliberately small hierarchy:
 
 **Workspace → Project → Task**
 
@@ -52,13 +52,13 @@ The delivery path uses Resend and Vercel Queues. Configure these server-side var
 
 ```bash
 RESEND_API_KEY=re_...
-RESEND_FROM_EMAIL="Chisel <notifications@your-verified-domain.example>"
+RESEND_FROM_EMAIL="Chisely <notifications@your-verified-domain.example>"
 CRON_SECRET=a-random-string-at-least-16-characters
 ```
 
 Verify the sender domain in Resend before sending to production recipients. For local queue testing, link and pull the Vercel project credentials, then use the Vercel development server:
 
-For an initial sandbox test before domain verification, set `RESEND_FROM_EMAIL="Chisel <onboarding@resend.dev>"`. Resend only allows that sender to deliver to the email address associated with your Resend account; use a verified custom domain for other recipients.
+For an initial sandbox test before domain verification, set `RESEND_FROM_EMAIL="Chisely <onboarding@resend.dev>"`. Resend only allows that sender to deliver to the email address associated with your Resend account; use a verified custom domain for other recipients.
 
 ```bash
 vercel link

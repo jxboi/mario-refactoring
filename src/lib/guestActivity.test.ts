@@ -45,4 +45,11 @@ describe("guest activity loading",()=>{
     expect(fake.open).toHaveBeenCalledTimes(1);
     expect(fake.getAll).toHaveBeenCalledTimes(1);
   });
+
+  it("hides historic task reorder events",async()=>{
+    const reordered={...event,id:"event-reordered",family:"organization" as const,action:"task.reordered",summary:"Reordered Ship"};
+    vi.stubGlobal("indexedDB",indexedDbWith([event,reordered]).indexedDB);
+
+    expect((await fetchGuestActivity("workspace-1")).events).toEqual([event]);
+  });
 });

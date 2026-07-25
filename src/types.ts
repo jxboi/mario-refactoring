@@ -24,7 +24,7 @@ export interface Project extends BaseItem { tasks: Task[]; collaboration?: Proje
 
 export type StageGroup = "backlog" | "active" | "done" | "deferred";
 export interface StageDef { id: Stage; label: string; hint: string; group: StageGroup; recentDays?: number; hiddenByDefault?: boolean; }
-export const DEPLOYED_WINDOW_DAYS = 14;
+export const DEPLOYED_WINDOW_DAYS = 7;
 export const PROJECT_STAGES: StageDef[] = [
   {id:"queued",label:"Idea",hint:"An opportunity worth considering",group:"backlog"},
   {id:"active",label:"Planning",hint:"Defining the outcome and approach",group:"active"},

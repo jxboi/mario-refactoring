@@ -2,6 +2,7 @@ import {Fragment, useEffect, useRef, useState} from "react";
 import {createPortal} from "react-dom";
 import type {CategoryDef, ItemConfig, Stage, Task, TaskAssignee, TaskLayout} from "../types";
 import {categoryMeta, EFFORT_LABELS} from "../types";
+import {filterTasksByRecentDays} from "../lib/taskFilters";
 import {EffortDots, RiskPill, timeAgo} from "./ui";
 
 interface BoardProps {
@@ -18,6 +19,102 @@ interface BoardProps {
 }
 
 const DRAG_MIME = "application/x-chisel-item";
+type DoneRange = "3" | "7" | "14" | "30" | "90" | "all";
+const DONE_RANGE_OPTIONS: Array<{value: DoneRange; label: string}> = [
+  {value: "3", label: "Past 3 Days"},
+  {value: "7", label: "Past 1 Week"},
+  {value: "14", label: "Past 2 Weeks"},
+  {value: "30", label: "Past 1 Month"},
+  {value: "90", label: "Past 3 Months"},
+  {value: "all", label: "Everything"},
+];
+
+function DoneRangeMenu({value, onChange}: {value: DoneRange; onChange: (value: DoneRange) => void}) {
+  const [open, setOpen] = useState(false);
+  const [level, setLevel] = useState<"root" | "date">("root");
+  const menuRef = useRef<HTMLDivElement>(null);
+  const selectedLabel = DONE_RANGE_OPTIONS.find((option) => option.value === value)?.label ?? "Past 1 Week";
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (event: MouseEvent) => {
+      if (!menuRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+        setLevel("root");
+      }
+    };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      if (level === "date") setLevel("root");
+      else setOpen(false);
+    };
+    window.addEventListener("mousedown", close);
+    window.addEventListener("keydown", escape);
+    return () => {
+      window.removeEventListener("mousedown", close);
+      window.removeEventListener("keydown", escape);
+    };
+  }, [open, level]);
+
+  return (
+    <div className="done-range-menu" ref={menuRef}>
+      <button
+        type="button"
+        className={open ? "done-range-trigger open" : "done-range-trigger"}
+        aria-label={`Done options. Date: ${selectedLabel}`}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => {
+          setOpen((current) => !current);
+          setLevel("root");
+        }}
+      >
+        <span aria-hidden="true">⋮</span>
+      </button>
+      {open && (
+        <div className="done-range-popover" role="menu" aria-label={level === "root" ? "Done options" : "Date timeframe"}>
+          {level === "root" ? (
+            <button
+              type="button"
+              role="menuitem"
+              className="done-range-submenu-trigger"
+              aria-haspopup="menu"
+              onClick={() => setLevel("date")}
+            >
+              <span>{`Date - ${selectedLabel}`}</span>
+              <span aria-hidden="true">›</span>
+            </button>
+          ) : (
+            <>
+              <button type="button" role="menuitem" className="done-range-back" onClick={() => setLevel("root")}>
+                <span aria-hidden="true">‹</span>
+                <strong>Date</strong>
+              </button>
+              <div className="done-range-divider" />
+              {DONE_RANGE_OPTIONS.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  role="menuitemradio"
+                  aria-checked={value === option.value}
+                  className={value === option.value ? "active" : ""}
+                  onClick={() => {
+                    onChange(option.value);
+                    setOpen(false);
+                    setLevel("root");
+                  }}
+                >
+                  <span>{option.label}</span>
+                  {value === option.value && <span aria-hidden="true">✓</span>}
+                </button>
+              ))}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 /**
  * Work out which card the cursor's Y sits in front of within a column body.
@@ -42,6 +139,7 @@ export function Board({items, totalCount, categories, config, layout, onMove, on
   const [dropTarget, setDropTarget] = useState<{stage: Stage; beforeId: string | null} | null>(null);
   // Height of the card being dragged, so the placeholder matches its size.
   const [dragHeight, setDragHeight] = useState<number | null>(null);
+  const [doneRange, setDoneRange] = useState<DoneRange>("7");
   // Columns the user has collapsed. Seeded with any stage marked hiddenByDefault
   // (e.g. Deferred) so those start collapsed, but every column can be toggled.
   const [collapsed, setCollapsed] = useState<Set<Stage>>(() => new Set(config.stages.filter((s) => s.hiddenByDefault).map((s) => s.id)));
@@ -96,6 +194,9 @@ export function Board({items, totalCount, categories, config, layout, onMove, on
     <main className="board">
       {config.stages.map((stage) => {
         const stageItems = items.filter((i) => i.stage === stage.id);
+        const isFilterableDone = config.kind === "task" && stage.id === "deployed";
+        const recentDays = isFilterableDone ? (doneRange === "all" ? null : Number(doneRange)) : stage.recentDays ?? null;
+        const colItems = filterTasksByRecentDays(stageItems, recentDays, now);
 
         // Any collapsed column shows as a slim strip until the user reveals it.
         // Dropping a card on the strip still moves it into the stage without
@@ -131,17 +232,9 @@ export function Board({items, totalCount, categories, config, layout, onMove, on
               >
                 {stage.label}
               </button>
-              <span className="column-count">{stageItems.length}</span>
+              <span className="column-count">{colItems.length}</span>
             </section>
           );
-        }
-
-        // Recency-windowed columns (Deployed) only surface recent items; older
-        // ones drop off the board but are still counted so nothing looks lost.
-        let colItems = stageItems;
-        if (stage.recentDays != null) {
-          const cutoff = now - stage.recentDays * 86_400_000;
-          colItems = stageItems.filter((i) => i.updatedAt >= cutoff);
         }
 
         return (
@@ -180,6 +273,7 @@ export function Board({items, totalCount, categories, config, layout, onMove, on
                   ＋
                 </button>
               )}
+              {isFilterableDone && <DoneRangeMenu value={doneRange} onChange={setDoneRange} />}
             </header>
             <div
               className="column-body"

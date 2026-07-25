@@ -6,6 +6,9 @@ export interface TaskFilterValues {
   categories: string[];
 }
 
+export type SortDirection = "asc" | "desc";
+const LEVEL_RANK = {low: 0, medium: 1, high: 2};
+
 export function availableTaskCategories(tasks: Task[], categories: CategoryDef[]): CategoryDef[] {
   const usedCategoryIds = new Set(tasks.map((task) => task.category));
   return categories
@@ -15,6 +18,26 @@ export function availableTaskCategories(tasks: Task[], categories: CategoryDef[]
       if (right.id === FALLBACK_CATEGORY_ID) return -1;
       return left.label.localeCompare(right.label, undefined, {sensitivity: "base"});
     });
+}
+
+export function filterTasksByRecentDays(tasks: Task[], days: number | null, now = Date.now()): Task[] {
+  if (days == null) return tasks;
+  const cutoff = now - days * 86_400_000;
+  return tasks.filter((task) => task.updatedAt >= cutoff);
+}
+
+export function sortTasksByPriorityAndEffort(
+  tasks: Task[],
+  priorityDirection: SortDirection,
+  effortDirection: SortDirection,
+): Task[] {
+  return [...tasks].sort((left, right) => {
+    const priorityDifference = LEVEL_RANK[left.risk] - LEVEL_RANK[right.risk];
+    if (priorityDifference !== 0) return priorityDirection === "desc" ? -priorityDifference : priorityDifference;
+
+    const effortDifference = LEVEL_RANK[left.effort] - LEVEL_RANK[right.effort];
+    return effortDirection === "desc" ? -effortDifference : effortDifference;
+  });
 }
 
 export function filterTasks(tasks: Task[], filters: TaskFilterValues): Task[] {

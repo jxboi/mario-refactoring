@@ -72,6 +72,7 @@ export function Header({
   const categoryOptions = availableTaskCategories(items, categories);
   const optionIds = new Set(categoryOptions.map((category) => category.id));
   const selectedCategories = filters.categories.filter((id) => optionIds.has(id));
+  const hasCategoryFilterChanges = selectedCategories.length !== categoryOptions.length;
   const activeWorkspace = workspaces.find((workspace) => workspace.id === activeWorkspaceId);
 
   useEffect(() => {
@@ -94,10 +95,6 @@ export function Header({
   }, []);
 
   const sort = (field: "priority" | "effort") => {
-    if (filters.sortBy !== field) {
-      onFilters({...filters, sortBy: field});
-      return;
-    }
     const key = field === "priority" ? "prioritySort" : "effortSort";
     const direction = filters[key] === "desc" ? "asc" : "desc";
     onFilters({...filters, [key]: direction});
@@ -168,7 +165,7 @@ export function Header({
           <div className="filter-chips">
             {categoryOptions.length > 0 && (
               <details ref={categoryFilterRef} className="category-filter">
-                <summary className={`chip category-filter-trigger${selectedCategories.length ? " active" : ""}`}>
+                <summary className={`chip category-filter-trigger${hasCategoryFilterChanges ? " active" : ""}`}>
                   Category{selectedCategories.length ? ` (${selectedCategories.length})` : ""}
                   <span className="category-filter-chevron" aria-hidden="true" />
                 </summary>
@@ -194,20 +191,20 @@ export function Header({
               </details>
             )}
             <button
-              className={`chip chip-sort${filters.sortBy === "priority" ? " active" : ""}`}
+              className={`chip chip-sort${!priorityDescending ? " active" : ""}`}
               onClick={() => sort("priority")}
-              aria-pressed={filters.sortBy === "priority"}
-              aria-label={`Sort priority ${priorityDescending ? "high to low" : "low to high"}`}
-              title={filters.sortBy === "priority" ? (priorityDescending ? "Currently high to low; click for low to high" : "Currently low to high; click for high to low") : "Sort by priority"}
+              aria-pressed={!priorityDescending}
+              aria-label={`Sort priority ${priorityDescending ? "low to high" : "high to low"}`}
+              title={priorityDescending ? "Currently high to low; click for low to high" : "Currently low to high; click for high to low"}
             >
               Priority <span aria-hidden="true">{priorityDescending ? "↓" : "↑"}</span>
             </button>
             <button
-              className={`chip chip-sort${filters.sortBy === "effort" ? " active" : ""}`}
+              className={`chip chip-sort${!effortDescending ? " active" : ""}`}
               onClick={() => sort("effort")}
-              aria-pressed={filters.sortBy === "effort"}
-              aria-label={`Sort effort ${effortDescending ? "high to low" : "low to high"}`}
-              title={filters.sortBy === "effort" ? (effortDescending ? "Currently high to low; click for low to high" : "Currently low to high; click for high to low") : "Sort by effort"}
+              aria-pressed={!effortDescending}
+              aria-label={`Sort effort ${effortDescending ? "low to high" : "high to low"}`}
+              title={effortDescending ? "Currently high to low; click for low to high" : "Currently low to high; click for high to low"}
             >
               Effort <span aria-hidden="true">{effortDescending ? "↓" : "↑"}</span>
             </button>

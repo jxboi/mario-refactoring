@@ -949,7 +949,6 @@ code,
 .column.drag-over {
   border-color: var(--column-drag-color);
   background: var(--column-drag-background);
-  box-shadow: 0 0 0 1px var(--column-drag-color);
 }
 
 /* backlog columns recede; the in-flight zone is where the eye should land */
@@ -1061,7 +1060,6 @@ code,
 .column-collapsed.drag-over {
   border-color: var(--column-drag-color);
   background: var(--column-drag-background);
-  box-shadow: 0 0 0 1px var(--column-drag-color);
   color: var(--column-drag-color);
 }
 
@@ -1210,10 +1208,10 @@ code,
 .card-placeholder {
   height: 46px;
   box-sizing: border-box;
-  border: 2px dashed var(--column-drag-color);
+  border: 1px dashed var(--column-drag-color);
   border-radius: var(--radius-sm);
   background: var(--column-drag-background);
-  opacity: 0.7;
+  opacity: 0.55;
   pointer-events: none;
   animation: card-in 0.15s var(--ease);
 }

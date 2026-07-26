@@ -1,4 +1,5 @@
 import {Fragment, useEffect, useRef, useState} from "react";
+import type {CSSProperties} from "react";
 import {createPortal} from "react-dom";
 import type {CategoryDef, ItemConfig, Stage, Task, TaskAssignee, TaskLayout} from "../types";
 import {categoryMeta, EFFORT_LABELS} from "../types";
@@ -211,7 +212,7 @@ export function Board({items, categories, config, layout, listSort, categorySort
 
   return (
     <main className="board">
-      {config.stages.map((stage) => {
+      {config.stages.map((stage, stageIndex) => {
         const stageItems = items.filter((i) => i.stage === stage.id);
         const isFilterableDone = config.kind === "task" && stage.id === "deployed";
         const recentDays = isFilterableDone ? (doneRange === "all" ? null : Number(doneRange)) : stage.recentDays ?? null;
@@ -306,13 +307,14 @@ export function Board({items, categories, config, layout, listSort, categorySort
               }}
               onDrop={handleDrop}
             >
-              {colItems.map((item) => (
+              {colItems.map((item, itemIndex) => (
                 <Fragment key={item.id}>
                   {dropTarget?.stage === stage.id && dropTarget.beforeId === item.id && !isNoOp(item.id, colItems) && <div className="card-placeholder" style={dragHeight ? {height: dragHeight} : undefined} />}
                   <Card
                     item={item}
                     categories={categories}
                     dragging={dragId === item.id}
+                    entryDelay={Math.min(itemIndex, 8) * 70 + stageIndex * 24}
                     onSelect={() => onSelect(item.id)}
                     onDuplicate={() => onDuplicate(item.id)}
                     onDragStart={(e) => {
@@ -526,13 +528,14 @@ interface CardProps {
   item: Task;
   categories: CategoryDef[];
   dragging: boolean;
+  entryDelay: number;
   onSelect: () => void;
   onDuplicate: () => void;
   onDragStart: (e: React.DragEvent) => void;
   onDragEnd: () => void;
 }
 
-function Card({item, categories, dragging, onSelect, onDuplicate, onDragStart, onDragEnd}: CardProps) {
+function Card({item, categories, dragging, entryDelay, onSelect, onDuplicate, onDragStart, onDragEnd}: CardProps) {
   const cat = categoryMeta(item.category, categories);
   const [menuAt, setMenuAt] = useState<{left: number; top: number} | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -564,6 +567,7 @@ function Card({item, categories, dragging, onSelect, onDuplicate, onDragStart, o
     <>
       <article
         className={`card${dragging ? " dragging" : ""}${item.stage === "deployed" ? " card-landed" : ""}`}
+        style={{"--card-stack-delay": `${entryDelay}ms`} as CSSProperties}
         data-id={item.id}
         aria-label={`${item.title || "Untitled task"}, ${item.risk} priority. Right-click for actions.`}
         draggable

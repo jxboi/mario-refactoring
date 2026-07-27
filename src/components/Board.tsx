@@ -424,12 +424,13 @@ function TaskList({items, categories, config, listSort, categorySort, prioritySo
             </span>
           </div>
           <div className="task-list-body" role="rowgroup">
-            {sortedItems.map((item) => (
+            {sortedItems.map((item, itemIndex) => (
               <TaskListRow
                 key={item.id}
                 item={item}
                 categories={categories}
                 config={config}
+                entryDelay={Math.min(itemIndex, 8) * 70}
                 onMove={(nextStage) => onMove(item.id, nextStage)}
                 onSelect={() => onSelect(item.id)}
                 onDuplicate={() => onDuplicate(item.id)}
@@ -446,18 +447,20 @@ interface TaskListRowProps {
   item: Task;
   categories: CategoryDef[];
   config: ItemConfig;
+  entryDelay: number;
   onMove: (stage: Stage) => void;
   onSelect: () => void;
   onDuplicate: () => void;
 }
 
-function TaskListRow({item, categories, config, onMove, onSelect, onDuplicate}: TaskListRowProps) {
+function TaskListRow({item, categories, config, entryDelay, onMove, onSelect, onDuplicate}: TaskListRowProps) {
   const cat = categoryMeta(item.category, categories);
   const updated = new Date(item.updatedAt);
   const hasSummary = item.description || item.tags.length > 0 || item.notes.length > 0;
   return (
     <div
       className={`task-list-row task-list-row-stage-${item.stage}${item.stage === "deployed" ? " complete" : ""}`}
+      style={{"--task-list-row-stack-delay": `${entryDelay}ms`} as CSSProperties}
       role="row"
       tabIndex={0}
       onClick={onSelect}

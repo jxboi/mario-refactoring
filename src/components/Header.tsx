@@ -1,4 +1,4 @@
-import {useEffect, useRef} from "react";
+import {useEffect, useRef, useState} from "react";
 import type {Filters} from "../App";
 import type {GitHubUser} from "../lib/auth";
 import type {BoardSyncState, Workspace} from "../lib/store";
@@ -31,6 +31,7 @@ interface Props {
   onWorkspaceCreate: (name: string) => void;
   onWorkspaceRename: (id: string, name: string) => void;
   onWorkspaceDelete: (id: string) => void;
+  onProjectRename: (name: string) => void;
   onHome: () => void;
   user: GitHubUser;
   isGuest: boolean;
@@ -61,6 +62,7 @@ export function Header({
   onWorkspaceCreate,
   onWorkspaceRename,
   onWorkspaceDelete,
+  onProjectRename,
   onHome,
   user,
   isGuest,
@@ -68,6 +70,10 @@ export function Header({
   onSignOut,
 }: Props) {
   const categoryFilterRef = useRef<HTMLDetailsElement>(null);
+  const projectNameInputRef = useRef<HTMLInputElement>(null);
+  const projectNameCommitRef = useRef(false);
+  const [editingProjectName, setEditingProjectName] = useState(false);
+  const [projectNameDraft, setProjectNameDraft] = useState("");
   const total = items.filter((item) => item.stage !== "deferred").length;
   const priorityDescending = filters.prioritySort === "desc";
   const effortDescending = filters.effortSort === "desc";
@@ -76,6 +82,17 @@ export function Header({
   const selectedCategories = filters.categories.filter((id) => optionIds.has(id));
   const hasCategoryFilterChanges = selectedCategories.length !== categoryOptions.length;
   const activeWorkspace = workspaces.find((workspace) => workspace.id === activeWorkspaceId);
+
+  useEffect(() => {
+    if (!editingProjectName) return;
+    projectNameInputRef.current?.focus();
+    projectNameInputRef.current?.select();
+  }, [editingProjectName]);
+
+  useEffect(() => {
+    projectNameCommitRef.current = true;
+    setEditingProjectName(false);
+  }, [project?.id]);
 
   useEffect(() => {
     const closeOnOutsideClick = (event: MouseEvent) => {
@@ -109,6 +126,14 @@ export function Header({
     onFilters({...filters, categories});
   };
 
+  const submitProjectName = (value: string) => {
+    if (projectNameCommitRef.current) return;
+    projectNameCommitRef.current = true;
+    const name = value.trim();
+    if (name && name !== project?.title) onProjectRename(name);
+    setEditingProjectName(false);
+  };
+
   return (
     <header className="header">
       <div className="header-row">
@@ -121,7 +146,47 @@ export function Header({
               </button>
               <span className="brand-sep">/</span>
               <div className="project-breadcrumb-current" aria-current="page">
-                <span className="proj-name">{project.title || "Untitled project"}</span>
+                {editingProjectName ? (
+                  <input
+                    ref={projectNameInputRef}
+                    className="project-name-input"
+                    value={projectNameDraft}
+                    aria-label="Project name"
+                    onChange={(event) => setProjectNameDraft(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" && !event.nativeEvent.isComposing && event.keyCode !== 229) {
+                        event.preventDefault();
+                        submitProjectName(event.currentTarget.value);
+                      }
+                      if (event.key === "Escape") {
+                        event.preventDefault();
+                        projectNameCommitRef.current = true;
+                        setEditingProjectName(false);
+                      }
+                    }}
+                    onBlur={(event) => submitProjectName(event.currentTarget.value)}
+                  />
+                ) : (
+                  <>
+                    <span className="proj-name">{project.title || "Untitled project"}</span>
+                    <button
+                      className="project-name-edit"
+                      type="button"
+                      aria-label={`Edit project name${project.title ? `: ${project.title}` : ""}`}
+                      title="Edit project name"
+                      onClick={() => {
+                        projectNameCommitRef.current = false;
+                        setProjectNameDraft(project.title);
+                        setEditingProjectName(true);
+                      }}
+                    >
+                      <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+                        <path d="m3 11.8.5-2.6 6.9-6.9a1.1 1.1 0 0 1 1.6 0l1.7 1.7a1.1 1.1 0 0 1 0 1.6l-6.9 6.9-2.6.5L3 11.8Z" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+                        <path d="m9.6 3.1 3.3 3.3M3.5 9.2l3.3 3.3" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+                      </svg>
+                    </button>
+                  </>
+                )}
                 {project.collaboration?.role === "editor" && <span className="shared-project-badge">shared</span>}
               </div>
             </>

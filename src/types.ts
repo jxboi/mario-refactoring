@@ -12,7 +12,7 @@ export interface BaseItem {
   createdAt: number; updatedAt: number;
 }
 export interface TaskAssignee { userId:string; login:string; name:string|null; avatarUrl:string; }
-export interface Task extends BaseItem { category: Category; assignee?:TaskAssignee|null; }
+export interface Task extends BaseItem { category: Category; assignee?:TaskAssignee|null; favourite?:boolean; }
 export interface ProjectCollaboration {
   shareId: string;
   ownerId: string;

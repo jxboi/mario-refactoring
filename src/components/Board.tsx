@@ -24,7 +24,12 @@ interface BoardProps {
   onStatusSort: () => void;
   onMove: (id: string, stage: Stage, beforeId?: string) => void;
   onSelect: (id: string) => void;
+  onOpen: (id: string, mode: "side" | "full") => void;
   onDuplicate: (id: string) => void;
+  onToggleFavourite: (id: string, favourite: boolean) => void;
+  onMoveToProject: (id: string, projectId: string) => void;
+  onMoveToTrash: (id: string) => void;
+  moveTargets: Array<{id: string; title: string}>;
   onAddItem: (stage: Stage) => void;
 }
 
@@ -142,7 +147,7 @@ function slotBeforeId(container: HTMLElement, clientY: number): string | null {
   return null;
 }
 
-export function Board({items, categories, config, layout, listSort, categorySort, prioritySort, effortSort, updatedSort, statusSort, onCategorySort, onPrioritySort, onEffortSort, onUpdatedSort, onStatusSort, onMove, onSelect, onDuplicate, onAddItem}: BoardProps) {
+export function Board({items, categories, config, layout, listSort, categorySort, prioritySort, effortSort, updatedSort, statusSort, onCategorySort, onPrioritySort, onEffortSort, onUpdatedSort, onStatusSort, onMove, onSelect, onOpen, onDuplicate, onToggleFavourite, onMoveToProject, onMoveToTrash, moveTargets, onAddItem}: BoardProps) {
   const [dragId, setDragId] = useState<string | null>(null);
   const [overStage, setOverStage] = useState<Stage | null>(null);
   // Where a placeholder should show while dragging: the target stage and the id
@@ -316,7 +321,12 @@ export function Board({items, categories, config, layout, listSort, categorySort
                     dragging={dragId === item.id}
                     entryDelay={Math.min(itemIndex, 8) * 70 + stageIndex * 24}
                     onSelect={() => onSelect(item.id)}
+                    onOpen={(mode) => onOpen(item.id, mode)}
                     onDuplicate={() => onDuplicate(item.id)}
+                    onToggleFavourite={(favourite) => onToggleFavourite(item.id, favourite)}
+                    onMoveToProject={(projectId) => onMoveToProject(item.id, projectId)}
+                    onMoveToTrash={() => onMoveToTrash(item.id)}
+                    moveTargets={moveTargets}
                     onDragStart={(e) => {
                       e.dataTransfer.setData(DRAG_MIME, item.id);
                       e.dataTransfer.effectAllowed = "move";
@@ -533,15 +543,22 @@ interface CardProps {
   dragging: boolean;
   entryDelay: number;
   onSelect: () => void;
+  onOpen: (mode: "side" | "full") => void;
   onDuplicate: () => void;
+  onToggleFavourite: (favourite: boolean) => void;
+  onMoveToProject: (projectId: string) => void;
+  onMoveToTrash: () => void;
+  moveTargets: Array<{id: string; title: string}>;
   onDragStart: (e: React.DragEvent) => void;
   onDragEnd: () => void;
 }
 
-function Card({item, categories, dragging, entryDelay, onSelect, onDuplicate, onDragStart, onDragEnd}: CardProps) {
+function Card({item, categories, dragging, entryDelay, onSelect, onOpen, onDuplicate, onToggleFavourite, onMoveToProject, onMoveToTrash, moveTargets, onDragStart, onDragEnd}: CardProps) {
   const cat = categoryMeta(item.category, categories);
   const [menuAt, setMenuAt] = useState<{left: number; top: number} | null>(null);
+  const [menuView, setMenuView] = useState<"actions" | "open" | "projects" | "trash">("actions");
   const menuRef = useRef<HTMLDivElement>(null);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (!menuAt) return;
@@ -549,7 +566,10 @@ function Card({item, categories, dragging, entryDelay, onSelect, onDuplicate, on
       if (!menuRef.current?.contains(event.target as Node)) setMenuAt(null);
     };
     const escape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setMenuAt(null);
+      if (event.key === "Escape") {
+        setMenuAt(null);
+        menuButtonRef.current?.focus();
+      }
     };
     window.addEventListener("mousedown", close);
     window.addEventListener("keydown", escape);
@@ -559,10 +579,15 @@ function Card({item, categories, dragging, entryDelay, onSelect, onDuplicate, on
     };
   }, [menuAt]);
 
+  useEffect(() => {
+    if (menuAt) menuRef.current?.querySelector<HTMLButtonElement>("button")?.focus();
+  }, [menuAt, menuView]);
+
   const openMenu = (left: number, top: number) => {
+    setMenuView("actions");
     setMenuAt({
-      left: Math.max(8, Math.min(left, window.innerWidth - 178)),
-      top: Math.max(8, Math.min(top, window.innerHeight - 54)),
+      left: Math.max(8, Math.min(left, window.innerWidth - 228)),
+      top: Math.max(8, Math.min(top, window.innerHeight - 224)),
     });
   };
 
@@ -592,7 +617,34 @@ function Card({item, categories, dragging, entryDelay, onSelect, onDuplicate, on
           }
         }}
       >
-        <div className={`card-title${item.title ? "" : " untitled"}`}>{item.title || "Untitled"}</div>
+        <div className="card-head">
+          <div className={`card-title${item.title ? "" : " untitled"}`}>
+            {item.favourite && <span className="card-favourite" aria-label="Favourite task">★</span>}
+            <span>{item.title || "Untitled"}</span>
+          </div>
+          <button
+            ref={menuButtonRef}
+            type="button"
+            className={`card-menu-btn card-options-btn${menuAt ? " open" : ""}`}
+            draggable={false}
+            aria-label={`Options for ${item.title || "Untitled task"}`}
+            aria-haspopup="menu"
+            aria-expanded={!!menuAt}
+            onMouseDown={(event) => event.stopPropagation()}
+            onKeyDown={(event) => event.stopPropagation()}
+            onClick={(event) => {
+              event.stopPropagation();
+              if (menuAt) {
+                setMenuAt(null);
+                return;
+              }
+              const rect = event.currentTarget.getBoundingClientRect();
+              openMenu(rect.right - 220, rect.bottom + 5);
+            }}
+          >
+            <span aria-hidden="true">⋯</span>
+          </button>
+        </div>
         <div className="card-meta">
           <span className="card-meta-left">
             <span className="card-cat">{cat.label}</span>
@@ -617,7 +669,30 @@ function Card({item, categories, dragging, entryDelay, onSelect, onDuplicate, on
           onClick={(event) => event.stopPropagation()}
           onContextMenu={(event) => event.preventDefault()}
         >
-          <button type="button" role="menuitem" onClick={() => { setMenuAt(null); onDuplicate(); }}><span aria-hidden="true">⧉</span> Duplicate task</button>
+          {menuView === "actions" && <>
+            <button type="button" role="menuitem" onClick={() => { setMenuAt(null); onToggleFavourite(!item.favourite); }}><span aria-hidden="true">{item.favourite ? "★" : "☆"}</span>{item.favourite ? "Remove from Favourites" : "Add to Favourites"}</button>
+            <button type="button" role="menuitem" aria-haspopup="menu" onClick={() => setMenuView("open")}><span aria-hidden="true">↗</span><span className="card-menu-label">Open In</span><span className="card-menu-chevron" aria-hidden="true">›</span></button>
+            <button type="button" role="menuitem" onClick={() => { setMenuAt(null); onDuplicate(); }}><span aria-hidden="true">⧉</span>Duplicate</button>
+            <button type="button" role="menuitem" aria-haspopup="menu" onClick={() => setMenuView("projects")}><span aria-hidden="true">→</span><span className="card-menu-label">Move To</span><span className="card-menu-chevron" aria-hidden="true">›</span></button>
+            <div className="card-menu-divider" role="separator" />
+            <button type="button" className="danger" role="menuitem" onClick={() => setMenuView("trash")}><span aria-hidden="true">⌫</span>Move to Trash</button>
+          </>}
+          {menuView === "open" && <>
+            <button type="button" className="card-menu-back" role="menuitem" onClick={() => setMenuView("actions")}><span aria-hidden="true">‹</span><strong>Open In</strong></button>
+            <div className="card-menu-divider" role="separator" />
+            <button type="button" role="menuitem" onClick={() => { setMenuAt(null); onOpen("full"); }}><span aria-hidden="true">▣</span>Full page</button>
+            <button type="button" role="menuitem" onClick={() => { setMenuAt(null); onOpen("side"); }}><span aria-hidden="true">◧</span>Side peek</button>
+          </>}
+          {menuView === "projects" && <>
+            <button type="button" className="card-menu-back" role="menuitem" onClick={() => setMenuView("actions")}><span aria-hidden="true">‹</span><strong>Move To</strong></button>
+            <div className="card-menu-divider" role="separator" />
+            {moveTargets.length > 0 ? moveTargets.map((project) => <button type="button" role="menuitem" key={project.id} onClick={() => { setMenuAt(null); onMoveToProject(project.id); }}><span aria-hidden="true">▱</span><span className="card-menu-project-title">{project.title || "Untitled project"}</span></button>) : <span className="card-menu-empty">No other projects</span>}
+          </>}
+          {menuView === "trash" && <div className="card-trash-confirm">
+            <strong>Move task to Trash?</strong>
+            <span>This removes it from the project.</span>
+            <div><button type="button" onClick={() => setMenuView("actions")}>Cancel</button><button type="button" className="danger" onClick={() => { setMenuAt(null); onMoveToTrash(); }}>Move to Trash</button></div>
+          </div>}
         </div>,
         document.body,
       )}

@@ -16,7 +16,7 @@ const newDraft = (workspaceId: string): AutomationRuleInput => ({
   workspaceId,
   name: "Task moved notification",
   enabled: true,
-  trigger: {type: "task_stage_changed", projectId: null, fromStage: null, toStage: "deployed"},
+  trigger: {type: "task_stage_changed", projectId: null, fromStage: null, toStage: "done"},
   action: {type: "email", to: "", subjectTemplate: DEFAULT_AUTOMATION_SUBJECT, messageTemplate: DEFAULT_AUTOMATION_MESSAGE},
 });
 

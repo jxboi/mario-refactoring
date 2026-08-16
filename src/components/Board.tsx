@@ -219,7 +219,7 @@ export function Board({items, categories, config, layout, listSort, categorySort
     <main className="board">
       {config.stages.map((stage, stageIndex) => {
         const stageItems = items.filter((i) => i.stage === stage.id);
-        const isFilterableDone = config.kind === "task" && stage.id === "deployed";
+        const isFilterableDone = config.kind === "task" && stage.id === "done";
         const recentDays = isFilterableDone ? (doneRange === "all" ? null : Number(doneRange)) : stage.recentDays ?? null;
         const colItems = filterTasksByRecentDays(stageItems, recentDays, now);
 
@@ -282,7 +282,7 @@ export function Board({items, categories, config, layout, listSort, categorySort
             onDrop={handleDrop}
           >
             <header className="column-head" title={stage.hint}>
-              {stage.id === "active" && <span className="column-live-dot" aria-hidden="true" />}
+              {stage.id === "in-progress" && <span className="column-live-dot" aria-hidden="true" />}
               <button
                 type="button"
                 className="column-title"
@@ -401,7 +401,7 @@ function TaskList({items, categories, config, listSort, categorySort, prioritySo
     <main className="task-list-page">
       <div className="task-list-shell">
         <header className="task-list-titlebar">
-          <button className="btn btn-primary task-list-new" aria-label="New task" onClick={() => onAddItem("queued")}><span aria-hidden="true">＋</span> New Task</button>
+          <button className="btn btn-primary task-list-new" aria-label="New task" onClick={() => onAddItem("to-do")}><span aria-hidden="true">＋</span> New Task</button>
         </header>
         <div className="task-list-table" role="table" aria-label="Project tasks">
           <div className="task-list-columns" role="row">
@@ -469,7 +469,7 @@ function TaskListRow({item, categories, config, entryDelay, onMove, onSelect, on
   const hasSummary = item.description || item.tags.length > 0 || item.notes.length > 0;
   return (
     <div
-      className={`task-list-row task-list-row-stage-${item.stage}${item.stage === "deployed" ? " complete" : ""}`}
+      className={`task-list-row task-list-row-stage-${item.stage}${item.stage === "done" ? " complete" : ""}`}
       style={{"--task-list-row-stack-delay": `${entryDelay}ms`} as CSSProperties}
       role="row"
       tabIndex={0}
@@ -594,7 +594,7 @@ function Card({item, categories, dragging, entryDelay, onSelect, onOpen, onDupli
   return (
     <>
       <article
-        className={`card${dragging ? " dragging" : ""}${item.stage === "deployed" ? " card-landed" : ""}`}
+        className={`card${dragging ? " dragging" : ""}${item.stage === "done" ? " card-landed" : ""}`}
         style={{"--card-stack-delay": `${entryDelay}ms`} as CSSProperties}
         data-id={item.id}
         aria-label={`${item.title || "Untitled task"}, ${item.risk} priority. Right-click for actions.`}

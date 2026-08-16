@@ -74,7 +74,7 @@ export function Header({
   const projectNameCommitRef = useRef(false);
   const [editingProjectName, setEditingProjectName] = useState(false);
   const [projectNameDraft, setProjectNameDraft] = useState("");
-  const total = items.filter((item) => item.stage !== "deferred").length;
+  const total = items.filter((item) => item.stage !== "on-hold").length;
   const priorityDescending = filters.prioritySort === "desc";
   const effortDescending = filters.effortSort === "desc";
   const categoryOptions = availableTaskCategories(items, categories);

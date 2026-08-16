@@ -44,6 +44,23 @@ npm run build
 
 The app is built with React, TypeScript, Vite, and Vitest.
 
+## AI project summaries
+
+Signed-in users can choose **Summarise project** from a project card's options menu. The server reads the synced project, generates a structured brief through Vercel AI Gateway, and saves it as an editable project note.
+
+Vercel deployments can authenticate to AI Gateway with OIDC. For local development, configure a server-side Gateway key; the optional model override defaults to `openai/gpt-5.6-luna`:
+
+```bash
+AI_GATEWAY_API_KEY=your-gateway-key
+AI_SUMMARY_MODEL=openai/gpt-5.6-luna
+```
+
+Run the Vercel development server when testing the API locally:
+
+```bash
+npm run dev:vercel
+```
+
 ## Email automations
 
 Signed-in workspaces can create rules under **Account → Automations**. A rule can watch every project or one project, match an exact or wildcard source stage, and send an email when a task reaches the selected destination stage. Rules and their recent delivery history are stored in Postgres and are intentionally excluded from workspace exports.

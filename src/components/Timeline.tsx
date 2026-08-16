@@ -1,7 +1,7 @@
 import {useEffect,useLayoutEffect,useMemo,useRef,useState} from "react";
 import type {CSSProperties} from "react";
 import type {GitHubUser} from "../lib/auth";
-import type {Project} from "../types";
+import {stageFrom, type Project} from "../types";
 import type {ActivityEvent,ActivityFamily,ActivityPage} from "../lib/activity";
 import {fetchActivityPage} from "../lib/activityApi";
 import {fetchGuestActivity,subscribeGuestActivity} from "../lib/guestActivity";
@@ -12,8 +12,8 @@ const FAMILY_LABELS:Record<ActivityFamily,string>={status:"Status Changed",updat
 const NOTE_LABELS:Record<string,string>={"note.added":"Note Added","note.deleted":"Note Removed","note.edited":"Note Edited","note.colored":"Note Changed"};
 const ORGANIZATION_LABELS:Record<string,string>={"task.created":"Task Created","task.deleted":"Task Deleted"};
 const EMPTY:ActivityPage={events:[],nextCursor:null,projects:[],summary:{today:0,thisWeek:0,itemsTouched:0}};
-const stageLabel=(value:string)=>({queued:"To Do",active:"In Progress",reviewing:"Review",deployed:"Done",deferred:"On Hold"}[value]??value);
-const stageClass=(field:string,value?:string)=>field==="status"&&value&&["queued","active","reviewing","deployed","deferred"].includes(value)?`timeline-status-${value}`:undefined;
+const stageLabel=(value:string)=>({"to-do":"To Do","in-progress":"In Progress",review:"Review",done:"Done","on-hold":"On Hold"}[stageFrom(value)??value]??value);
+const stageClass=(field:string,value?:string)=>{const stage=value&&stageFrom(value);return field==="status"&&stage?`timeline-status-${stage}`:undefined};
 const pascalCase=(value:string)=>value.split(/[^a-zA-Z0-9]+/).filter(Boolean).map(part=>part.charAt(0).toUpperCase()+part.slice(1).toLowerCase()).join("");
 const PASCAL_VALUE_FIELDS=new Set(["risk","effort","tags","category","color","groupId"]);
 const TEXT_CHANGE_FIELDS=new Set(["title","description","note","body","label","name"]);

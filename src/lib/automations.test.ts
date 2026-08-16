@@ -10,11 +10,11 @@ import {
 } from "./automations";
 
 function states() {
-  const task = {...newTask("queued"), id: "task", title: "Ship it", description: "Roll out carefully"};
+  const task = {...newTask("to-do"), id: "task", title: "Ship it", description: "Roll out carefully"};
   const project = {...newProject("Launch"), id: "project", tasks: [task]};
   const workspace = {...newWorkspace("Product"), id: "workspace", projects: [project]};
   const previous: AppState = {workspaces: [workspace], activeWorkspaceId: workspace.id};
-  const next: AppState = {workspaces: [{...workspace, projects: [{...project, tasks: [{...task, stage: "deployed"}]}]}], activeWorkspaceId: workspace.id};
+  const next: AppState = {workspaces: [{...workspace, projects: [{...project, tasks: [{...task, stage: "done"}]}]}], activeWorkspaceId: workspace.id};
   return {previous, next};
 }
 
@@ -24,7 +24,7 @@ function rule(patch: Partial<AutomationRule> = {}): AutomationRule {
     workspaceId: "workspace",
     name: "Done email",
     enabled: true,
-    trigger: {type: "task_stage_changed", projectId: null, fromStage: null, toStage: "deployed"},
+    trigger: {type: "task_stage_changed", projectId: null, fromStage: null, toStage: "done"},
     action: {type: "email", to: "owner@example.com", subjectTemplate: "{{task.title}} → {{toStage.label}}", messageTemplate: "{{workspace.name}} / {{project.title}}"},
     createdAt: "2026-01-01T00:00:00.000Z",
     updatedAt: "2026-01-01T00:00:00.000Z",
@@ -35,7 +35,7 @@ function rule(patch: Partial<AutomationRule> = {}): AutomationRule {
 describe("task stage automations", () => {
   it("detects persisted task stage transitions", () => {
     const {previous, next} = states();
-    expect(findTaskStageTransitions(previous, next)).toMatchObject([{fromStage: "queued", toStage: "deployed", task: {id: "task"}}]);
+    expect(findTaskStageTransitions(previous, next)).toMatchObject([{fromStage: "to-do", toStage: "done", task: {id: "task"}}]);
   });
 
   it("ignores reordering, task creation, and deletion", () => {
@@ -51,7 +51,7 @@ describe("task stage automations", () => {
   it("matches wildcard and exact project/source rules", () => {
     const transition = findTaskStageTransitions(states().previous, states().next)[0];
     expect(ruleMatchesTransition(rule(), transition)).toBe(true);
-    expect(ruleMatchesTransition(rule({trigger: {...rule().trigger, projectId: "project", fromStage: "queued"}}), transition)).toBe(true);
+    expect(ruleMatchesTransition(rule({trigger: {...rule().trigger, projectId: "project", fromStage: "to-do"}}), transition)).toBe(true);
     expect(ruleMatchesTransition(rule({trigger: {...rule().trigger, projectId: "other"}}), transition)).toBe(false);
     expect(ruleMatchesTransition(rule({enabled: false}), transition)).toBe(false);
   });
@@ -70,7 +70,7 @@ describe("task stage automations", () => {
     expect(validateAutomationRuleInput(valid, next)).toMatchObject({name: "Done email", action: {to: "owner@example.com"}});
     expect(() => validateAutomationRuleInput({...valid, action: {...valid.action, to: "bad"}}, next)).toThrow("valid recipient");
     expect(() => validateAutomationRuleInput({...valid, action: {...valid.action, subjectTemplate: "{{unknown}}"}}, next)).toThrow("Unknown placeholder");
-    expect(() => validateAutomationRuleInput({...valid, trigger: {...valid.trigger, fromStage: "deployed"}}, next)).toThrow("must differ");
+    expect(() => validateAutomationRuleInput({...valid, trigger: {...valid.trigger, fromStage: "done"}}, next)).toThrow("must differ");
   });
 
   it("replaces supported placeholders without interpreting text as HTML", () => {

@@ -1,4 +1,4 @@
-import { useEffect, useReducer, useRef, useState } from "react";
+import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import type {
   CategoryDef,
   CategoryGroup,
@@ -868,7 +868,7 @@ function load(scope?: string): AppState {
 }
 export function useBoard(scope?: string, remoteToken?: string | null) {
   const token = remoteToken ?? null;
-  const [state, dispatch] = useReducer(reducer, scope, load);
+  const [state, rawDispatch] = useReducer(reducer, scope, load);
   const [remoteReady, setRemoteReady] = useState(!token);
   const [sync, setSync] = useState<BoardSyncState>(
     token
@@ -882,6 +882,10 @@ export function useBoard(scope?: string, remoteToken?: string | null) {
     revision = useRef(0),
     queue = useRef(Promise.resolve()),
     previousState = useRef(state);
+  const dispatch = useCallback((action: Action) => {
+    if (action.type !== "hydrate") revision.current += 1;
+    rawDispatch(action);
+  }, []);
   useEffect(
     () =>
       localStorage.setItem(
@@ -892,6 +896,7 @@ export function useBoard(scope?: string, remoteToken?: string | null) {
   );
   useEffect(() => {
     let cancel = false;
+    const fetchRevision = revision.current;
     if (!token) {
       setRemoteReady(true);
       return;
@@ -901,11 +906,11 @@ export function useBoard(scope?: string, remoteToken?: string | null) {
       .then((r) => {
         if (cancel) return;
         version.current = r.version;
-        if (r.state) {
+        if (r.state && fetchRevision === revision.current) {
           const s = normalizeAppState(r.state);
           if (!s) throw Error("Cloud workspace data is invalid.");
           skip.current = true;
-          dispatch({ type: "hydrate", state: s });
+          rawDispatch({ type: "hydrate", state: s });
         }
         setSync({
           status: "synced",
@@ -932,7 +937,7 @@ export function useBoard(scope?: string, remoteToken?: string | null) {
       return;
     }
     dirty.current = true;
-    const rev = ++revision.current;
+    const rev = revision.current;
     setSync({ status: "saving", message: "Saving..." });
     const timer = setTimeout(
       () => {
@@ -948,7 +953,7 @@ export function useBoard(scope?: string, remoteToken?: string | null) {
                   JSON.stringify(canonical) !== JSON.stringify(state)
                 ) {
                   skip.current = true;
-                  dispatch({ type: "hydrate", state: canonical });
+                  rawDispatch({ type: "hydrate", state: canonical });
                 }
               }
               dirty.current = false;

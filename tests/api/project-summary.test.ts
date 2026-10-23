@@ -1,8 +1,8 @@
 import {describe, expect, it, vi} from "vitest";
-import {newProject, newWorkspace, type AppState} from "../src/lib/store.js";
-import {createProjectSummaryHandler} from "./project-summary.js";
-import type {BodyRequest} from "./_http.js";
-import type {ApiResponse} from "./_auth.js";
+import {newProject, newWorkspace, type AppState} from "../../src/lib/store.js";
+import {createProjectSummaryHandler} from "../../api/project-summary.js";
+import type {BodyRequest} from "../../api/_http.js";
+import type {ApiResponse} from "../../api/_auth.js";
 
 function response() {
   const result = {statusCode: 0, body: undefined as unknown, headers: {} as Record<string, string | string[]>};

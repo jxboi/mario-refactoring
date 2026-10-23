@@ -1,7 +1,7 @@
 import {describe, expect, it} from "vitest";
-import {newProject, newTask} from "../src/lib/store.js";
-import {TASK_CATEGORIES} from "../src/types.js";
-import {AI_SUMMARY_PREFIX, buildProjectSummaryPrompt, formatProjectSummary} from "./_projectSummary.js";
+import {newProject, newTask} from "../../src/lib/store.js";
+import {TASK_CATEGORIES} from "../../src/types.js";
+import {AI_SUMMARY_PREFIX, buildProjectSummaryPrompt, formatProjectSummary} from "../../api/_projectSummary.js";
 
 function promptData(prompt: string) {
   return JSON.parse(prompt.slice(prompt.indexOf("{")).trim());

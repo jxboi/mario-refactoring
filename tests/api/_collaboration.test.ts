@@ -1,6 +1,6 @@
 import {describe, expect, it, vi} from "vitest";
-import {CollaborationConflict, mergeCollaborations, prepareCollaborativeSave, type ShareRow} from "./_collaboration.js";
-import {newProject, newWorkspace, type AppState} from "../src/lib/store.js";
+import {CollaborationConflict, mergeCollaborations, prepareCollaborativeSave, type ShareRow} from "../../api/_collaboration.js";
+import {newProject, newWorkspace, type AppState} from "../../src/lib/store.js";
 
 function share(role:"owner"|"editor"="editor"):ShareRow {
   const workspace=newWorkspace("Product");

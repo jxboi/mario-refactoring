@@ -44,6 +44,21 @@ npm run build
 
 The app is built with React, TypeScript, Vite, and Vitest.
 
+## Vercel API deployment
+
+The API uses eight function entrypoints to stay within the Hobby plan's
+12-function limit. Authentication routes share `api/auth/[action].ts`.
+Automation rules, delivery history, and test emails share
+`api/automation/[action].ts`; rewrites preserve `/api/automations`,
+`/api/automation-runs`, and `/api/automations-test` for existing clients.
+The GitHub callback remains `/api/auth/callback`.
+
+Implementation handlers live in underscore-prefixed directories inside `api/`
+so Vercel does not deploy them separately. API tests live in `tests/api/`.
+The routing tests check the function count, legacy URLs, and authentication
+and method requirements. The cron endpoint and queue consumer remain separate
+functions with their existing trigger configuration.
+
 ## AI project summaries
 
 Signed-in users can choose **Summarise project** from a project card's options menu. The server reads the synced project, generates a structured brief through Vercel AI Gateway, and saves it as an editable project note.

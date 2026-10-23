@@ -1,11 +1,11 @@
 import {randomUUID} from "node:crypto";
-import {authenticateUserId, queryValue, type ApiResponse} from "./_auth.js";
-import {ruleFromRow, type AutomationRuleRow, loadUserBoard} from "./_automation.js";
-import {dispatchPendingRuns} from "./_automationQueue.js";
-import {ensureSchema, getQuery} from "./_db.js";
-import {errorStatus, readJson, sendError, type BodyRequest} from "./_http.js";
-import {validateAutomationRuleInput} from "../src/lib/automations.js";
-import {normalizeAppState} from "../src/lib/store.js";
+import {authenticateUserId, queryValue, type ApiResponse} from "../_auth.js";
+import {ruleFromRow, type AutomationRuleRow, loadUserBoard} from "../_automation.js";
+import {dispatchPendingRuns} from "../_automationQueue.js";
+import {ensureSchema, getQuery} from "../_db.js";
+import {errorStatus, readJson, sendError, type BodyRequest} from "../_http.js";
+import {validateAutomationRuleInput} from "../../src/lib/automations.js";
+import {normalizeAppState} from "../../src/lib/store.js";
 
 export default async function handler(req: BodyRequest, res: ApiResponse) {
   res.setHeader("Cache-Control", "no-store");

@@ -1,10 +1,10 @@
-import {authenticateUserId, type ApiResponse} from "./_auth.js";
-import {dispatchPendingRuns} from "./_automationQueue.js";
-import {ensureSchema} from "./_db.js";
-import {errorStatus, readJson, sendError, type BodyRequest} from "./_http.js";
-import {insertTestRun, listRules, loadUserBoard} from "./_automation.js";
-import {buildAutomationEmailPayload, stageLabel, type TaskStageTransition} from "../src/lib/automations.js";
-import {newProject, newTask, normalizeAppState} from "../src/lib/store.js";
+import {authenticateUserId, type ApiResponse} from "../_auth.js";
+import {dispatchPendingRuns} from "../_automationQueue.js";
+import {ensureSchema} from "../_db.js";
+import {errorStatus, readJson, sendError, type BodyRequest} from "../_http.js";
+import {insertTestRun, listRules, loadUserBoard} from "../_automation.js";
+import {buildAutomationEmailPayload, stageLabel, type TaskStageTransition} from "../../src/lib/automations.js";
+import {newProject, newTask, normalizeAppState} from "../../src/lib/store.js";
 
 export default async function handler(req: BodyRequest, res: ApiResponse) {
   res.setHeader("Cache-Control", "no-store");

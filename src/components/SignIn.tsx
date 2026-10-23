@@ -98,10 +98,6 @@ export function SignInScreen() {
           >
             <BrandLogo className="front-brand" />
           </a>
-          <nav className="front-nav" aria-label="Main navigation">
-            <a href="#workspace-preview">The workspace</a>
-            <a href="#how-it-works">How it works</a>
-          </nav>
           <div className="front-header-actions">
             {githubConfigured() && (
               <a className="front-github" href="/api/auth/start">
@@ -109,13 +105,6 @@ export function SignInScreen() {
                 <span>Sign in with GitHub</span>
               </a>
             )}
-            <button
-              type="button"
-              className="front-button front-button-primary front-header-start"
-              onClick={start}
-            >
-              Shape what’s next
-            </button>
           </div>
         </header>
         <main id="front-main">

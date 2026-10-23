@@ -62,11 +62,11 @@
 .front-brand .brand-name {
   font-size: 29px;
   font-weight: 700;
-  letter-spacing: -1.3px;
+  letter-spacing: 0;
 }
 .front-brand .brand-mark {
-  width: 34px;
-  height: 34px;
+  width: 28px;
+  height: 28px;
 }
 .front-nav {
   display: flex;
@@ -142,15 +142,22 @@
 }
 .front-hero {
   text-align: center;
-  padding: 76px 24px 47px;
+  padding: 64px 24px;
   animation: front-enter 650ms both;
 }
 .front-hero h1 {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   margin: 0;
-  font-size: clamp(48px, 7.8vw, 86px);
+  font-size: clamp(26px, 3vw, 36px);
   font-weight: 550;
-  line-height: 1.12;
+  line-height: 1.2;
   letter-spacing: -0.058em;
+}
+.front-title-intro {
+  font-size: 0.72em;
+  letter-spacing: -0.035em;
 }
 .front-hero h1 em {
   font-family: inherit;
@@ -171,7 +178,39 @@
   align-items: center;
   justify-content: center;
   gap: 32px;
-  margin-top: 30px;
+  margin-top: 32px;
+}
+.front-hero-actions .front-button-primary {
+  min-height: 52px;
+  padding: 0;
+  gap: 14px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--front-accent);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  box-shadow: none;
+}
+.front-hero-actions .front-button-primary > svg {
+  width: 18px;
+  height: 18px;
+}
+.front-hero-actions .front-button-primary > svg path {
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform 180ms ease;
+}
+.front-hero-actions .front-button-primary:is(:hover, :active) {
+  background: transparent;
+  box-shadow: none;
+  transform: none;
+}
+@media (hover: hover) and (pointer: fine) {
+  .front-hero-actions .front-button-primary:hover > svg path {
+    transform: rotate(-35deg);
+  }
 }
 .front-look {
   display: inline-flex;
@@ -549,13 +588,17 @@
   align-items: center;
   gap: 24px;
 }
+.front-footer .front-brand {
+  gap: 7px;
+  color: var(--front-muted);
+  filter: grayscale(1);
+}
 .front-footer .brand-name {
-  font-size: 22px;
-  letter-spacing: -0.8px;
+  font-size: 16px;
 }
 .front-footer .brand-mark {
-  width: 27px;
-  height: 27px;
+  width: 18px;
+  height: 18px;
 }
 .front-footer p {
   margin: 0;
@@ -668,12 +711,6 @@
     transform: translateY(0);
   }
 }
-@media (min-width: 1500px) {
-  .front-hero {
-    padding-top: 90px;
-    padding-bottom: 56px;
-  }
-}
 @media (max-width: 1250px) {
   .front-preview-section {
     margin-inline: 52px;
@@ -719,8 +756,8 @@
     font-size: 26px;
   }
   .front-brand .brand-mark {
-    width: 30px;
-    height: 30px;
+    width: 25px;
+    height: 25px;
   }
   .front-nav {
     display: none;
@@ -731,11 +768,11 @@
     min-height: 38px;
   }
   .front-hero {
-    padding: 64px 22px 43px;
+    padding: 48px 24px;
   }
   .front-hero h1 {
-    font-size: clamp(39px, 7.5vw, 56px);
-    line-height: 1.15;
+    font-size: clamp(24px, 4vw, 30px);
+    line-height: 1.2;
   }
   .front-hero-copy {
     margin-top: 24px;
@@ -748,7 +785,7 @@
   }
   .front-hero-actions {
     gap: 22px;
-    margin-top: 26px;
+    margin-top: 24px;
   }
   .front-button {
     min-height: 48px;
@@ -764,7 +801,7 @@
     font-size: 11px;
   }
   .front-preview-section {
-    margin-inline: 20px 28px;
+    margin-inline: 20px;
   }
   .front-preview-bar {
     padding: 14px 16px;
@@ -873,11 +910,11 @@
     padding: 25px 24px;
   }
   .front-footer .brand-name {
-    font-size: 21px;
+    font-size: 15px;
   }
   .front-footer .brand-mark {
-    width: 25px;
-    height: 25px;
+    width: 17px;
+    height: 17px;
   }
   .front-footer p {
     max-width: 150px;
@@ -893,7 +930,7 @@
     padding-inline: 14px;
   }
   .front-hero h1 {
-    font-size: 36px;
+    font-size: 24px;
   }
   .front-hero-actions {
     gap: 10px;
@@ -926,6 +963,10 @@
   .chisel-landing *::after {
     animation: none !important;
     transition: none !important;
+  }
+  .front-hero-actions .front-button-primary,
+  .front-hero-actions .front-button-primary > svg path {
+    transform: none !important;
   }
 }
 

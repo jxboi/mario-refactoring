@@ -51,7 +51,7 @@ function GitHubSignInDialog({ onClose }: { onClose: () => void }) {
           <LandingIcon name="close" />
         </button>
         <BrandLogo className="front-brand" showName={false} />
-        <h2 id="front-dialog-title">Start your journey.</h2>
+        <h2 id="front-dialog-title">Shape what’s next.</h2>
         <p id="front-dialog-description">
           Sign in with GitHub to open your Kanban workspace.
         </p>
@@ -114,15 +114,15 @@ export function SignInScreen() {
               className="front-button front-button-primary front-header-start"
               onClick={start}
             >
-              Start your journey
+              Shape what’s next
             </button>
           </div>
         </header>
         <main id="front-main">
           <section className="front-hero" aria-labelledby="front-title">
             <h1 id="front-title">
-              A little structure.
-              <br />A lot more <em>possibility.</em>
+              <span className="front-title-intro">A little structure.</span>
+              <span>A lot more <em>possibility.</em></span>
             </h1>
             <div className="front-hero-actions">
               <button
@@ -130,7 +130,7 @@ export function SignInScreen() {
                 className="front-button front-button-primary"
                 onClick={start}
               >
-                Start your journey
+                Shape what’s next
                 <LandingIcon name="arrow" />
               </button>
             </div>
@@ -179,7 +179,6 @@ export function SignInScreen() {
           >
             <BrandLogo className="front-brand" />
           </a>
-          <p>A little less noise. A little more done.</p>
         </footer>
       </div>
       {creating && (

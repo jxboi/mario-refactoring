@@ -1,55 +1,1603 @@
-import{useEffect,useMemo,useRef,useState}from"react";
-import{AutomationManager}from"./components/AutomationManager";import{Board}from"./components/Board";import{CategoryManager}from"./components/CategoryManager";import{CollaborationManager}from"./components/CollaborationManager";import{Drawer}from"./components/Drawer";import{Header}from"./components/Header";import{InvitationsManager}from"./components/InvitationsManager";import{SignInScreen}from"./components/SignIn";import{SkillsManager}from"./components/SkillsManager";import{ToastHost,useToasts}from"./components/Toast";import{WorkspaceImportModal}from"./components/WorkspaceImportModal";
-import{ShortcutsDialog}from"./components/ShortcutsDialog";
-import{Timeline}from"./components/Timeline";
-import{boardScope,guestSession,type Session,useAuth}from"./lib/auth";import{exportWorkspace}from"./lib/export";import{NEW_SKILL_BODY,type Skill}from"./lib/skills";import{activeProject,activeWorkspace,DEFAULT_WORKSPACE_NAME,newProject,newTask,useBoard}from"./lib/store";import type{NoteColor,Project,Task,TaskAssignee,TaskLayout}from"./types";import{PROJECT_CONFIG,TASK_CONFIG,uid}from"./types";
-import type{ActivityEvent}from"./lib/activity";
-import{prefetchActivity}from"./lib/activityCache";
-import{clearCollaborationCache,fetchProjectCollaboration,prefetchProjectCollaboration}from"./lib/collaborationApi";
-import{filterTasks,sortTasksByPriorityAndEffort}from"./lib/taskFilters";
-export interface Filters{query:string;categories:string[];listSort:"category"|"priority"|"effort"|"updated"|"status";categorySort:"desc"|"asc";prioritySort:"desc"|"asc";effortSort:"desc"|"asc";updatedSort:"desc"|"asc";statusSort:"desc"|"asc"}const EMPTY:Filters={query:"",categories:[],listSort:"priority",categorySort:"asc",prioritySort:"desc",effortSort:"asc",updatedSort:"desc",statusSort:"asc"};
-function taskDraftChanged(draft:Task,initial:Task){const comparable=(task:Task)=>({...task,title:task.title.trim(),description:task.description.trim(),updatedAt:0});return JSON.stringify(comparable(draft))!==JSON.stringify(comparable(initial))}
-export default function App(){const{session,loading,signIn,signOut}=useAuth();const[name,setName]=useState<string|null>(null);if(loading)return null;if(!session)return <SignInScreen onCreateWorkspace={n=>{setName(n);signIn(guestSession())}}/>;return <BoardApp session={session} onSignOut={signOut} initialName={name}/>}
-function BoardApp({session,onSignOut,initialName}:{session:Session;onSignOut:()=>void;initialName:string|null}){const selfAssignee=useMemo<TaskAssignee>(()=>({userId:session.kind==="github"?`github:${session.user.id}`:"guest:0",login:session.user.login,name:session.user.name,avatarUrl:session.user.avatarUrl}),[session.kind,session.user.id,session.user.login,session.user.name,session.user.avatarUrl]);const[assignees,setAssignees]=useState<TaskAssignee[]>([selfAssignee]);const{state,dispatch,sync}=useBoard(boardScope(session),session.kind==="github"?"session":null);const workspace=activeWorkspace(state),project=activeProject(state);const[view,setView]=useState<"work"|"timeline">("work"),[timelineRefreshing,setTimelineRefreshing]=useState(false);const[taskLayout,setTaskLayout]=useState<TaskLayout>(()=>{try{return localStorage.getItem("chisel.task-layout.v1")==="list"?"list":"board"}catch{return"board"}});const[filters,setFilters]=useState<Filters>(()=>({...EMPTY,categories:workspace.categories.map(category=>category.id)}));const[selectedTask,setSelectedTask]=useState<string|null>(null);const[taskOpenMode,setTaskOpenMode]=useState<"side"|"full">("side");const[selectedProject,setSelectedProject]=useState<string|null>(null);const[projectDraft,setProjectDraft]=useState<Project|null>(null);const[categoriesOpen,setCategoriesOpen]=useState(false);const[skillsOpen,setSkillsOpen]=useState(false);const[automationsOpen,setAutomationsOpen]=useState(false);const[collaborationOpen,setCollaborationOpen]=useState(false);const[invitationsOpen,setInvitationsOpen]=useState(false);const[workspaceFile,setWorkspaceFile]=useState<File|null>(null);const fileRef=useRef<HTMLInputElement>(null);const{toasts,pushToast,dismissToast}=useToasts();const initialized=useRef(false);if(initialName&&!initialized.current&&workspace.name===DEFAULT_WORKSPACE_NAME){initialized.current=true;dispatch({type:"workspace-rename",id:workspace.id,name:initialName})}
- const openTask=(id:string,mode:"side"|"full"="side")=>{setTaskOpenMode(mode);setSelectedTask(id)};
- const tasks=project?.tasks??[];const filtered=useMemo(()=>sortTasksByPriorityAndEffort(filterTasks(tasks,filters),filters.prioritySort,filters.effortSort),[tasks,filters]);const task=tasks.find(t=>t.id===selectedTask)??null;const detailProject=workspace.projects.find(p=>p.id===selectedProject)??null;const[taskDraft,setTaskDraft]=useState<ReturnType<typeof newTask>|null>(null);const[initialTaskDraft,setInitialTaskDraft]=useState<ReturnType<typeof newTask>|null>(null);const[taskDraftProjectId,setTaskDraftProjectId]=useState<string|null>(null);const taskDraftProject=workspace.projects.find(p=>p.id===taskDraftProjectId)??null,assigneeProject=project??taskDraftProject;const[discardTaskOpen,setDiscardTaskOpen]=useState(false);const[shortcutsOpen,setShortcutsOpen]=useState(false);const clearTaskDraft=()=>{setTaskDraft(null);setInitialTaskDraft(null);setTaskDraftProjectId(null)};const createTaskForProject=(projectId:string,stage:ReturnType<typeof newTask>["stage"]="queued",stayInWorkspace=false)=>{if(!stayInWorkspace&&project?.id!==projectId)dispatch({type:"project-select",id:projectId});const draft=newTask(stage);setView("work");setSelectedProject(null);setSelectedTask(null);setTaskDraftProjectId(projectId);setInitialTaskDraft(draft);setTaskDraft(draft)};const createTask=(stage:ReturnType<typeof newTask>["stage"]="queued")=>{if(project)createTaskForProject(project.id,stage)};const closeTaskDraft=()=>{if(!taskDraft)return;if(initialTaskDraft&&taskDraftChanged(taskDraft,initialTaskDraft)){setDiscardTaskOpen(true);return}clearTaskDraft()};const defaultFilters=():Filters=>({...EMPTY,categories:workspace.categories.map(category=>category.id)});const reset=()=>{dispatch({type:"project-select",id:null});setView("work");setSelectedTask(null);setSelectedProject(null);setProjectDraft(null);setFilters(defaultFilters())};const openProject=(id:string)=>{if(!workspace.projects.some(p=>p.id===id))return;setView("work");setTaskLayout("board");setSelectedTask(null);setSelectedProject(null);setProjectDraft(null);setFilters(defaultFilters());dispatch({type:"project-select",id})};const openTimelineEntity=(item:ActivityEvent)=>{let entityType=item.parentEntityType??item.entityType,entityId=item.parentEntityId??item.entityId,entityProjectId=item.projectId;if(item.entityType==="note"&&!item.parentEntityType){const parentProject=workspace.projects.find(candidate=>candidate.notes.some(note=>note.id===item.entityId)||candidate.tasks.some(candidateTask=>candidateTask.notes.some(note=>note.id===item.entityId)));const parentTask=parentProject?.tasks.find(candidateTask=>candidateTask.notes.some(note=>note.id===item.entityId));if(parentTask){entityType="task";entityId=parentTask.id;entityProjectId=parentProject?.id??entityProjectId}else if(parentProject){entityType="project";entityId=parentProject.id;entityProjectId=parentProject.id}}if(entityType==="project"){if(workspace.projects.some(candidate=>candidate.id===entityId))setSelectedProject(entityId);return}if(entityType==="task"&&entityProjectId){const parentProject=workspace.projects.find(candidate=>candidate.id===entityProjectId&&candidate.tasks.some(candidateTask=>candidateTask.id===entityId));if(!parentProject)return;if(project?.id!==entityProjectId)dispatch({type:"project-select",id:entityProjectId});setSelectedTask(entityId)}};const noteAction=(type:any,entity:"project"|"task",projectId:string,taskId?:string,noteId?:string,text?:string)=>dispatch({type,entity,projectId,taskId,noteId,text} as any);const noteColor=(entity:"project"|"task",projectId:string,taskId:string|undefined,noteId:string,color:NoteColor)=>dispatch({type:"note-color",entity,projectId,taskId,noteId,color});
- useEffect(()=>{try{localStorage.setItem("chisel.task-layout.v1",taskLayout)}catch{}},[taskLayout]);
- useEffect(()=>{const projectId=detailProject?.id??project?.id;if(!projectId||taskDraft)return;const onKeyDown=(e:KeyboardEvent)=>{const target=e.target as HTMLElement|null;const isEditing=target?.isContentEditable||target?.tagName==="INPUT"||target?.tagName==="TEXTAREA"||target?.tagName==="SELECT";if(e.key.toLowerCase()!=="c"||e.metaKey||e.ctrlKey||e.altKey||e.shiftKey||e.repeat||isEditing)return;e.preventDefault();createTaskForProject(projectId)};window.addEventListener("keydown",onKeyDown);return()=>window.removeEventListener("keydown",onKeyDown)},[project?.id,detailProject?.id,!!taskDraft]);
- useEffect(()=>{void prefetchActivity({mode:session.kind==="guest"?"guest":"signed",userKey:String(session.user.id),workspaceId:workspace.id,projectId:project?.id,revision:sync.updatedAt})},[session.kind,session.user.id,workspace.id,project?.id,sync.updatedAt]);
- useEffect(()=>{if(session.kind==="github"&&assigneeProject)void prefetchProjectCollaboration(assigneeProject.id).catch(()=>undefined)},[session.kind,assigneeProject?.id]);
- useEffect(()=>{let current=true;setAssignees([selfAssignee]);if(session.kind==="github"&&assigneeProject)void fetchProjectCollaboration(assigneeProject.id).then(data=>{if(current)setAssignees(data.members.map(({userId,login,name,avatarUrl})=>({userId,login,name,avatarUrl})))}).catch(()=>undefined);return()=>{current=false}},[session.kind,assigneeProject?.id,selfAssignee]);
- const createSkill=()=>{const now=Date.now(),skill:Skill={id:uid(),name:"Untitled skill",description:"",body:NEW_SKILL_BODY,createdAt:now,updatedAt:now};dispatch({type:"skill-create",skill});return skill};const categoryCounts=Object.fromEntries(workspace.categories.map(c=>[c.id,workspace.projects.reduce((sum,p)=>sum+p.tasks.filter(t=>t.category===c.id).length,0)]));
- return <div className="app"><input ref={fileRef} hidden type="file" accept=".json" onChange={e=>{const f=e.target.files?.[0];if(f)setWorkspaceFile(f)}}/><Header items={tasks} categories={workspace.categories} project={project} view={view} timelineRefreshing={timelineRefreshing} taskLayout={taskLayout} workspaces={state.workspaces} activeWorkspaceId={state.activeWorkspaceId} filters={filters} onFilters={setFilters} onView={setView} onTaskLayout={setTaskLayout} onManageCategories={()=>workspace.collaboration?pushToast("Categories are managed by the project owner.","info"):setCategoriesOpen(true)} onManageSkills={()=>workspace.collaboration?pushToast("Shared projects do not include workspace skills.","info"):setSkillsOpen(true)} onManageAutomations={()=>workspace.collaboration?pushToast("Automations are managed by the project owner.","info"):setAutomationsOpen(true)} onManageCollaboration={()=>setCollaborationOpen(true)} onManageInvitations={()=>setInvitationsOpen(true)} onShowShortcuts={()=>setShortcutsOpen(true)} onHome={reset} user={session.user} isGuest={session.kind==="guest"} sync={sync} onSignOut={()=>{clearCollaborationCache();onSignOut()}} onWorkspaceSwitch={id=>{dispatch({type:"workspace-switch",id});reset()}} onWorkspaceCreate={name=>dispatch({type:"workspace-create",name})} onWorkspaceRename={(id,name)=>{if(!state.workspaces.find(item=>item.id===id)?.collaboration)dispatch({type:"workspace-rename",id,name})}} onWorkspaceDelete={id=>{if(!state.workspaces.find(item=>item.id===id)?.collaboration)dispatch({type:"workspace-delete",id})}} onProjectRename={name=>{if(project)dispatch({type:"project-update",id:project.id,patch:{title:name}})}}/>
- {view==="timeline"?<Timeline workspaceId={workspace.id} projects={workspace.projects} projectId={project?.id} isGuest={session.kind==="guest"} user={session.user} syncKey={sync.updatedAt} onOpen={openTimelineEntity} onRefreshingChange={setTimelineRefreshing}/>:project?<Board items={filtered} categories={workspace.categories} config={TASK_CONFIG} layout={taskLayout} listSort={filters.listSort} categorySort={filters.categorySort} prioritySort={filters.prioritySort} effortSort={filters.effortSort} updatedSort={filters.updatedSort} statusSort={filters.statusSort} onCategorySort={()=>setFilters({...filters,listSort:"category",categorySort:filters.categorySort==="desc"?"asc":"desc"})} onPrioritySort={()=>setFilters({...filters,listSort:"priority",prioritySort:filters.prioritySort==="desc"?"asc":"desc"})} onEffortSort={()=>setFilters({...filters,listSort:"effort",effortSort:filters.effortSort==="desc"?"asc":"desc"})} onUpdatedSort={()=>setFilters({...filters,listSort:"updated",updatedSort:filters.updatedSort==="desc"?"asc":"desc"})} onStatusSort={()=>setFilters({...filters,listSort:"status",statusSort:filters.statusSort==="desc"?"asc":"desc"})} onMove={(id,stage,beforeId)=>dispatch({type:"task-move",projectId:project.id,id,stage,beforeId})} onSelect={id=>openTask(id)} onOpen={openTask} onDuplicate={id=>{const duplicateId=uid();dispatch({type:"task-duplicate",projectId:project.id,id,duplicateId});pushToast("Task duplicated","success")}} onToggleFavourite={(id,favourite)=>{dispatch({type:"task-update",projectId:project.id,id,patch:{favourite}});pushToast(favourite?"Added to Favourites":"Removed from Favourites","success")}} moveTargets={workspace.projects.filter(candidate=>candidate.id!==project.id).map(candidate=>({id:candidate.id,title:candidate.title}))} onMoveToProject={(id,targetProjectId)=>{const target=workspace.projects.find(candidate=>candidate.id===targetProjectId);dispatch({type:"task-move-project",projectId:project.id,targetProjectId,id});setSelectedTask(null);pushToast(`Task moved to ${target?.title||"another project"}`,"success")}} onMoveToTrash={id=>{dispatch({type:"task-delete",projectId:project.id,id});setSelectedTask(null);pushToast("Task moved to Trash","info")}} onAddItem={createTask}/>:projectDraft?<ProjectSetup draft={projectDraft} onChange={patch=>setProjectDraft(current=>current?{...current,...patch,updatedAt:Date.now()}:current)} onCancel={()=>setProjectDraft(null)} onCreate={()=>{dispatch({type:"project-create",project:projectDraft});setProjectDraft(null);setTaskLayout("board");dispatch({type:"project-select",id:projectDraft.id});pushToast(`Project “${projectDraft.title}” created`,"success")}}/>:<ProjectOverview projects={workspace.projects} shared={!!workspace.collaboration} onOpen={openProject} onDelete={id=>{dispatch({type:"project-delete",id});pushToast("Project and its tasks deleted","info")}} onMove={(id,beforeId)=>dispatch({type:"project-move",id,beforeId})} onCreate={()=>setProjectDraft(newProject())} onImport={()=>fileRef.current?.click()} onExport={()=>exportWorkspace(workspace)}/>}
- {detailProject&&<Drawer item={detailProject} config={PROJECT_CONFIG} taskCount={detailProject.tasks.length} deletable={detailProject.collaboration?.role!=="editor"} onCreateTask={()=>createTaskForProject(detailProject.id)} onClose={()=>setSelectedProject(null)} onUpdate={patch=>dispatch({type:"project-update",id:detailProject.id,patch})} onAddNote={text=>noteAction("note-add","project",detailProject.id,undefined,undefined,text)} onDeleteNote={id=>noteAction("note-delete","project",detailProject.id,undefined,id)} onEditNote={(id,text)=>noteAction("note-edit","project",detailProject.id,undefined,id,text)} onColorNote={(id,color)=>noteColor("project",detailProject.id,undefined,id,color)} onDelete={()=>{dispatch({type:"project-delete",id:detailProject.id});setSelectedProject(null);pushToast("Project and its tasks deleted","info")}}/>}
- {taskDraft&&taskDraftProject&&<Drawer item={taskDraft} creating categories={workspace.categories} categoryGroups={workspace.categoryGroups} assignees={assignees} config={TASK_CONFIG} onClose={closeTaskDraft} onUpdate={patch=>setTaskDraft(current=>current?{...current,...patch,updatedAt:Date.now()}:current)} onCreate={()=>{dispatch({type:"task-add",projectId:taskDraftProject.id,task:taskDraft});clearTaskDraft();if(project?.id===taskDraftProject.id)openTask(taskDraft.id);pushToast(`Task “${taskDraft.title}” created`,"success")}} onAddNote={()=>{}} onDeleteNote={()=>{}} onEditNote={()=>{}} onColorNote={()=>{}} onDelete={closeTaskDraft}/>}
- {discardTaskOpen&&<UnsavedTaskDialog taskTitle={taskDraft?.title??""} onKeep={()=>setDiscardTaskOpen(false)} onDiscard={()=>{setDiscardTaskOpen(false);clearTaskDraft()}}/>}
- {shortcutsOpen&&<ShortcutsDialog onClose={()=>setShortcutsOpen(false)}/>}
- {task&&project&&<Drawer item={task} categories={workspace.categories} categoryGroups={workspace.categoryGroups} assignees={assignees} config={TASK_CONFIG} deletable={false} mode={taskOpenMode} onClose={()=>{setSelectedTask(null);setTaskOpenMode("side")}} onUpdate={patch=>dispatch({type:"task-update",projectId:project.id,id:task.id,patch})} onAddNote={text=>noteAction("note-add","task",project.id,task.id,undefined,text)} onDeleteNote={id=>noteAction("note-delete","task",project.id,task.id,id)} onEditNote={(id,text)=>noteAction("note-edit","task",project.id,task.id,id,text)} onColorNote={(id,color)=>noteColor("task",project.id,task.id,id,color)} onDelete={()=>{}}/>}
- {workspaceFile&&<WorkspaceImportModal file={workspaceFile} onClose={()=>setWorkspaceFile(null)} onImport={w=>{dispatch({type:"workspace-import",workspace:w});setWorkspaceFile(null)}}/>}
- {categoriesOpen&&<CategoryManager categories={workspace.categories} groups={workspace.categoryGroups} counts={categoryCounts} onAdd={(label,groupId)=>dispatch({type:"category-add",label,groupId})} onRename={(id,label)=>dispatch({type:"category-rename",id,label})} onSetGlyph={(id,glyph)=>dispatch({type:"category-set-glyph",id,glyph})} onDelete={id=>dispatch({type:"category-delete",id})} onMove={(id,groupId)=>dispatch({type:"category-move",id,groupId})} onReorder={(id,direction)=>dispatch({type:"category-reorder",id,direction})} onGroupAdd={label=>dispatch({type:"category-group-add",label})} onGroupRename={(id,label)=>dispatch({type:"category-group-rename",id,label})} onGroupDelete={id=>dispatch({type:"category-group-delete",id})} onGroupReorder={(id,direction)=>dispatch({type:"category-group-reorder",id,direction})} onClose={()=>setCategoriesOpen(false)}/>} {skillsOpen&&<SkillsManager skills={workspace.skills} categories={project?workspace.categories:[]} config={project?TASK_CONFIG:PROJECT_CONFIG} onCreate={createSkill} onUpdate={(id,patch)=>dispatch({type:"skill-update",id,patch})} onDelete={id=>dispatch({type:"skill-delete",id})} onClose={()=>setSkillsOpen(false)}/>} {automationsOpen&&<AutomationManager workspaceId={workspace.id} projects={workspace.projects} isGuest={session.kind==="guest"} onClose={()=>setAutomationsOpen(false)}/>} {collaborationOpen&&project&&<CollaborationManager workspace={workspace} project={project} user={session.user} isGuest={session.kind==="guest"} onClose={()=>setCollaborationOpen(false)}/>} {invitationsOpen&&session.kind==="github"&&<InvitationsManager onClose={()=>setInvitationsOpen(false)}/>}<ToastHost toasts={toasts} onDismiss={dismissToast}/></div>}
-function UnsavedTaskDialog({taskTitle,onKeep,onDiscard}:{taskTitle:string;onKeep:()=>void;onDiscard:()=>void}){
- const dialogRef=useRef<HTMLElement>(null);const keepRef=useRef<HTMLButtonElement>(null);useEffect(()=>keepRef.current?.focus(),[]);const onKeyDown=(e:React.KeyboardEvent)=>{if(e.key==="Escape"){e.preventDefault();onKeep();return}if(e.key!=="Tab")return;const controls=Array.from(dialogRef.current?.querySelectorAll<HTMLElement>("button")??[]);if(!controls.length)return;const first=controls[0],last=controls[controls.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus()}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus()}};const namedTask=taskTitle.trim();
- return <div className="modal-veil unsaved-task-veil" onMouseDown={e=>e.target===e.currentTarget&&onKeep()}><section ref={dialogRef} className="modal unsaved-task-dialog" role="alertdialog" aria-modal="true" aria-labelledby="unsaved-task-title" aria-describedby="unsaved-task-description" onKeyDown={onKeyDown}><h2 id="unsaved-task-title">Task not created</h2><p id="unsaved-task-description">{namedTask?<>“<strong>{namedTask}</strong>” hasn’t been created yet.</>:"This task hasn’t been created yet."} Discard the draft?</p><div className="unsaved-task-actions"><button ref={keepRef} className="btn btn-ghost" onClick={onKeep}>Keep editing</button><button className="btn btn-danger" onClick={onDiscard}>Discard draft</button></div></section></div>
+import { useEffect, useMemo, useRef, useState } from "react";
+import { AutomationManager } from "./components/AutomationManager";
+import { Board } from "./components/Board";
+import { CategoryManager } from "./components/CategoryManager";
+import { CollaborationManager } from "./components/CollaborationManager";
+import { Drawer } from "./components/Drawer";
+import { Header } from "./components/Header";
+import { InvitationsManager } from "./components/InvitationsManager";
+import { ProjectImportModal } from "./components/ProjectImportModal";
+import { SignInScreen } from "./components/SignIn";
+import { SkillsManager } from "./components/SkillsManager";
+import { ToastHost, useToasts } from "./components/Toast";
+import { WorkspaceImportModal } from "./components/WorkspaceImportModal";
+import { ShortcutsDialog } from "./components/ShortcutsDialog";
+import { Timeline } from "./components/Timeline";
+import {
+  boardScope,
+  githubConfigured,
+  type Session,
+  useAuth,
+} from "./lib/auth";
+import {
+  categoriesForProjectImport,
+  exportProject,
+  exportWorkspace,
+} from "./lib/export";
+import { NEW_SKILL_BODY, type Skill } from "./lib/skills";
+import { summariseProject } from "./lib/projectSummaryApi";
+import {
+  activeProject,
+  activeWorkspace,
+  newProject,
+  newTask,
+  useBoard,
+} from "./lib/store";
+import type {
+  NoteColor,
+  Project,
+  Task,
+  TaskAssignee,
+  TaskLayout,
+} from "./types";
+import { PROJECT_CONFIG, TASK_CONFIG, uid } from "./types";
+import type { ActivityEvent } from "./lib/activity";
+import { prefetchActivity } from "./lib/activityCache";
+import {
+  clearCollaborationCache,
+  fetchProjectCollaboration,
+  prefetchProjectCollaboration,
+} from "./lib/collaborationApi";
+import { filterTasks, sortTasksByPriorityAndEffort } from "./lib/taskFilters";
+export interface Filters {
+  query: string;
+  categories: string[];
+  listSort: "category" | "priority" | "effort" | "updated" | "status";
+  categorySort: "desc" | "asc";
+  prioritySort: "desc" | "asc";
+  effortSort: "desc" | "asc";
+  updatedSort: "desc" | "asc";
+  statusSort: "desc" | "asc";
 }
-function ProjectSetup({draft,onChange,onCancel,onCreate}:{draft:Project;onChange:(patch:Partial<Project>)=>void;onCancel:()=>void;onCreate:()=>void}){
- const[tags,setTags]=useState("");const titleRef=useRef<HTMLInputElement>(null);useEffect(()=>titleRef.current?.focus(),[]);const submit=(e:React.FormEvent)=>{e.preventDefault();if(draft.title.trim())onCreate()};
- return <main className="board-empty"><section className="project-setup front-page"><div className="front-copy"><span className="front-kicker">New project</span><h1>What are you setting out to achieve?</h1><p className="front-lede">Give the work a clear outcome now. You can break it into tasks once the project is created.</p><div className="project-setup-notes"><span>1</span><p><strong>Name the outcome</strong>Keep it recognizable at a glance.</p><span>2</span><p><strong>Add useful context</strong>Capture why this work matters.</p><span>3</span><p><strong>Shape it later</strong>Priorities and tasks can change as you learn.</p></div></div><form className="project-setup-card" onSubmit={submit}><div className="project-setup-head"><span>Project details</span><small>Start with the essentials</small></div><label className="field"><span className="field-label">Project name</span><input ref={titleRef} className="input project-setup-title" value={draft.title} onChange={e=>onChange({title:e.target.value})} placeholder="e.g. Improve customer onboarding" autoComplete="off"/></label><label className="field"><span className="field-label">Description</span><textarea className="input project-setup-description" rows={4} value={draft.description} onChange={e=>onChange({description:e.target.value})} placeholder={PROJECT_CONFIG.descriptionPlaceholder}/></label><label className="field"><span className="field-label">Tags <em>optional</em></span><input className="input" value={tags} onChange={e=>{setTags(e.target.value);onChange({tags:e.target.value.split(",").map(tag=>tag.trim().replace(/\s+/g,"-")).filter(Boolean)})}} placeholder="growth, onboarding, q3"/></label><div className="project-setup-actions"><button type="button" className="btn btn-ghost" onClick={onCancel}>Back to workspace</button><button className="btn btn-primary" disabled={!draft.title.trim()}>Create Project <span aria-hidden="true">→</span></button></div></form></section></main>
+const EMPTY: Filters = {
+  query: "",
+  categories: [],
+  listSort: "priority",
+  categorySort: "asc",
+  prioritySort: "desc",
+  effortSort: "asc",
+  updatedSort: "desc",
+  statusSort: "asc",
+};
+function taskDraftChanged(draft: Task, initial: Task) {
+  const comparable = (task: Task) => ({
+    ...task,
+    title: task.title.trim(),
+    description: task.description.trim(),
+    updatedAt: 0,
+  });
+  return (
+    JSON.stringify(comparable(draft)) !== JSON.stringify(comparable(initial))
+  );
 }
-function ProjectOverview({projects,shared,onOpen,onDelete,onMove,onCreate,onImport,onExport}:{projects:Project[];shared:boolean;onOpen:(id:string)=>void;onDelete:(id:string)=>void;onMove:(id:string,beforeId?:string)=>void;onCreate:()=>void;onImport:()=>void;onExport:()=>void}){
- const[transferOpen,setTransferOpen]=useState(false);const transferRef=useRef<HTMLDivElement>(null);const dragIdRef=useRef<string|null>(null);const[dragId,setDragId]=useState<string|null>(null);const[dropTarget,setDropTarget]=useState<{cardId:string;beforeId?:string;edge:"before"|"after"}|null>(null);const[cardMenu,setCardMenu]=useState<{projectId:string;x:number;y:number;confirmDelete:boolean}|null>(null);const cardMenuRef=useRef<HTMLDivElement>(null);
- const projectDropTarget=(targetId:string,e:React.DragEvent<HTMLElement>)=>{const movingId=dragIdRef.current;if(!movingId)return null;const remaining=projects.filter(p=>p.id!==movingId),at=remaining.findIndex(p=>p.id===targetId);if(at<0)return null;const rect=e.currentTarget.getBoundingClientRect(),grid=e.currentTarget.parentElement,columns=grid?getComputedStyle(grid).gridTemplateColumns.split(" ").length:1,after=columns===1?e.clientY>rect.top+rect.height/2:e.clientX>rect.left+rect.width/2;return{cardId:targetId,beforeId:after?remaining[at+1]?.id:targetId,edge:after?"after" as const:"before" as const}};
- useEffect(()=>{if(!transferOpen)return;const close=(e:MouseEvent)=>{if(!transferRef.current?.contains(e.target as Node))setTransferOpen(false)};const escape=(e:KeyboardEvent)=>{if(e.key==="Escape")setTransferOpen(false)};window.addEventListener("mousedown",close);window.addEventListener("keydown",escape);return()=>{window.removeEventListener("mousedown",close);window.removeEventListener("keydown",escape)}},[transferOpen]);
- useEffect(()=>{if(!cardMenu)return;const close=(e:MouseEvent)=>{if(!cardMenuRef.current?.contains(e.target as Node))setCardMenu(null)};const dismiss=()=>setCardMenu(null);const escape=(e:KeyboardEvent)=>{if(e.key==="Escape")dismiss()};window.addEventListener("mousedown",close);window.addEventListener("scroll",dismiss,true);window.addEventListener("keydown",escape);return()=>{window.removeEventListener("mousedown",close);window.removeEventListener("scroll",dismiss,true);window.removeEventListener("keydown",escape)}},[cardMenu]);
- return <main className="board-empty"><section className="front-page project-overview-page"><div className="front-copy">
-  <div className="workspace-kicker-row"><span className="front-kicker">{shared?"Shared project":"Workspace"}</span>{!shared&&<div className="workspace-transfer" ref={transferRef}><button className={`workspace-transfer-trigger${transferOpen?" open":""}`} onClick={()=>setTransferOpen(open=>!open)} aria-label="Workspace options" aria-haspopup="menu" aria-expanded={transferOpen}><span aria-hidden="true">⋮</span></button>{transferOpen&&<div className="workspace-transfer-menu" role="menu"><button role="menuitem" onClick={()=>{setTransferOpen(false);onImport()}}><span aria-hidden="true">⇡</span><span><strong>Import workspace</strong><small>Load a workspace JSON file</small></span></button><button role="menuitem" onClick={()=>{setTransferOpen(false);onExport()}}><span aria-hidden="true">⇣</span><span><strong>Export workspace</strong><small>Download a complete backup</small></span></button></div>}</div>}</div>
-  {shared&&<h1>A project shared with you</h1>}<p className="front-lede">{shared?"Open the project’s Kanban board to collaborate.":"Choose a project to open its Kanban board, or create a new one."}</p>
-  {!shared&&<div className="front-actions"><button className="btn btn-primary" onClick={onCreate}>+ New Project</button></div>}
-  <div className="project-overview-grid">{projects.map(p=>{const done=p.tasks.filter(t=>t.stage==="deployed").length,pct=p.tasks.length?done/p.tasks.length*100:0,target=dropTarget?.cardId===p.id?` drop-${dropTarget.edge}`:"";return <article className={`front-value project-overview-card${dragId===p.id?" dragging":""}${target}`} key={p.id} role="button" aria-label={`Open the Kanban board for ${p.title||"Untitled project"}. Drag to reorder.`} onClick={()=>onOpen(p.id)} tabIndex={0} draggable={projects.length>1} onDragStart={e=>{if((e.target as HTMLElement).closest("button")){e.preventDefault();return}e.dataTransfer.setData("application/x-chisel-project",p.id);e.dataTransfer.effectAllowed="move";dragIdRef.current=p.id;setDragId(p.id)}} onDragOver={e=>{if(!dragIdRef.current)return;e.preventDefault();e.dataTransfer.dropEffect="move";setDropTarget(projectDropTarget(p.id,e))}} onDrop={e=>{const movingId=dragIdRef.current;if(!movingId)return;e.preventDefault();const target=projectDropTarget(p.id,e);if(target)onMove(movingId,target.beforeId);dragIdRef.current=null;setDragId(null);setDropTarget(null)}} onDragEnd={()=>{dragIdRef.current=null;setDragId(null);setDropTarget(null)}} onKeyDown={e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();onOpen(p.id)}}}>
-   <button className={`icon-btn project-card-menu${cardMenu?.projectId===p.id?" open":""}`} draggable={false} onClick={e=>{e.stopPropagation();const rect=e.currentTarget.getBoundingClientRect();setCardMenu(current=>current?.projectId===p.id?null:{projectId:p.id,x:Math.max(8,Math.min(rect.right-170,window.innerWidth-178)),y:Math.max(8,Math.min(rect.bottom+6,window.innerHeight-92)),confirmDelete:false})}} aria-label={`Options for ${p.title||"project"}`} aria-haspopup="menu" aria-expanded={cardMenu?.projectId===p.id}>⋯</button>
-   <div className="project-card-copy"><h2>{p.title||"Untitled project"}</h2><p>{p.description||"No outcome added yet."}</p></div>
-   {p.tags.length>0&&<div className="project-card-tags" aria-label="Project tags">{p.tags.slice(0,3).map(tag=><span key={tag}>{tag}</span>)}{p.tags.length>3&&<span>+{p.tags.length-3}</span>}</div>}
-   <div className="project-card-footer"><div className="project-card-progress" aria-hidden="true"><span style={{width:`${pct}%`}}/></div><span className="project-card-count" aria-label={`${done} of ${p.tasks.length} tasks done`}>{done}/{p.tasks.length}</span></div>
-  </article>})}</div>{cardMenu&&<div ref={cardMenuRef} className="project-context-menu project-action-menu" role="menu" style={{left:cardMenu.x,top:cardMenu.y}}>{cardMenu.confirmDelete?<div className="project-delete-confirm"><span>Delete this project?</span><div><button type="button" className="danger" onClick={()=>{onDelete(cardMenu.projectId);setCardMenu(null)}}>Delete</button><button type="button" onClick={()=>setCardMenu({...cardMenu,confirmDelete:false})}>Cancel</button></div></div>:<button type="button" className="danger" role="menuitem" onClick={()=>setCardMenu({...cardMenu,confirmDelete:true})}><span aria-hidden="true">×</span> Delete project</button>}</div>}
- </div></section></main>
+export default function App() {
+  const { session, loading, signOut } = useAuth();
+  if (loading) return <main className="app-loading" role="status"><span className="loading-indicator" aria-hidden="true" />Opening your workspace…</main>;
+  if (session?.kind !== "github") return <SignInScreen />;
+  return <BoardApp session={session} onSignOut={signOut} />;
+}
+
+function BoardApp({
+  session,
+  onSignOut,
+}: {
+  session: Session;
+  onSignOut: () => void;
+}) {
+  const selfAssignee = useMemo<TaskAssignee>(
+    () => ({
+      userId:
+        session.kind === "github" ? `github:${session.user.id}` : "guest:0",
+      login: session.user.login,
+      name: session.user.name,
+      avatarUrl: session.user.avatarUrl,
+    }),
+    [
+      session.kind,
+      session.user.id,
+      session.user.login,
+      session.user.name,
+      session.user.avatarUrl,
+    ],
+  );
+  const [assignees, setAssignees] = useState<TaskAssignee[]>([selfAssignee]);
+  const { state, dispatch, sync } = useBoard(
+    boardScope(session),
+    session.kind === "github" ? "session" : null,
+  );
+  const workspace = activeWorkspace(state),
+    project = activeProject(state);
+  const [view, setView] = useState<"work" | "timeline">("work"),
+    [timelineRefreshing, setTimelineRefreshing] = useState(false);
+  const [taskLayout, setTaskLayout] = useState<TaskLayout>("board");
+  const [filters, setFilters] = useState<Filters>(() => ({
+    ...EMPTY,
+    categories: workspace.categories.map((category) => category.id),
+  }));
+  const [selectedTask, setSelectedTask] = useState<string | null>(null);
+  const [taskOpenMode, setTaskOpenMode] = useState<"side" | "full">("side");
+  const [selectedProject, setSelectedProject] = useState<string | null>(null);
+  const [projectDraft, setProjectDraft] = useState<Project | null>(null);
+  const [categoriesOpen, setCategoriesOpen] = useState(false);
+  const [skillsOpen, setSkillsOpen] = useState(false);
+  const [automationsOpen, setAutomationsOpen] = useState(false);
+  const [collaborationOpen, setCollaborationOpen] = useState(false);
+  const [invitationsOpen, setInvitationsOpen] = useState(false);
+  const [workspaceFile, setWorkspaceFile] = useState<File | null>(null);
+  const [projectImportOpen, setProjectImportOpen] = useState(false);
+  const [summarisingProjectId, setSummarisingProjectId] = useState<
+    string | null
+  >(null);
+  const [aiSignInOpen, setAiSignInOpen] = useState(false);
+  const workspaceFileRef = useRef<HTMLInputElement>(null);
+  const { toasts, pushToast, dismissToast } = useToasts();
+  const openTask = (id: string, mode: "side" | "full" = "side") => {
+    setTaskOpenMode(mode);
+    setSelectedTask(id);
+  };
+  const tasks = project?.tasks ?? [];
+  const filtered = useMemo(
+    () =>
+      sortTasksByPriorityAndEffort(
+        filterTasks(tasks, filters),
+        filters.prioritySort,
+        filters.effortSort,
+      ),
+    [tasks, filters],
+  );
+  const task = tasks.find((t) => t.id === selectedTask) ?? null;
+  const detailProject =
+    workspace.projects.find((p) => p.id === selectedProject) ?? null;
+  const [taskDraft, setTaskDraft] = useState<ReturnType<typeof newTask> | null>(
+    null,
+  );
+  const [initialTaskDraft, setInitialTaskDraft] = useState<ReturnType<
+    typeof newTask
+  > | null>(null);
+  const [taskDraftProjectId, setTaskDraftProjectId] = useState<string | null>(
+    null,
+  );
+  const taskDraftProject =
+      workspace.projects.find((p) => p.id === taskDraftProjectId) ?? null,
+    assigneeProject = project ?? taskDraftProject;
+  const [discardTaskOpen, setDiscardTaskOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const clearTaskDraft = () => {
+    setTaskDraft(null);
+    setInitialTaskDraft(null);
+    setTaskDraftProjectId(null);
+  };
+  const createTaskForProject = (
+    projectId: string,
+    stage: ReturnType<typeof newTask>["stage"] = "to-do",
+    stayInWorkspace = false,
+  ) => {
+    if (!stayInWorkspace && project?.id !== projectId)
+      dispatch({ type: "project-select", id: projectId });
+    const draft = newTask(stage);
+    setView("work");
+    setSelectedProject(null);
+    setSelectedTask(null);
+    setTaskDraftProjectId(projectId);
+    setInitialTaskDraft(draft);
+    setTaskDraft(draft);
+  };
+  const createTask = (stage: ReturnType<typeof newTask>["stage"] = "to-do") => {
+    if (project) createTaskForProject(project.id, stage);
+  };
+  const closeTaskDraft = () => {
+    if (!taskDraft) return;
+    if (initialTaskDraft && taskDraftChanged(taskDraft, initialTaskDraft)) {
+      setDiscardTaskOpen(true);
+      return;
+    }
+    clearTaskDraft();
+  };
+  const defaultFilters = (): Filters => ({
+    ...EMPTY,
+    categories: workspace.categories.map((category) => category.id),
+  });
+  const reset = () => {
+    dispatch({ type: "project-select", id: null });
+    setView("work");
+    setSelectedTask(null);
+    setSelectedProject(null);
+    setProjectDraft(null);
+    setFilters(defaultFilters());
+  };
+  const openProject = (id: string) => {
+    if (!workspace.projects.some((p) => p.id === id)) return;
+    setView("work");
+    setTaskLayout("board");
+    setSelectedTask(null);
+    setSelectedProject(null);
+    setProjectDraft(null);
+    setFilters(defaultFilters());
+    dispatch({ type: "project-select", id });
+  };
+  const openTimelineEntity = (item: ActivityEvent) => {
+    let entityType = item.parentEntityType ?? item.entityType,
+      entityId = item.parentEntityId ?? item.entityId,
+      entityProjectId = item.projectId;
+    if (item.entityType === "note" && !item.parentEntityType) {
+      const parentProject = workspace.projects.find(
+        (candidate) =>
+          candidate.notes.some((note) => note.id === item.entityId) ||
+          candidate.tasks.some((candidateTask) =>
+            candidateTask.notes.some((note) => note.id === item.entityId),
+          ),
+      );
+      const parentTask = parentProject?.tasks.find((candidateTask) =>
+        candidateTask.notes.some((note) => note.id === item.entityId),
+      );
+      if (parentTask) {
+        entityType = "task";
+        entityId = parentTask.id;
+        entityProjectId = parentProject?.id ?? entityProjectId;
+      } else if (parentProject) {
+        entityType = "project";
+        entityId = parentProject.id;
+        entityProjectId = parentProject.id;
+      }
+    }
+    if (entityType === "project") {
+      if (workspace.projects.some((candidate) => candidate.id === entityId))
+        setSelectedProject(entityId);
+      return;
+    }
+    if (entityType === "task" && entityProjectId) {
+      const parentProject = workspace.projects.find(
+        (candidate) =>
+          candidate.id === entityProjectId &&
+          candidate.tasks.some(
+            (candidateTask) => candidateTask.id === entityId,
+          ),
+      );
+      if (!parentProject) return;
+      if (project?.id !== entityProjectId)
+        dispatch({ type: "project-select", id: entityProjectId });
+      setSelectedTask(entityId);
+    }
+  };
+  const noteAction = (
+    type: any,
+    entity: "project" | "task",
+    projectId: string,
+    taskId?: string,
+    noteId?: string,
+    text?: string,
+  ) => dispatch({ type, entity, projectId, taskId, noteId, text } as any);
+  const noteColor = (
+    entity: "project" | "task",
+    projectId: string,
+    taskId: string | undefined,
+    noteId: string,
+    color: NoteColor,
+  ) =>
+    dispatch({ type: "note-color", entity, projectId, taskId, noteId, color });
+  const runProjectSummary = async (id: string) => {
+    if (session.kind === "guest") {
+      setAiSignInOpen(true);
+      return;
+    }
+    if (summarisingProjectId) return;
+    if (sync.status !== "synced") {
+      pushToast(
+        sync.status === "error"
+          ? "Fix workspace sync before using AI summaries."
+          : "Wait for the workspace to finish syncing.",
+        "info",
+      );
+      return;
+    }
+    const target = workspace.projects.find((candidate) => candidate.id === id);
+    if (!target) return;
+    setSummarisingProjectId(id);
+    try {
+      const summary = await summariseProject(workspace.id, id);
+      dispatch({
+        type: "note-add",
+        entity: "project",
+        projectId: id,
+        text: summary,
+      });
+      pushToast(
+        `AI summary added to ${target.title || "Untitled project"} notes`,
+        "success",
+      );
+    } catch (error) {
+      pushToast(
+        error instanceof Error
+          ? error.message
+          : "Could not summarise this project.",
+        "error",
+      );
+    } finally {
+      setSummarisingProjectId(null);
+    }
+  };
+  useEffect(() => {
+    try {
+      localStorage.setItem("chisel.task-layout.v1", taskLayout);
+    } catch {}
+  }, [taskLayout]);
+  useEffect(() => {
+    const projectId = detailProject?.id ?? project?.id;
+    if (!projectId || taskDraft) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const isEditing =
+        target?.isContentEditable ||
+        target?.tagName === "INPUT" ||
+        target?.tagName === "TEXTAREA" ||
+        target?.tagName === "SELECT";
+      if (
+        e.key.toLowerCase() !== "c" ||
+        e.metaKey ||
+        e.ctrlKey ||
+        e.altKey ||
+        e.shiftKey ||
+        e.repeat ||
+        isEditing ||
+        target?.closest('[role="dialog"], [role="menu"]')
+      )
+        return;
+      e.preventDefault();
+      createTaskForProject(projectId);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [project?.id, detailProject?.id, !!taskDraft]);
+  useEffect(() => {
+    void prefetchActivity({
+      mode: session.kind === "guest" ? "guest" : "signed",
+      userKey: String(session.user.id),
+      workspaceId: workspace.id,
+      projectId: project?.id,
+      revision: sync.updatedAt,
+    });
+  }, [
+    session.kind,
+    session.user.id,
+    workspace.id,
+    project?.id,
+    sync.updatedAt,
+  ]);
+  useEffect(() => {
+    if (session.kind === "github" && assigneeProject)
+      void prefetchProjectCollaboration(assigneeProject.id).catch(
+        () => undefined,
+      );
+  }, [session.kind, assigneeProject?.id]);
+  useEffect(() => {
+    let current = true;
+    setAssignees([selfAssignee]);
+    if (session.kind === "github" && assigneeProject)
+      void fetchProjectCollaboration(assigneeProject.id)
+        .then((data) => {
+          if (current)
+            setAssignees(
+              data.members.map(({ userId, login, name, avatarUrl }) => ({
+                userId,
+                login,
+                name,
+                avatarUrl,
+              })),
+            );
+        })
+        .catch(() => undefined);
+    return () => {
+      current = false;
+    };
+  }, [session.kind, assigneeProject?.id, selfAssignee]);
+  const createSkill = () => {
+    const now = Date.now(),
+      skill: Skill = {
+        id: uid(),
+        name: "Untitled skill",
+        description: "",
+        body: NEW_SKILL_BODY,
+        createdAt: now,
+        updatedAt: now,
+      };
+    dispatch({ type: "skill-create", skill });
+    return skill;
+  };
+  const categoryCounts = Object.fromEntries(
+    workspace.categories.map((c) => [
+      c.id,
+      workspace.projects.reduce(
+        (sum, p) => sum + p.tasks.filter((t) => t.category === c.id).length,
+        0,
+      ),
+    ]),
+  );
+  return (
+    <div className="app">
+      <input
+        ref={workspaceFileRef}
+        hidden
+        type="file"
+        accept=".json,application/json"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          e.currentTarget.value = "";
+          if (f) setWorkspaceFile(f);
+        }}
+      />
+      <Header
+        onCreateTask={() => createTask()}
+        items={tasks}
+        categories={workspace.categories}
+        project={project}
+        view={view}
+        timelineRefreshing={timelineRefreshing}
+        taskLayout={taskLayout}
+        workspaces={state.workspaces}
+        activeWorkspaceId={state.activeWorkspaceId}
+        filters={filters}
+        onFilters={setFilters}
+        onView={setView}
+        onTaskLayout={setTaskLayout}
+        onManageCategories={() =>
+          workspace.collaboration
+            ? pushToast("Categories are managed by the project owner.", "info")
+            : setCategoriesOpen(true)
+        }
+        onManageSkills={() =>
+          workspace.collaboration
+            ? pushToast(
+                "Shared projects do not include workspace skills.",
+                "info",
+              )
+            : setSkillsOpen(true)
+        }
+        onManageAutomations={() =>
+          workspace.collaboration
+            ? pushToast("Automations are managed by the project owner.", "info")
+            : setAutomationsOpen(true)
+        }
+        onManageCollaboration={() => setCollaborationOpen(true)}
+        onManageInvitations={() => setInvitationsOpen(true)}
+        onShowShortcuts={() => setShortcutsOpen(true)}
+        onHome={reset}
+        user={session.user}
+        isGuest={session.kind === "guest"}
+        sync={sync}
+        onSignOut={() => {
+          clearCollaborationCache();
+          onSignOut();
+        }}
+        onWorkspaceSwitch={(id) => {
+          dispatch({ type: "workspace-switch", id });
+          reset();
+        }}
+        onWorkspaceCreate={(name) =>
+          dispatch({ type: "workspace-create", name })
+        }
+        onWorkspaceRename={(id, name) => {
+          if (!state.workspaces.find((item) => item.id === id)?.collaboration)
+            dispatch({ type: "workspace-rename", id, name });
+        }}
+        onWorkspaceDelete={(id) => {
+          if (!state.workspaces.find((item) => item.id === id)?.collaboration)
+            dispatch({ type: "workspace-delete", id });
+        }}
+        onProjectRename={(name) => {
+          if (project)
+            dispatch({
+              type: "project-update",
+              id: project.id,
+              patch: { title: name },
+            });
+        }}
+      />
+      {view === "timeline" ? (
+        <Timeline
+          workspaceId={workspace.id}
+          projects={workspace.projects}
+          projectId={project?.id}
+          isGuest={session.kind === "guest"}
+          user={session.user}
+          syncKey={sync.updatedAt}
+          onOpen={openTimelineEntity}
+          onRefreshingChange={setTimelineRefreshing}
+        />
+      ) : project ? (
+        <Board
+          hasActiveFilters={!!filters.query.trim() || filters.categories.length !== workspace.categories.length}
+          onClearFilters={() => setFilters(defaultFilters())}
+          items={filtered}
+          categories={workspace.categories}
+          config={TASK_CONFIG}
+          layout={taskLayout}
+          listSort={filters.listSort}
+          categorySort={filters.categorySort}
+          prioritySort={filters.prioritySort}
+          effortSort={filters.effortSort}
+          updatedSort={filters.updatedSort}
+          statusSort={filters.statusSort}
+          onCategorySort={() =>
+            setFilters({
+              ...filters,
+              listSort: "category",
+              categorySort: filters.categorySort === "desc" ? "asc" : "desc",
+            })
+          }
+          onPrioritySort={() =>
+            setFilters({
+              ...filters,
+              listSort: "priority",
+              prioritySort: filters.prioritySort === "desc" ? "asc" : "desc",
+            })
+          }
+          onEffortSort={() =>
+            setFilters({
+              ...filters,
+              listSort: "effort",
+              effortSort: filters.effortSort === "desc" ? "asc" : "desc",
+            })
+          }
+          onUpdatedSort={() =>
+            setFilters({
+              ...filters,
+              listSort: "updated",
+              updatedSort: filters.updatedSort === "desc" ? "asc" : "desc",
+            })
+          }
+          onStatusSort={() =>
+            setFilters({
+              ...filters,
+              listSort: "status",
+              statusSort: filters.statusSort === "desc" ? "asc" : "desc",
+            })
+          }
+          onMove={(id, stage, beforeId) =>
+            dispatch({
+              type: "task-move",
+              projectId: project.id,
+              id,
+              stage,
+              beforeId,
+            })
+          }
+          onSelect={(id) => openTask(id)}
+          onOpen={openTask}
+          onDuplicate={(id) => {
+            const duplicateId = uid();
+            dispatch({
+              type: "task-duplicate",
+              projectId: project.id,
+              id,
+              duplicateId,
+            });
+            pushToast("Task duplicated", "success");
+          }}
+          onToggleFavourite={(id, favourite) => {
+            dispatch({
+              type: "task-update",
+              projectId: project.id,
+              id,
+              patch: { favourite },
+            });
+            pushToast(
+              favourite ? "Added to Favourites" : "Removed from Favourites",
+              "success",
+            );
+          }}
+          moveTargets={workspace.projects
+            .filter((candidate) => candidate.id !== project.id)
+            .map((candidate) => ({ id: candidate.id, title: candidate.title }))}
+          onMoveToProject={(id, targetProjectId) => {
+            const target = workspace.projects.find(
+              (candidate) => candidate.id === targetProjectId,
+            );
+            dispatch({
+              type: "task-move-project",
+              projectId: project.id,
+              targetProjectId,
+              id,
+            });
+            setSelectedTask(null);
+            pushToast(
+              `Task moved to ${target?.title || "another project"}`,
+              "success",
+            );
+          }}
+          onMoveToTrash={(id) => {
+            dispatch({ type: "task-delete", projectId: project.id, id });
+            setSelectedTask(null);
+            pushToast("Task moved to Trash", "info");
+          }}
+          onAddItem={createTask}
+        />
+      ) : projectDraft ? (
+        <ProjectSetup
+          draft={projectDraft}
+          onChange={(patch) =>
+            setProjectDraft((current) =>
+              current
+                ? { ...current, ...patch, updatedAt: Date.now() }
+                : current,
+            )
+          }
+          onCancel={() => setProjectDraft(null)}
+          onCreate={() => {
+            dispatch({ type: "project-create", project: projectDraft });
+            setProjectDraft(null);
+            setTaskLayout("board");
+            dispatch({ type: "project-select", id: projectDraft.id });
+            pushToast(`Project “${projectDraft.title}” created`, "success");
+          }}
+        />
+      ) : (
+        <ProjectOverview
+          projects={workspace.projects}
+          shared={!!workspace.collaboration}
+          summarisingProjectId={summarisingProjectId}
+          summaryUnavailableReason={
+            session.kind === "github" && sync.status !== "synced"
+              ? sync.status === "error"
+                ? "Fix workspace sync before summarising."
+                : "Wait for workspace sync to finish."
+              : null
+          }
+          onSummarise={runProjectSummary}
+          onOpen={openProject}
+          onDelete={(id) => {
+            dispatch({ type: "project-delete", id });
+            pushToast("Project and its tasks deleted", "info");
+          }}
+          onMove={(id, beforeId) =>
+            dispatch({ type: "project-move", id, beforeId })
+          }
+          onCreate={() => setProjectDraft(newProject())}
+          onImportProject={() => setProjectImportOpen(true)}
+          onExportProject={(id) => {
+            const target = workspace.projects.find(
+              (candidate) => candidate.id === id,
+            );
+            if (!target) return;
+            exportProject(target, workspace.categories);
+            pushToast(
+              `Exported “${target.title || "Untitled project"}”`,
+              "success",
+            );
+          }}
+          onImportWorkspace={() => workspaceFileRef.current?.click()}
+          onExportWorkspace={() => exportWorkspace(workspace)}
+        />
+      )}
+      {detailProject && (
+        <Drawer
+          item={detailProject}
+          config={PROJECT_CONFIG}
+          taskCount={detailProject.tasks.length}
+          deletable={detailProject.collaboration?.role !== "editor"}
+          onCreateTask={() => createTaskForProject(detailProject.id)}
+          onClose={() => setSelectedProject(null)}
+          onUpdate={(patch) =>
+            dispatch({ type: "project-update", id: detailProject.id, patch })
+          }
+          onAddNote={(text) =>
+            noteAction(
+              "note-add",
+              "project",
+              detailProject.id,
+              undefined,
+              undefined,
+              text,
+            )
+          }
+          onDeleteNote={(id) =>
+            noteAction(
+              "note-delete",
+              "project",
+              detailProject.id,
+              undefined,
+              id,
+            )
+          }
+          onEditNote={(id, text) =>
+            noteAction(
+              "note-edit",
+              "project",
+              detailProject.id,
+              undefined,
+              id,
+              text,
+            )
+          }
+          onColorNote={(id, color) =>
+            noteColor("project", detailProject.id, undefined, id, color)
+          }
+          onDelete={() => {
+            dispatch({ type: "project-delete", id: detailProject.id });
+            setSelectedProject(null);
+            pushToast("Project and its tasks deleted", "info");
+          }}
+        />
+      )}
+      {taskDraft && taskDraftProject && (
+        <Drawer
+          item={taskDraft}
+          creating
+          categories={workspace.categories}
+          categoryGroups={workspace.categoryGroups}
+          assignees={assignees}
+          config={TASK_CONFIG}
+          onClose={closeTaskDraft}
+          onUpdate={(patch) =>
+            setTaskDraft((current) =>
+              current
+                ? { ...current, ...patch, updatedAt: Date.now() }
+                : current,
+            )
+          }
+          onCreate={() => {
+            dispatch({
+              type: "task-add",
+              projectId: taskDraftProject.id,
+              task: taskDraft,
+            });
+            clearTaskDraft();
+            if (project?.id === taskDraftProject.id) openTask(taskDraft.id);
+            pushToast(`Task “${taskDraft.title}” created`, "success");
+          }}
+          onAddNote={() => {}}
+          onDeleteNote={() => {}}
+          onEditNote={() => {}}
+          onColorNote={() => {}}
+          onDelete={closeTaskDraft}
+        />
+      )}
+      {discardTaskOpen && (
+        <UnsavedTaskDialog
+          taskTitle={taskDraft?.title ?? ""}
+          onKeep={() => setDiscardTaskOpen(false)}
+          onDiscard={() => {
+            setDiscardTaskOpen(false);
+            clearTaskDraft();
+          }}
+        />
+      )}
+      {aiSignInOpen && (
+        <AiSummarySignInDialog onClose={() => setAiSignInOpen(false)} />
+      )}
+      {shortcutsOpen && (
+        <ShortcutsDialog onClose={() => setShortcutsOpen(false)} />
+      )}
+      {task && project && (
+        <Drawer
+          item={task}
+          categories={workspace.categories}
+          categoryGroups={workspace.categoryGroups}
+          assignees={assignees}
+          config={TASK_CONFIG}
+          deletable={false}
+          mode={taskOpenMode}
+          onClose={() => {
+            setSelectedTask(null);
+            setTaskOpenMode("side");
+          }}
+          onUpdate={(patch) =>
+            dispatch({
+              type: "task-update",
+              projectId: project.id,
+              id: task.id,
+              patch,
+            })
+          }
+          onAddNote={(text) =>
+            noteAction("note-add", "task", project.id, task.id, undefined, text)
+          }
+          onDeleteNote={(id) =>
+            noteAction("note-delete", "task", project.id, task.id, id)
+          }
+          onEditNote={(id, text) =>
+            noteAction("note-edit", "task", project.id, task.id, id, text)
+          }
+          onColorNote={(id, color) =>
+            noteColor("task", project.id, task.id, id, color)
+          }
+          onDelete={() => {}}
+        />
+      )}
+      {workspaceFile && (
+        <WorkspaceImportModal
+          file={workspaceFile}
+          onClose={() => setWorkspaceFile(null)}
+          onImport={(w) => {
+            dispatch({ type: "workspace-import", workspace: w });
+            setWorkspaceFile(null);
+          }}
+        />
+      )}
+      {projectImportOpen && (
+        <ProjectImportModal
+          templateCategories={workspace.categories}
+          onClose={() => setProjectImportOpen(false)}
+          onImport={(importedProject, importedCategories) => {
+            dispatch({
+              type: "categories-merge",
+              categories: categoriesForProjectImport(
+                importedCategories,
+                workspace.categoryGroups.map((group) => group.id),
+              ),
+            });
+            dispatch({ type: "project-create", project: importedProject });
+            setProjectImportOpen(false);
+            pushToast(
+              `Imported “${importedProject.title || "Untitled project"}”`,
+              "success",
+            );
+          }}
+        />
+      )}
+      {categoriesOpen && (
+        <CategoryManager
+          categories={workspace.categories}
+          groups={workspace.categoryGroups}
+          counts={categoryCounts}
+          onAdd={(label, groupId) =>
+            dispatch({ type: "category-add", label, groupId })
+          }
+          onRename={(id, label) =>
+            dispatch({ type: "category-rename", id, label })
+          }
+          onSetGlyph={(id, glyph) =>
+            dispatch({ type: "category-set-glyph", id, glyph })
+          }
+          onDelete={(id) => dispatch({ type: "category-delete", id })}
+          onMove={(id, groupId) =>
+            dispatch({ type: "category-move", id, groupId })
+          }
+          onReorder={(id, direction) =>
+            dispatch({ type: "category-reorder", id, direction })
+          }
+          onGroupAdd={(label) =>
+            dispatch({ type: "category-group-add", label })
+          }
+          onGroupRename={(id, label) =>
+            dispatch({ type: "category-group-rename", id, label })
+          }
+          onGroupDelete={(id) =>
+            dispatch({ type: "category-group-delete", id })
+          }
+          onGroupReorder={(id, direction) =>
+            dispatch({ type: "category-group-reorder", id, direction })
+          }
+          onClose={() => setCategoriesOpen(false)}
+        />
+      )}{" "}
+      {skillsOpen && (
+        <SkillsManager
+          skills={workspace.skills}
+          categories={project ? workspace.categories : []}
+          config={project ? TASK_CONFIG : PROJECT_CONFIG}
+          onCreate={createSkill}
+          onUpdate={(id, patch) =>
+            dispatch({ type: "skill-update", id, patch })
+          }
+          onDelete={(id) => dispatch({ type: "skill-delete", id })}
+          onClose={() => setSkillsOpen(false)}
+        />
+      )}{" "}
+      {automationsOpen && (
+        <AutomationManager
+          workspaceId={workspace.id}
+          projects={workspace.projects}
+          isGuest={session.kind === "guest"}
+          onClose={() => setAutomationsOpen(false)}
+        />
+      )}{" "}
+      {collaborationOpen && project && (
+        <CollaborationManager
+          workspace={workspace}
+          project={project}
+          user={session.user}
+          isGuest={session.kind === "guest"}
+          onClose={() => setCollaborationOpen(false)}
+        />
+      )}{" "}
+      {invitationsOpen && session.kind === "github" && (
+        <InvitationsManager onClose={() => setInvitationsOpen(false)} />
+      )}
+      <ToastHost toasts={toasts} onDismiss={dismissToast} />
+    </div>
+  );
+}
+function UnsavedTaskDialog({
+  taskTitle,
+  onKeep,
+  onDiscard,
+}: {
+  taskTitle: string;
+  onKeep: () => void;
+  onDiscard: () => void;
+}) {
+  const dialogRef = useRef<HTMLElement>(null);
+  const keepRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => keepRef.current?.focus(), []);
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      onKeep();
+      return;
+    }
+    if (e.key !== "Tab") return;
+    const controls = Array.from(
+      dialogRef.current?.querySelectorAll<HTMLElement>("button") ?? [],
+    );
+    if (!controls.length) return;
+    const first = controls[0],
+      last = controls[controls.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  };
+  const namedTask = taskTitle.trim();
+  return (
+    <div
+      className="modal-veil unsaved-task-veil"
+      onMouseDown={(e) => e.target === e.currentTarget && onKeep()}
+    >
+      <section
+        ref={dialogRef}
+        className="modal unsaved-task-dialog"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="unsaved-task-title"
+        aria-describedby="unsaved-task-description"
+        onKeyDown={onKeyDown}
+      >
+        <h2 id="unsaved-task-title">Task not created</h2>
+        <p id="unsaved-task-description">
+          {namedTask ? (
+            <>
+              “<strong>{namedTask}</strong>” hasn’t been created yet.
+            </>
+          ) : (
+            "This task hasn’t been created yet."
+          )}{" "}
+          Discard the draft?
+        </p>
+        <div className="unsaved-task-actions">
+          <button ref={keepRef} className="btn btn-ghost" onClick={onKeep}>
+            Keep editing
+          </button>
+          <button className="btn btn-danger" onClick={onDiscard}>
+            Discard draft
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
+function AiSummarySignInDialog({ onClose }: { onClose: () => void }) {
+  const dialogRef = useRef<HTMLElement>(null),
+    primaryRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => primaryRef.current?.focus(), []);
+  const configured = githubConfigured();
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      onClose();
+      return;
+    }
+    if (e.key !== "Tab") return;
+    const controls = Array.from(
+      dialogRef.current?.querySelectorAll<HTMLElement>("button") ?? [],
+    );
+    if (!controls.length) return;
+    const first = controls[0],
+      last = controls[controls.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  };
+  return (
+    <div
+      className="modal-veil ai-summary-signin-veil"
+      onMouseDown={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <section
+        ref={dialogRef}
+        className="modal ai-summary-signin"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="ai-summary-signin-title"
+        aria-describedby="ai-summary-signin-description"
+        onKeyDown={onKeyDown}
+      >
+        <span className="ai-summary-signin-mark" aria-hidden="true">
+          ✦
+        </span>
+        <h2 id="ai-summary-signin-title">Sign in to summarise projects</h2>
+        <p id="ai-summary-signin-description">
+          AI summaries are available for synced workspaces. Your guest workspace
+          stays stored on this device.
+        </p>
+        <div className="ai-summary-signin-actions">
+          {configured && (
+            <button
+              ref={primaryRef}
+              className="btn btn-primary"
+              onClick={() => window.location.assign("/api/auth/start")}
+            >
+              Continue with GitHub
+            </button>
+          )}
+          <button
+            ref={configured ? undefined : primaryRef}
+            className="btn btn-ghost"
+            onClick={onClose}
+          >
+            {configured ? "Not now" : "Got it"}
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
+function ProjectSetup({
+  draft,
+  onChange,
+  onCancel,
+  onCreate,
+}: {
+  draft: Project;
+  onChange: (patch: Partial<Project>) => void;
+  onCancel: () => void;
+  onCreate: () => void;
+}) {
+  const [tags, setTags] = useState("");
+  const titleRef = useRef<HTMLInputElement>(null);
+  useEffect(() => titleRef.current?.focus(), []);
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (draft.title.trim()) onCreate();
+  };
+  return (
+    <main className="board-empty">
+      <section className="project-setup front-page">
+        <div className="front-copy">
+          <span className="front-kicker">New project</span>
+          <h1>What are you setting out to achieve?</h1>
+          <p className="front-lede">
+            Give the work a clear outcome now. You can break it into tasks once
+            the project is created.
+          </p>
+          <div className="project-setup-notes">
+            <span>1</span>
+            <p>
+              <strong>Name the outcome</strong>Keep it recognizable at a glance.
+            </p>
+            <span>2</span>
+            <p>
+              <strong>Add useful context</strong>Capture why this work matters.
+            </p>
+            <span>3</span>
+            <p>
+              <strong>Shape it later</strong>Priorities and tasks can change as
+              you learn.
+            </p>
+          </div>
+        </div>
+        <form className="project-setup-card" onSubmit={submit}>
+          <div className="project-setup-head">
+            <span>Project details</span>
+            <small>Start with the essentials</small>
+          </div>
+          <label className="field">
+            <span className="field-label">Project name</span>
+            <input
+              ref={titleRef}
+              className="input project-setup-title"
+              value={draft.title}
+              onChange={(e) => onChange({ title: e.target.value })}
+              placeholder="e.g. Improve customer onboarding"
+              autoComplete="off"
+            />
+          </label>
+          <label className="field">
+            <span className="field-label">Description</span>
+            <textarea
+              className="input project-setup-description"
+              rows={4}
+              value={draft.description}
+              onChange={(e) => onChange({ description: e.target.value })}
+              placeholder={PROJECT_CONFIG.descriptionPlaceholder}
+            />
+          </label>
+          <label className="field">
+            <span className="field-label">
+              Tags <em>optional</em>
+            </span>
+            <input
+              className="input"
+              value={tags}
+              onChange={(e) => {
+                setTags(e.target.value);
+                onChange({
+                  tags: e.target.value
+                    .split(",")
+                    .map((tag) => tag.trim().replace(/\s+/g, "-"))
+                    .filter(Boolean),
+                });
+              }}
+              placeholder="growth, onboarding, q3"
+            />
+          </label>
+          <div className="project-setup-actions">
+            <button type="button" className="btn btn-ghost" onClick={onCancel}>
+              Back to workspace
+            </button>
+            <button className="btn btn-primary" disabled={!draft.title.trim()}>
+              Create Project <span aria-hidden="true">→</span>
+            </button>
+          </div>
+        </form>
+      </section>
+    </main>
+  );
+}
+function ProjectOverview({
+  projects,
+  shared,
+  summarisingProjectId,
+  summaryUnavailableReason,
+  onSummarise,
+  onOpen,
+  onDelete,
+  onMove,
+  onCreate,
+  onImportProject,
+  onExportProject,
+  onImportWorkspace,
+  onExportWorkspace,
+}: {
+  projects: Project[];
+  shared: boolean;
+  summarisingProjectId: string | null;
+  summaryUnavailableReason: string | null;
+  onSummarise: (id: string) => Promise<void>;
+  onOpen: (id: string) => void;
+  onDelete: (id: string) => void;
+  onMove: (id: string, beforeId?: string) => void;
+  onCreate: () => void;
+  onImportProject: () => void;
+  onExportProject: (id: string) => void;
+  onImportWorkspace: () => void;
+  onExportWorkspace: () => void;
+}) {
+  const [transferOpen, setTransferOpen] = useState(false);
+  const transferRef = useRef<HTMLDivElement>(null);
+  const dragIdRef = useRef<string | null>(null);
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [dropTarget, setDropTarget] = useState<{
+    cardId: string;
+    beforeId?: string;
+    edge: "before" | "after";
+  } | null>(null);
+  const [cardMenu, setCardMenu] = useState<{
+    projectId: string;
+    x: number;
+    y: number;
+    confirmDelete: boolean;
+  } | null>(null);
+  const cardMenuRef = useRef<HTMLDivElement>(null),
+    cardMenuButtonRef = useRef<HTMLButtonElement | null>(null);
+  const cardMenuProject = cardMenu
+    ? projects.find((candidate) => candidate.id === cardMenu.projectId)
+    : null;
+  const canDeleteCardMenuProject =
+    cardMenuProject?.collaboration?.role !== "editor";
+  const projectDropTarget = (
+    targetId: string,
+    e: React.DragEvent<HTMLElement>,
+  ) => {
+    const movingId = dragIdRef.current;
+    if (!movingId) return null;
+    const remaining = projects.filter((p) => p.id !== movingId),
+      at = remaining.findIndex((p) => p.id === targetId);
+    if (at < 0) return null;
+    const rect = e.currentTarget.getBoundingClientRect(),
+      grid = e.currentTarget.parentElement,
+      columns = grid
+        ? getComputedStyle(grid).gridTemplateColumns.split(" ").length
+        : 1,
+      after =
+        columns === 1
+          ? e.clientY > rect.top + rect.height / 2
+          : e.clientX > rect.left + rect.width / 2;
+    return {
+      cardId: targetId,
+      beforeId: after ? remaining[at + 1]?.id : targetId,
+      edge: after ? ("after" as const) : ("before" as const),
+    };
+  };
+  useEffect(() => {
+    if (!transferOpen) return;
+    const close = (e: MouseEvent) => {
+      if (!transferRef.current?.contains(e.target as Node))
+        setTransferOpen(false);
+    };
+    const escape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setTransferOpen(false);
+    };
+    window.addEventListener("mousedown", close);
+    window.addEventListener("keydown", escape);
+    return () => {
+      window.removeEventListener("mousedown", close);
+      window.removeEventListener("keydown", escape);
+    };
+  }, [transferOpen]);
+  useEffect(() => {
+    if (!cardMenu) return;
+    const close = (e: MouseEvent) => {
+      if (!cardMenuRef.current?.contains(e.target as Node)) setCardMenu(null);
+    };
+    const dismiss = () => setCardMenu(null);
+    const escape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        dismiss();
+        requestAnimationFrame(() => cardMenuButtonRef.current?.focus());
+      }
+    };
+    window.addEventListener("mousedown", close);
+    window.addEventListener("scroll", dismiss, true);
+    window.addEventListener("keydown", escape);
+    return () => {
+      window.removeEventListener("mousedown", close);
+      window.removeEventListener("scroll", dismiss, true);
+      window.removeEventListener("keydown", escape);
+    };
+  }, [cardMenu]);
+  useEffect(() => {
+    if (cardMenu)
+      requestAnimationFrame(() =>
+        cardMenuRef.current
+          ?.querySelector<HTMLButtonElement>("button:not(:disabled)")
+          ?.focus(),
+      );
+  }, [cardMenu?.projectId, cardMenu?.confirmDelete]);
+  return (
+    <main className="board-empty workspace-page">
+      <section className="front-page project-overview-page">
+        <div className="front-copy">
+          <div className="workspace-kicker-row">
+            <span className="front-kicker">
+              {shared ? "Shared project" : "Workspace"}
+            </span>
+            {!shared && (
+              <div className="workspace-transfer" ref={transferRef}>
+                <button
+                  className={`workspace-transfer-trigger${transferOpen ? " open" : ""}`}
+                  onClick={() => setTransferOpen((open) => !open)}
+                  aria-label="Workspace options"
+                  aria-haspopup="menu"
+                  aria-expanded={transferOpen}
+                >
+                  <span aria-hidden="true">⋮</span>
+                </button>
+                {transferOpen && (
+                  <div className="workspace-transfer-menu" role="menu">
+                    <button
+                      role="menuitem"
+                      onClick={() => {
+                        setTransferOpen(false);
+                        onImportProject();
+                      }}
+                    >
+                      <span aria-hidden="true">⇡</span>
+                      <span>
+                        <strong>Import project</strong>
+                        <small>Add a project from JSON</small>
+                      </span>
+                    </button>
+                    <button
+                      role="menuitem"
+                      onClick={() => {
+                        setTransferOpen(false);
+                        onImportWorkspace();
+                      }}
+                    >
+                      <span aria-hidden="true">⇡</span>
+                      <span>
+                        <strong>Import workspace</strong>
+                        <small>Load a workspace JSON file</small>
+                      </span>
+                    </button>
+                    <button
+                      role="menuitem"
+                      onClick={() => {
+                        setTransferOpen(false);
+                        onExportWorkspace();
+                      }}
+                    >
+                      <span aria-hidden="true">⇣</span>
+                      <span>
+                        <strong>Export workspace</strong>
+                        <small>Download a complete backup</small>
+                      </span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+          <div className="workspace-heading">
+            <div>
+              <h1>{shared ? "Shared with you" : "Your projects"}</h1>
+              <p className="front-lede">
+                {shared
+                  ? "Open the project’s Kanban board to collaborate."
+                  : projects.length
+                    ? "A clear view of what you’re building and what’s next."
+                    : "Give your next idea a place to take shape."}
+              </p>
+            </div>
+            {!shared && projects.length > 0 && (
+              <div className="front-actions">
+                <button className="btn btn-ghost" onClick={onImportProject}>Import project</button>
+                <button className="btn btn-primary" onClick={onCreate}>+ New project</button>
+              </div>
+            )}
+          </div>
+          {projects.length > 0 && <div className="workspace-summary" aria-label="Workspace summary">
+            <span><strong>{projects.length}</strong> {projects.length === 1 ? "project" : "projects"}</span>
+            <span><strong>{projects.reduce((count, p) => count + p.tasks.filter((task) => task.stage === "in-progress").length, 0)}</strong> in progress</span>
+            <span><strong>{projects.reduce((count, p) => count + p.tasks.filter((task) => task.stage === "done").length, 0)}</strong> completed</span>
+          </div>}
+          {projects.length === 0 && <div className="workspace-empty-state">
+            <span className="empty-state-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16M13 9h4M13 13h3"/></svg></span>
+            <h2>{shared ? "No shared projects yet" : "Start with one project"}</h2>
+            <p>{shared ? "Projects shared with you will appear here." : "Capture an outcome, break it into tasks, and move the work forward. Already have a plan? Import it to get started."}</p>
+            {!shared && <div className="empty-state-actions"><button className="btn btn-primary" onClick={onCreate}>+ New project</button><button className="btn btn-ghost" onClick={onImportProject}>Import project</button></div>}
+          </div>}
+          <div className="project-overview-grid">
+            {projects.map((p) => {
+              const done = p.tasks.filter((t) => t.stage === "done").length,
+                pct = p.tasks.length ? (done / p.tasks.length) * 100 : 0,
+                target =
+                  dropTarget?.cardId === p.id ? ` drop-${dropTarget.edge}` : "",
+                summarising = summarisingProjectId === p.id;
+              return (
+                <article
+                  className={`front-value project-overview-card${dragId === p.id ? " dragging" : ""}${summarising ? " summarising" : ""}${target}`}
+                  key={p.id}
+                  role="button"
+                  aria-label={`Open the Kanban board for ${p.title || "Untitled project"}. Drag to reorder.`}
+                  aria-busy={summarising || undefined}
+                  onClick={() => onOpen(p.id)}
+                  tabIndex={0}
+                  draggable={projects.length > 1 && !summarising}
+                  onDragStart={(e) => {
+                    if (
+                      summarising ||
+                      (e.target as HTMLElement).closest("button")
+                    ) {
+                      e.preventDefault();
+                      return;
+                    }
+                    e.dataTransfer.setData(
+                      "application/x-chisel-project",
+                      p.id,
+                    );
+                    e.dataTransfer.effectAllowed = "move";
+                    dragIdRef.current = p.id;
+                    setDragId(p.id);
+                  }}
+                  onDragOver={(e) => {
+                    if (!dragIdRef.current) return;
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = "move";
+                    setDropTarget(projectDropTarget(p.id, e));
+                  }}
+                  onDrop={(e) => {
+                    const movingId = dragIdRef.current;
+                    if (!movingId) return;
+                    e.preventDefault();
+                    const target = projectDropTarget(p.id, e);
+                    if (target) onMove(movingId, target.beforeId);
+                    dragIdRef.current = null;
+                    setDragId(null);
+                    setDropTarget(null);
+                  }}
+                  onDragEnd={() => {
+                    dragIdRef.current = null;
+                    setDragId(null);
+                    setDropTarget(null);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.target !== e.currentTarget) return;
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      onOpen(p.id);
+                    }
+                  }}
+                >
+                  <button
+                    className={`icon-btn project-card-menu${cardMenu?.projectId === p.id ? " open" : ""}`}
+                    draggable={false}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      cardMenuButtonRef.current = e.currentTarget;
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      setCardMenu((current) =>
+                        current?.projectId === p.id
+                          ? null
+                          : {
+                              projectId: p.id,
+                              x: Math.max(
+                                8,
+                                Math.min(
+                                  rect.right - 190,
+                                  window.innerWidth - 198,
+                                ),
+                              ),
+                              y: Math.max(
+                                8,
+                                Math.min(
+                                  rect.bottom + 6,
+                                  window.innerHeight - 168,
+                                ),
+                              ),
+                              confirmDelete: false,
+                            },
+                      );
+                    }}
+                    aria-label={`Options for ${p.title || "project"}`}
+                    aria-haspopup="menu"
+                    aria-expanded={cardMenu?.projectId === p.id}
+                  >
+                    ⋯
+                  </button>
+                  <div className="project-card-copy">
+                    <h2>{p.title || "Untitled project"}</h2>
+                    <p>{p.description || "No outcome added yet."}</p>
+                  </div>
+                  {p.tags.length > 0 && (
+                    <div
+                      className="project-card-tags"
+                      aria-label="Project tags"
+                    >
+                      {p.tags.slice(0, 3).map((tag) => (
+                        <span key={tag}>{tag}</span>
+                      ))}
+                      {p.tags.length > 3 && <span>+{p.tags.length - 3}</span>}
+                    </div>
+                  )}
+                  {summarising && (
+                    <div className="project-summary-status" role="status">
+                      <i aria-hidden="true" /> Summarising…
+                    </div>
+                  )}
+                  <div className="project-card-footer">
+                    <div className="project-card-progress" aria-hidden="true">
+                      <span style={{ width: `${pct}%` }} />
+                    </div>
+                    <span
+                      className="project-card-count"
+                      aria-label={`${done} of ${p.tasks.length} tasks done`}
+                    >
+                      {done}/{p.tasks.length} done
+                    </span>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+          {cardMenu && (
+            <div
+              ref={cardMenuRef}
+              className="project-context-menu project-action-menu"
+              role="menu"
+              style={{ left: cardMenu.x, top: cardMenu.y }}
+            >
+            {cardMenu.confirmDelete && canDeleteCardMenuProject ? (
+                <div className="project-delete-confirm">
+                  <span>Delete this project?</span>
+                  <div>
+                    <button
+                      type="button"
+                      className="danger"
+                      disabled={summarisingProjectId === cardMenu.projectId}
+                      onClick={() => {
+                        if (summarisingProjectId === cardMenu.projectId) return;
+                        onDelete(cardMenu.projectId);
+                        setCardMenu(null);
+                      }}
+                    >
+                      Delete
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setCardMenu({ ...cardMenu, confirmDelete: false })
+                      }
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    className="project-summary-action"
+                    role="menuitem"
+                    aria-busy={
+                      summarisingProjectId === cardMenu.projectId || undefined
+                    }
+                    disabled={
+                      !!summaryUnavailableReason || !!summarisingProjectId
+                    }
+                    title={
+                      summaryUnavailableReason ??
+                      (summarisingProjectId
+                        ? "A project summary is already being generated."
+                        : undefined)
+                    }
+                    onClick={() => {
+                      const id = cardMenu.projectId;
+                      setCardMenu(null);
+                      void onSummarise(id);
+                    }}
+                  >
+                    <span aria-hidden="true">✦</span>
+                    {summarisingProjectId === cardMenu.projectId
+                      ? "Summarising…"
+                      : "Summarise project"}
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      onExportProject(cardMenu.projectId);
+                      setCardMenu(null);
+                    }}
+                  >
+                    <span aria-hidden="true">⇣</span> Export project
+                  </button>
+                {canDeleteCardMenuProject && (
+                  <button
+                    type="button"
+                    className="danger"
+                    role="menuitem"
+                    disabled={summarisingProjectId === cardMenu.projectId}
+                    onClick={() =>
+                      setCardMenu({ ...cardMenu, confirmDelete: true })
+                    }
+                  >
+                    <span aria-hidden="true">×</span> Delete project
+                  </button>
+                )}
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      </section>
+    </main>
+  );
 }

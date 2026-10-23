@@ -24,7 +24,7 @@ export default async function handler(req: BodyRequest, res: ApiResponse) {
     if (!workspace) throw Object.assign(new Error("Workspace not found."), {status: 404});
     const project = workspace.projects.find((candidate) => candidate.id === rule.trigger.projectId) ?? workspace.projects[0] ?? newProject("Example project");
     const toStage = rule.trigger.toStage;
-    const fromStage = rule.trigger.fromStage ?? (toStage === "queued" ? "active" : "queued");
+    const fromStage = rule.trigger.fromStage ?? (toStage === "to-do" ? "in-progress" : "to-do");
     const task = {...newTask(toStage), title: "Example task", description: `This is a test of the ${stageLabel(toStage)} automation.`};
     const transition: TaskStageTransition = {workspace, project, task, fromStage, toStage};
     const run = await insertTestRun(userId, rule, buildAutomationEmailPayload(rule, transition, true));

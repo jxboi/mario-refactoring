@@ -87,7 +87,7 @@ export function composeSkillMarkdown(skill: Skill, config: ItemConfig, categorie
   const parts = [`# ${name}`];
   if (skill.description.trim()) parts.push(skill.description.trim());
   parts.push(skill.body.trim());
-  parts.push(["## Output format", "", `Return a single JSON file containing a top-level array of ${config.itemNounPlural}. Each item supports:`, "", "- `title` (required) — a short, action-oriented summary.", "- `description` — the outcome or context.", `- \`priority\` — low | medium | high (${metric}).`, "- `effort` — low | medium | high.", `- \`category\` — one of: ${catIds}.`, "- `tags` — array of short labels.", "- `status` — queued | active | reviewing | deployed | deferred.", "", "Example:", "", "```json", config.schema, "```"].filter(Boolean).join("\n"));
+  parts.push(["## Output format", "", `Return a single JSON file containing a top-level array of ${config.itemNounPlural}. Each item supports:`, "", "- `title` (required) — a short, action-oriented summary.", "- `description` — the outcome or context.", `- \`priority\` — low | medium | high (${metric}).`, "- `effort` — low | medium | high.", `- \`category\` — one of: ${catIds}.`, "- `tags` — array of short labels.", "- `status` — to-do | in-progress | review | done | on-hold.", "", "Example:", "", "```json", config.schema, "```"].filter(Boolean).join("\n"));
   return parts.join("\n\n") + "\n";
 }
 
@@ -96,11 +96,11 @@ export function exampleImportJson(type: ItemKind): string {
   const items =
     type === "project"
       ? [
-          {title: "Improve new-team onboarding", description: "Reduce time-to-value for new teams.", priority: "high", effort: "high", category: "initiative", tags: ["activation"], status: "planning"},
-          {title: "Research reporting needs", description: "Identify the smallest valuable reporting surface.", priority: "medium", effort: "small", category: "research", tags: ["discovery"], status: "idea"},
+          {title: "Improve new-team onboarding", description: "Reduce time-to-value for new teams.", priority: "high", effort: "high", category: "initiative", tags: ["activation"], status: "in-progress"},
+          {title: "Research reporting needs", description: "Identify the smallest valuable reporting surface.", priority: "medium", effort: "small", category: "research", tags: ["discovery"], status: "to-do"},
         ]
       : [
-          {title: "Follow up with vendor on SSO rollout", description: "Confirm go-live date and access scope.", priority: "high", effort: "m", category: "follow-up", tags: ["vendors"], status: "todo"},
+          {title: "Follow up with vendor on SSO rollout", description: "Confirm go-live date and access scope.", priority: "high", effort: "m", category: "follow-up", tags: ["vendors"], status: "to-do"},
           {title: "Document the incident runbook", description: "Capture the on-call steps we used last week.", priority: "medium", effort: "s", category: "documentation", tags: ["oncall"], status: "in-progress"},
         ];
   return JSON.stringify(items, null, 2) + "\n";

@@ -1,91 +1,988 @@
-import {useEffect, useReducer, useRef, useState} from "react";
-import type {CategoryDef, CategoryGroup, Note, NoteColor, Project, Stage, Task, TaskAssignee} from "../types";
-import {CATEGORY_GROUPS, FALLBACK_CATEGORY_ID, slugifyCategory, TASK_CATEGORIES, uid} from "../types";
-import {defaultSkills, normalizeSkills, type Skill} from "./skills";
-import {fetchRemoteBoard, RemoteBoardConflict, saveRemoteBoard} from "./remoteBoard";
-import {findTaskStageTransitions} from "./automations";
+import { useCallback, useEffect, useReducer, useRef, useState } from "react";
+import type {
+  CategoryDef,
+  CategoryGroup,
+  Note,
+  NoteColor,
+  Project,
+  Stage,
+  Task,
+  TaskAssignee,
+} from "../types";
+import {
+  CATEGORY_GROUPS,
+  FALLBACK_CATEGORY_ID,
+  slugifyCategory,
+  stageFrom,
+  TASK_CATEGORIES,
+  uid,
+} from "../types";
+import { defaultSkills, normalizeSkills, type Skill } from "./skills";
+import {
+  fetchRemoteBoard,
+  RemoteBoardConflict,
+  saveRemoteBoard,
+} from "./remoteBoard";
+import { findTaskStageTransitions } from "./automations";
 
-const STORAGE_KEY="chisel.workspaces.v5";
-const LEGACY_KEYS=["chisel.workspaces.v4","chisel.workspaces.v3","chisel.projects.v2"];
-export const DEFAULT_WORKSPACE_NAME="My workspace";
+const STORAGE_KEY = "chisel.workspaces.v5";
+const LEGACY_KEYS = [
+  "chisel.workspaces.v4",
+  "chisel.workspaces.v3",
+  "chisel.projects.v2",
+];
+export const DEFAULT_WORKSPACE_NAME = "My workspace";
 export type Categories = CategoryDef[];
-export interface WorkspaceCollaboration { shareId:string; ownerLogin:string; }
-export interface Workspace { id:string; name:string; createdAt:number; projects:Project[]; activeProjectId:string|null; categories:Categories; categoryGroups:CategoryGroup[]; skills:Skill[]; collaboration?:WorkspaceCollaboration; }
-export interface AppState { workspaces:Workspace[]; activeWorkspaceId:string; }
-export type BoardSyncState = {status:"local"|"loading"|"saving"|"synced"|"error"|"conflict";message:string;updatedAt?:string|null};
+export interface WorkspaceCollaboration {
+  shareId: string;
+  ownerLogin: string;
+}
+export interface Workspace {
+  id: string;
+  name: string;
+  createdAt: number;
+  projects: Project[];
+  activeProjectId: string | null;
+  categories: Categories;
+  categoryGroups: CategoryGroup[];
+  skills: Skill[];
+  collaboration?: WorkspaceCollaboration;
+}
+export interface AppState {
+  workspaces: Workspace[];
+  activeWorkspaceId: string;
+}
+export type BoardSyncState = {
+  status: "local" | "loading" | "saving" | "synced" | "error" | "conflict";
+  message: string;
+  updatedAt?: string | null;
+};
 export type Action =
- | {type:"hydrate";state:AppState}|{type:"workspace-create";name:string}|{type:"workspace-import";workspace:Workspace}|{type:"workspace-rename";id:string;name:string}|{type:"workspace-delete";id:string}|{type:"workspace-switch";id:string}
- | {type:"project-create";project:Project}|{type:"project-select";id:string|null}|{type:"project-update";id:string;patch:Partial<Omit<Project,"id"|"notes"|"tasks">>}|{type:"project-move";id:string;beforeId?:string}|{type:"project-delete";id:string}
- | {type:"task-add";projectId:string;task:Task}|{type:"task-duplicate";projectId:string;id:string;duplicateId:string}|{type:"task-update";projectId:string;id:string;patch:Partial<Omit<Task,"id"|"notes">>}|{type:"task-move";projectId:string;id:string;stage:Stage;beforeId?:string}|{type:"task-move-project";projectId:string;targetProjectId:string;id:string}|{type:"task-delete";projectId:string;id:string}
- | {type:"note-add";entity:"project"|"task";projectId:string;taskId?:string;text:string}|{type:"note-edit";entity:"project"|"task";projectId:string;taskId?:string;noteId:string;text:string}|{type:"note-delete";entity:"project"|"task";projectId:string;taskId?:string;noteId:string}|{type:"note-color";entity:"project"|"task";projectId:string;taskId?:string;noteId:string;color:NoteColor}
- | {type:"category-add";label:string;groupId:string}|{type:"category-rename";id:string;label:string}|{type:"category-set-glyph";id:string;glyph:string}|{type:"category-delete";id:string}|{type:"category-move";id:string;groupId:string}|{type:"category-reorder";id:string;direction:-1|1}|{type:"categories-merge";categories:CategoryDef[]}
- | {type:"category-group-add";label:string}|{type:"category-group-rename";id:string;label:string}|{type:"category-group-delete";id:string}|{type:"category-group-reorder";id:string;direction:-1|1}
- | {type:"skill-create";skill:Skill}|{type:"skill-update";id:string;patch:Partial<Omit<Skill,"id"|"createdAt">>}|{type:"skill-delete";id:string};
+  | { type: "hydrate"; state: AppState }
+  | { type: "workspace-create"; name: string }
+  | { type: "workspace-import"; workspace: Workspace }
+  | { type: "workspace-rename"; id: string; name: string }
+  | { type: "workspace-delete"; id: string }
+  | { type: "workspace-switch"; id: string }
+  | { type: "project-create"; project: Project }
+  | { type: "project-select"; id: string | null }
+  | {
+      type: "project-update";
+      id: string;
+      patch: Partial<Omit<Project, "id" | "notes" | "tasks">>;
+    }
+  | { type: "project-move"; id: string; beforeId?: string }
+  | { type: "project-delete"; id: string }
+  | { type: "task-add"; projectId: string; task: Task }
+  | {
+      type: "task-duplicate";
+      projectId: string;
+      id: string;
+      duplicateId: string;
+    }
+  | {
+      type: "task-update";
+      projectId: string;
+      id: string;
+      patch: Partial<Omit<Task, "id" | "notes">>;
+    }
+  | {
+      type: "task-move";
+      projectId: string;
+      id: string;
+      stage: Stage;
+      beforeId?: string;
+    }
+  | {
+      type: "task-move-project";
+      projectId: string;
+      targetProjectId: string;
+      id: string;
+    }
+  | { type: "task-delete"; projectId: string; id: string }
+  | {
+      type: "note-add";
+      entity: "project" | "task";
+      projectId: string;
+      taskId?: string;
+      text: string;
+    }
+  | {
+      type: "note-edit";
+      entity: "project" | "task";
+      projectId: string;
+      taskId?: string;
+      noteId: string;
+      text: string;
+    }
+  | {
+      type: "note-delete";
+      entity: "project" | "task";
+      projectId: string;
+      taskId?: string;
+      noteId: string;
+    }
+  | {
+      type: "note-color";
+      entity: "project" | "task";
+      projectId: string;
+      taskId?: string;
+      noteId: string;
+      color: NoteColor;
+    }
+  | { type: "category-add"; label: string; groupId: string }
+  | { type: "category-rename"; id: string; label: string }
+  | { type: "category-set-glyph"; id: string; glyph: string }
+  | { type: "category-delete"; id: string }
+  | { type: "category-move"; id: string; groupId: string }
+  | { type: "category-reorder"; id: string; direction: -1 | 1 }
+  | { type: "categories-merge"; categories: CategoryDef[] }
+  | { type: "category-group-add"; label: string }
+  | { type: "category-group-rename"; id: string; label: string }
+  | { type: "category-group-delete"; id: string }
+  | { type: "category-group-reorder"; id: string; direction: -1 | 1 }
+  | { type: "skill-create"; skill: Skill }
+  | {
+      type: "skill-update";
+      id: string;
+      patch: Partial<Omit<Skill, "id" | "createdAt">>;
+    }
+  | { type: "skill-delete"; id: string };
 
-export function newProject(title=""):Project { const now=Date.now(); return {id:uid(),title,description:"",risk:"medium",effort:"medium",tags:[],stage:"queued",notes:[],createdAt:now,updatedAt:now,tasks:[]}; }
-export function newTask(stage:Stage="queued"):Task { const now=Date.now(); return {id:uid(),title:"",description:"",risk:"medium",effort:"medium",category:"other",tags:[],stage,notes:[],createdAt:now,updatedAt:now}; }
-export function duplicateTask(task:Task,id=uid()):Task { const now=Date.now(); return {...task,id,title:task.title?`${task.title} (copy)`:"",tags:[...task.tags],notes:task.notes.map(note=>({...note,id:uid(),createdAt:now})),assignee:task.assignee?{...task.assignee}:task.assignee,createdAt:now,updatedAt:now}; }
-export function newWorkspace(name=DEFAULT_WORKSPACE_NAME):Workspace { return {id:uid(),name:name.trim()||"Untitled workspace",createdAt:Date.now(),projects:[],activeProjectId:null,categories:TASK_CATEGORIES.map(x=>({...x})),categoryGroups:CATEGORY_GROUPS.map(x=>({...x})),skills:defaultSkills()}; }
-const mapWs=(s:AppState,fn:(w:Workspace)=>Workspace):AppState=>({...s,workspaces:s.workspaces.map(w=>w.id===s.activeWorkspaceId?fn(w):w)});
-const touch=<T extends {updatedAt:number}>(x:T):T=>({...x,updatedAt:Date.now()});
-function updateEntity(w:Workspace,projectId:string,taskId:string|undefined,fn:(x:Project|Task)=>Project|Task):Workspace { return {...w,projects:w.projects.map(p=>p.id!==projectId?p:taskId?{...p,tasks:p.tasks.map(t=>t.id===taskId?fn(t) as Task:t)}:fn(p) as Project)}; }
-export function reducer(state:AppState,a:Action):AppState {
- switch(a.type){
-  case"hydrate":return a.state;
-  case"workspace-create":{const w=newWorkspace(a.name);return{workspaces:[...state.workspaces,w],activeWorkspaceId:w.id};}
-  case"workspace-import":return{workspaces:[...state.workspaces,a.workspace],activeWorkspaceId:a.workspace.id};
-  case"workspace-rename":return{...state,workspaces:state.workspaces.map(w=>w.id===a.id?{...w,name:a.name.trim()||w.name}:w)};
-  case"workspace-delete":{const ws=state.workspaces.filter(w=>w.id!==a.id);if(!ws.length){const w=newWorkspace();return{workspaces:[w],activeWorkspaceId:w.id}}return{workspaces:ws,activeWorkspaceId:state.activeWorkspaceId===a.id?ws[0].id:state.activeWorkspaceId};}
-  case"workspace-switch":return state.workspaces.some(w=>w.id===a.id)?{...state,activeWorkspaceId:a.id}:state;
-  case"project-create":return mapWs(state,w=>({...w,projects:[...w.projects,a.project],activeProjectId:null}));
-  case"project-select":return mapWs(state,w=>({...w,activeProjectId:a.id&&w.projects.some(p=>p.id===a.id)?a.id:null}));
-  case"project-update":return mapWs(state,w=>updateEntity(w,a.id,undefined,x=>touch({...x,...a.patch}) as Project));
-  case"project-move":return mapWs(state,w=>({...w,projects:moveBefore(w.projects,a.id,a.beforeId)}));
-  case"project-delete":return mapWs(state,w=>({...w,projects:w.projects.filter(p=>p.id!==a.id),activeProjectId:w.activeProjectId===a.id?null:w.activeProjectId}));
-  case"task-add":return mapWs(state,w=>({...w,projects:w.projects.map(p=>p.id===a.projectId?{...p,tasks:[...p.tasks,a.task]}:p)}));
-  case"task-duplicate":return mapWs(state,w=>({...w,projects:w.projects.map(p=>{if(p.id!==a.projectId)return p;const index=p.tasks.findIndex(t=>t.id===a.id);if(index<0)return p;const tasks=[...p.tasks];tasks.splice(index+1,0,duplicateTask(tasks[index],a.duplicateId));return{...p,tasks};})}));
-  case"task-update":return mapWs(state,w=>updateEntity(w,a.projectId,a.id,x=>touch({...x,...a.patch}) as Task));
-  case"task-delete":return mapWs(state,w=>({...w,projects:w.projects.map(p=>p.id===a.projectId?{...p,tasks:p.tasks.filter(t=>t.id!==a.id)}:p)}));
-  case"task-move":return mapWs(state,w=>({...w,projects:w.projects.map(p=>{if(p.id!==a.projectId)return p;const item=p.tasks.find(t=>t.id===a.id);if(!item)return p;const rest=p.tasks.filter(t=>t.id!==a.id);const moved=touch({...item,stage:a.stage});const at=a.beforeId?rest.findIndex(t=>t.id===a.beforeId):-1;at<0?rest.push(moved):rest.splice(at,0,moved);return{...p,tasks:rest};})}));
-  case"task-move-project":return mapWs(state,w=>{if(a.projectId===a.targetProjectId)return w;const source=w.projects.find(p=>p.id===a.projectId),target=w.projects.find(p=>p.id===a.targetProjectId),task=source?.tasks.find(t=>t.id===a.id);if(!source||!target||!task)return w;const moved=touch(task);return{...w,projects:w.projects.map(p=>p.id===source.id?{...p,tasks:p.tasks.filter(t=>t.id!==task.id)}:p.id===target.id?{...p,tasks:[...p.tasks,moved]}:p)}});
-  case"note-add":return mapWs(state,w=>updateEntity(w,a.projectId,a.taskId,x=>touch({...x,notes:[...x.notes,{id:uid(),text:a.text,createdAt:Date.now(),color:"neutral"}]}) as Project|Task));
-  case"note-edit":return mapWs(state,w=>updateEntity(w,a.projectId,a.taskId,x=>touch({...x,notes:x.notes.map(n=>n.id===a.noteId?{...n,text:a.text}:n)}) as Project|Task));
-  case"note-delete":return mapWs(state,w=>updateEntity(w,a.projectId,a.taskId,x=>touch({...x,notes:x.notes.filter(n=>n.id!==a.noteId)}) as Project|Task));
-  case"note-color":return mapWs(state,w=>updateEntity(w,a.projectId,a.taskId,x=>touch({...x,notes:x.notes.map(n=>n.id===a.noteId?{...n,color:a.color}:n)}) as Project|Task));
-  case"category-add":return mapWs(state,w=>{const base=slugifyCategory(a.label);let id=base,n=2;while(w.categories.some(c=>c.id===id))id=`${base}-${n++}`;return{...w,categories:[...w.categories,{id,label:a.label,glyph:"·",groupId:a.groupId}]}});
-  case"category-rename":return mapWs(state,w=>({...w,categories:w.categories.map(c=>c.id===a.id?{...c,label:a.label}:c)}));
-  case"category-set-glyph":return mapWs(state,w=>({...w,categories:w.categories.map(c=>c.id===a.id?{...c,glyph:a.glyph}:c)}));
-  case"category-delete":return a.id===FALLBACK_CATEGORY_ID?state:mapWs(state,w=>({...w,categories:w.categories.filter(c=>c.id!==a.id),projects:w.projects.map(p=>({...p,tasks:p.tasks.map(t=>({...t,category:t.category===a.id?FALLBACK_CATEGORY_ID:t.category}))}))}));
-  case"category-move":return mapWs(state,w=>({...w,categories:w.categories.map(c=>c.id===a.id?{...c,groupId:a.groupId}:c)}));
-  case"category-reorder":return mapWs(state,w=>({...w,categories:reorderWithinGroup(w.categories,a.id,a.direction)}));
-  case"categories-merge":return mapWs(state,w=>({...w,categories:[...w.categories,...a.categories.filter(c=>!w.categories.some(x=>x.id===c.id)).map(c=>({...c,groupId:c.groupId||"general"}))]}));
-  case"category-group-add":return mapWs(state,w=>{const base=slugifyCategory(a.label);let id=base,n=2;while(w.categoryGroups.some(g=>g.id===id))id=`${base}-${n++}`;return{...w,categoryGroups:[...w.categoryGroups,{id,label:a.label}]}});
-  case"category-group-rename":return mapWs(state,w=>({...w,categoryGroups:w.categoryGroups.map(g=>g.id===a.id?{...g,label:a.label}:g)}));
-  case"category-group-reorder":return mapWs(state,w=>({...w,categoryGroups:reorder(w.categoryGroups,a.id,a.direction)}));
-  case"category-group-delete":return mapWs(state,w=>{const removed=w.categories.filter(c=>c.groupId===a.id);if(removed.some(c=>c.id===FALLBACK_CATEGORY_ID))return w;const ids=new Set(removed.map(c=>c.id));return{...w,categoryGroups:w.categoryGroups.filter(g=>g.id!==a.id),categories:w.categories.filter(c=>!ids.has(c.id)),projects:w.projects.map(p=>({...p,tasks:p.tasks.map(t=>ids.has(t.category)?{...t,category:FALLBACK_CATEGORY_ID}:t)}))}});
-  case"skill-create":return mapWs(state,w=>({...w,skills:[...w.skills,a.skill]}));case"skill-update":return mapWs(state,w=>({...w,skills:w.skills.map(s=>s.id===a.id?{...s,...a.patch,updatedAt:Date.now()}:s)}));case"skill-delete":return mapWs(state,w=>({...w,skills:w.skills.filter(s=>s.id!==a.id)}));
- }
+export function newProject(title = ""): Project {
+  const now = Date.now();
+  return {
+    id: uid(),
+    title,
+    description: "",
+    risk: "medium",
+    effort: "medium",
+    tags: [],
+    stage: "to-do",
+    notes: [],
+    createdAt: now,
+    updatedAt: now,
+    tasks: [],
+  };
 }
-export function activeWorkspace(s:AppState):Workspace{return s.workspaces.find(w=>w.id===s.activeWorkspaceId)??s.workspaces[0]}
-export function activeProject(s:AppState):Project|null{const w=activeWorkspace(s);return w.projects.find(p=>p.id===w.activeProjectId)??null}
+export function newTask(stage: Stage = "to-do"): Task {
+  const now = Date.now();
+  return {
+    id: uid(),
+    title: "",
+    description: "",
+    risk: "medium",
+    effort: "medium",
+    category: "other",
+    tags: [],
+    stage,
+    notes: [],
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+export function duplicateTask(task: Task, id = uid()): Task {
+  const now = Date.now();
+  return {
+    ...task,
+    id,
+    title: task.title ? `${task.title} (copy)` : "",
+    tags: [...task.tags],
+    notes: task.notes.map((note) => ({ ...note, id: uid(), createdAt: now })),
+    assignee: task.assignee ? { ...task.assignee } : task.assignee,
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+export function newWorkspace(name = DEFAULT_WORKSPACE_NAME): Workspace {
+  return {
+    id: uid(),
+    name: name.trim() || "Untitled workspace",
+    createdAt: Date.now(),
+    projects: [],
+    activeProjectId: null,
+    categories: TASK_CATEGORIES.map((x) => ({ ...x })),
+    categoryGroups: CATEGORY_GROUPS.map((x) => ({ ...x })),
+    skills: defaultSkills(),
+  };
+}
+const mapWs = (s: AppState, fn: (w: Workspace) => Workspace): AppState => ({
+  ...s,
+  workspaces: s.workspaces.map((w) =>
+    w.id === s.activeWorkspaceId ? fn(w) : w,
+  ),
+});
+const touch = <T extends { updatedAt: number }>(x: T): T => ({
+  ...x,
+  updatedAt: Date.now(),
+});
+function updateEntity(
+  w: Workspace,
+  projectId: string,
+  taskId: string | undefined,
+  fn: (x: Project | Task) => Project | Task,
+): Workspace {
+  return {
+    ...w,
+    projects: w.projects.map((p) =>
+      p.id !== projectId
+        ? p
+        : taskId
+          ? {
+              ...p,
+              tasks: p.tasks.map((t) =>
+                t.id === taskId ? (fn(t) as Task) : t,
+              ),
+            }
+          : (fn(p) as Project),
+    ),
+  };
+}
+export function reducer(state: AppState, a: Action): AppState {
+  switch (a.type) {
+    case "hydrate":
+      return a.state;
+    case "workspace-create": {
+      const w = newWorkspace(a.name);
+      return { workspaces: [...state.workspaces, w], activeWorkspaceId: w.id };
+    }
+    case "workspace-import":
+      return {
+        workspaces: [...state.workspaces, a.workspace],
+        activeWorkspaceId: a.workspace.id,
+      };
+    case "workspace-rename":
+      return {
+        ...state,
+        workspaces: state.workspaces.map((w) =>
+          w.id === a.id ? { ...w, name: a.name.trim() || w.name } : w,
+        ),
+      };
+    case "workspace-delete": {
+      const ws = state.workspaces.filter((w) => w.id !== a.id);
+      if (!ws.length) {
+        const w = newWorkspace();
+        return { workspaces: [w], activeWorkspaceId: w.id };
+      }
+      return {
+        workspaces: ws,
+        activeWorkspaceId:
+          state.activeWorkspaceId === a.id ? ws[0].id : state.activeWorkspaceId,
+      };
+    }
+    case "workspace-switch":
+      return state.workspaces.some((w) => w.id === a.id)
+        ? { ...state, activeWorkspaceId: a.id }
+        : state;
+    case "project-create":
+      return mapWs(state, (w) => ({
+        ...w,
+        projects: [...w.projects, a.project],
+        activeProjectId: null,
+      }));
+    case "project-select":
+      return mapWs(state, (w) => ({
+        ...w,
+        activeProjectId:
+          a.id && w.projects.some((p) => p.id === a.id) ? a.id : null,
+      }));
+    case "project-update":
+      return mapWs(state, (w) =>
+        updateEntity(
+          w,
+          a.id,
+          undefined,
+          (x) => touch({ ...x, ...a.patch }) as Project,
+        ),
+      );
+    case "project-move":
+      return mapWs(state, (w) => ({
+        ...w,
+        projects: moveBefore(w.projects, a.id, a.beforeId),
+      }));
+    case "project-delete":
+      return mapWs(state, (w) =>
+        w.projects.some(
+          (p) => p.id === a.id && p.collaboration?.role === "editor",
+        )
+          ? w
+          : {
+              ...w,
+              projects: w.projects.filter((p) => p.id !== a.id),
+              activeProjectId:
+                w.activeProjectId === a.id ? null : w.activeProjectId,
+            },
+      );
+    case "task-add":
+      return mapWs(state, (w) => ({
+        ...w,
+        projects: w.projects.map((p) =>
+          p.id === a.projectId ? { ...p, tasks: [...p.tasks, a.task] } : p,
+        ),
+      }));
+    case "task-duplicate":
+      return mapWs(state, (w) => ({
+        ...w,
+        projects: w.projects.map((p) => {
+          if (p.id !== a.projectId) return p;
+          const index = p.tasks.findIndex((t) => t.id === a.id);
+          if (index < 0) return p;
+          const tasks = [...p.tasks];
+          tasks.splice(
+            index + 1,
+            0,
+            duplicateTask(tasks[index], a.duplicateId),
+          );
+          return { ...p, tasks };
+        }),
+      }));
+    case "task-update":
+      return mapWs(state, (w) =>
+        updateEntity(
+          w,
+          a.projectId,
+          a.id,
+          (x) => touch({ ...x, ...a.patch }) as Task,
+        ),
+      );
+    case "task-delete":
+      return mapWs(state, (w) => ({
+        ...w,
+        projects: w.projects.map((p) =>
+          p.id === a.projectId
+            ? { ...p, tasks: p.tasks.filter((t) => t.id !== a.id) }
+            : p,
+        ),
+      }));
+    case "task-move":
+      return mapWs(state, (w) => ({
+        ...w,
+        projects: w.projects.map((p) => {
+          if (p.id !== a.projectId) return p;
+          const item = p.tasks.find((t) => t.id === a.id);
+          if (!item) return p;
+          const rest = p.tasks.filter((t) => t.id !== a.id);
+          const moved = touch({ ...item, stage: a.stage });
+          const at = a.beforeId
+            ? rest.findIndex((t) => t.id === a.beforeId)
+            : -1;
+          at < 0 ? rest.push(moved) : rest.splice(at, 0, moved);
+          return { ...p, tasks: rest };
+        }),
+      }));
+    case "task-move-project":
+      return mapWs(state, (w) => {
+        if (a.projectId === a.targetProjectId) return w;
+        const source = w.projects.find((p) => p.id === a.projectId),
+          target = w.projects.find((p) => p.id === a.targetProjectId),
+          task = source?.tasks.find((t) => t.id === a.id);
+        if (!source || !target || !task) return w;
+        const moved = touch(task);
+        return {
+          ...w,
+          projects: w.projects.map((p) =>
+            p.id === source.id
+              ? { ...p, tasks: p.tasks.filter((t) => t.id !== task.id) }
+              : p.id === target.id
+                ? { ...p, tasks: [...p.tasks, moved] }
+                : p,
+          ),
+        };
+      });
+    case "note-add":
+      return mapWs(state, (w) =>
+        updateEntity(
+          w,
+          a.projectId,
+          a.taskId,
+          (x) =>
+            touch({
+              ...x,
+              notes: [
+                ...x.notes,
+                {
+                  id: uid(),
+                  text: a.text,
+                  createdAt: Date.now(),
+                  color: "neutral",
+                },
+              ],
+            }) as Project | Task,
+        ),
+      );
+    case "note-edit":
+      return mapWs(state, (w) =>
+        updateEntity(
+          w,
+          a.projectId,
+          a.taskId,
+          (x) =>
+            touch({
+              ...x,
+              notes: x.notes.map((n) =>
+                n.id === a.noteId ? { ...n, text: a.text } : n,
+              ),
+            }) as Project | Task,
+        ),
+      );
+    case "note-delete":
+      return mapWs(state, (w) =>
+        updateEntity(
+          w,
+          a.projectId,
+          a.taskId,
+          (x) =>
+            touch({ ...x, notes: x.notes.filter((n) => n.id !== a.noteId) }) as
+              Project | Task,
+        ),
+      );
+    case "note-color":
+      return mapWs(state, (w) =>
+        updateEntity(
+          w,
+          a.projectId,
+          a.taskId,
+          (x) =>
+            touch({
+              ...x,
+              notes: x.notes.map((n) =>
+                n.id === a.noteId ? { ...n, color: a.color } : n,
+              ),
+            }) as Project | Task,
+        ),
+      );
+    case "category-add":
+      return mapWs(state, (w) => {
+        const base = slugifyCategory(a.label);
+        let id = base,
+          n = 2;
+        while (w.categories.some((c) => c.id === id)) id = `${base}-${n++}`;
+        return {
+          ...w,
+          categories: [
+            ...w.categories,
+            { id, label: a.label, glyph: "·", groupId: a.groupId },
+          ],
+        };
+      });
+    case "category-rename":
+      return mapWs(state, (w) => ({
+        ...w,
+        categories: w.categories.map((c) =>
+          c.id === a.id ? { ...c, label: a.label } : c,
+        ),
+      }));
+    case "category-set-glyph":
+      return mapWs(state, (w) => ({
+        ...w,
+        categories: w.categories.map((c) =>
+          c.id === a.id ? { ...c, glyph: a.glyph } : c,
+        ),
+      }));
+    case "category-delete":
+      return a.id === FALLBACK_CATEGORY_ID
+        ? state
+        : mapWs(state, (w) => ({
+            ...w,
+            categories: w.categories.filter((c) => c.id !== a.id),
+            projects: w.projects.map((p) => ({
+              ...p,
+              tasks: p.tasks.map((t) => ({
+                ...t,
+                category:
+                  t.category === a.id ? FALLBACK_CATEGORY_ID : t.category,
+              })),
+            })),
+          }));
+    case "category-move":
+      return mapWs(state, (w) => ({
+        ...w,
+        categories: w.categories.map((c) =>
+          c.id === a.id ? { ...c, groupId: a.groupId } : c,
+        ),
+      }));
+    case "category-reorder":
+      return mapWs(state, (w) => ({
+        ...w,
+        categories: reorderWithinGroup(w.categories, a.id, a.direction),
+      }));
+    case "categories-merge":
+      return mapWs(state, (w) => ({
+        ...w,
+        categories: [
+          ...w.categories,
+          ...a.categories
+            .filter((c) => !w.categories.some((x) => x.id === c.id))
+            .map((c) => ({ ...c, groupId: c.groupId || "general" })),
+        ],
+      }));
+    case "category-group-add":
+      return mapWs(state, (w) => {
+        const base = slugifyCategory(a.label);
+        let id = base,
+          n = 2;
+        while (w.categoryGroups.some((g) => g.id === id)) id = `${base}-${n++}`;
+        return {
+          ...w,
+          categoryGroups: [...w.categoryGroups, { id, label: a.label }],
+        };
+      });
+    case "category-group-rename":
+      return mapWs(state, (w) => ({
+        ...w,
+        categoryGroups: w.categoryGroups.map((g) =>
+          g.id === a.id ? { ...g, label: a.label } : g,
+        ),
+      }));
+    case "category-group-reorder":
+      return mapWs(state, (w) => ({
+        ...w,
+        categoryGroups: reorder(w.categoryGroups, a.id, a.direction),
+      }));
+    case "category-group-delete":
+      return mapWs(state, (w) => {
+        const removed = w.categories.filter((c) => c.groupId === a.id);
+        if (removed.some((c) => c.id === FALLBACK_CATEGORY_ID)) return w;
+        const ids = new Set(removed.map((c) => c.id));
+        return {
+          ...w,
+          categoryGroups: w.categoryGroups.filter((g) => g.id !== a.id),
+          categories: w.categories.filter((c) => !ids.has(c.id)),
+          projects: w.projects.map((p) => ({
+            ...p,
+            tasks: p.tasks.map((t) =>
+              ids.has(t.category)
+                ? { ...t, category: FALLBACK_CATEGORY_ID }
+                : t,
+            ),
+          })),
+        };
+      });
+    case "skill-create":
+      return mapWs(state, (w) => ({ ...w, skills: [...w.skills, a.skill] }));
+    case "skill-update":
+      return mapWs(state, (w) => ({
+        ...w,
+        skills: w.skills.map((s) =>
+          s.id === a.id ? { ...s, ...a.patch, updatedAt: Date.now() } : s,
+        ),
+      }));
+    case "skill-delete":
+      return mapWs(state, (w) => ({
+        ...w,
+        skills: w.skills.filter((s) => s.id !== a.id),
+      }));
+  }
+}
+export function activeWorkspace(s: AppState): Workspace {
+  return (
+    s.workspaces.find((w) => w.id === s.activeWorkspaceId) ?? s.workspaces[0]
+  );
+}
+export function activeProject(s: AppState): Project | null {
+  const w = activeWorkspace(s);
+  return w.projects.find((p) => p.id === w.activeProjectId) ?? null;
+}
 
-function validBase(x:any):boolean{return x&&typeof x.id==="string"&&typeof x.title==="string"&&Array.isArray(x.tags)&&Array.isArray(x.notes)}
-function normalizeEffort<T extends{effort:any}>(item:T):T{return item.effort==="xhigh"?{...item,effort:"high"}:item}
-function normalizeAssignee(value:any):TaskAssignee|null|undefined{if(value==null)return value;if(typeof value!=="object"||typeof value.userId!=="string"||typeof value.login!=="string")return undefined;return{userId:value.userId,login:value.login,name:typeof value.name==="string"?value.name:null,avatarUrl:typeof value.avatarUrl==="string"?value.avatarUrl:""}}
-const NOTE_COLORS:NoteColor[]=["neutral","red","orange","green","blue","purple"];
-function normalizeNotes(notes:any[]):Note[]{return notes.map((note:any)=>({id:note.id,text:note.text,createdAt:note.createdAt,color:NOTE_COLORS.includes(note.color)?note.color:note.blocked?"red":"neutral"}))}
-function moveBefore<T extends{id:string}>(items:T[],id:string,beforeId?:string):T[]{if(id===beforeId)return items;const item=items.find(x=>x.id===id);if(!item)return items;const rest=items.filter(x=>x.id!==id),at=beforeId?rest.findIndex(x=>x.id===beforeId):-1;if(beforeId&&at<0)return items;const next=[...rest];at<0?next.push(item):next.splice(at,0,item);return next.every((x,index)=>x===items[index])?items:next}
-function reorder<T extends{id:string}>(items:T[],id:string,direction:-1|1):T[]{const from=items.findIndex(x=>x.id===id),to=from+direction;if(from<0||to<0||to>=items.length)return items;const next=[...items],[item]=next.splice(from,1);next.splice(to,0,item);return next}
-function reorderWithinGroup(items:CategoryDef[],id:string,direction:-1|1):CategoryDef[]{const item=items.find(c=>c.id===id);if(!item)return items;const peers=items.filter(c=>c.groupId===item.groupId),from=peers.findIndex(c=>c.id===id),target=peers[from+direction];if(!target)return items;const next=[...items],a=next.findIndex(c=>c.id===id),b=next.findIndex(c=>c.id===target.id);[next[a],next[b]]=[next[b],next[a]];return next}
-const LEGACY_PROJECT_CATEGORIES=[{id:"goal",label:"Goal",glyph:"◎"},{id:"initiative",label:"Initiative",glyph:"◆"},{id:"feature",label:"Feature",glyph:"✦"},{id:"research",label:"Research",glyph:"⌕"},{id:"improvement",label:"Improvement",glyph:"↗"},{id:"other",label:"Other",glyph:"·"}];
-function normalizeCategories(raw:any):Categories{const task=Array.isArray(raw)?raw:Array.isArray(raw?.task)?raw.task:[];const project=Array.isArray(raw)?[]:Array.isArray(raw?.project)?raw.project:LEGACY_PROJECT_CATEGORIES;const merged=[...task,...project.filter((c:any)=>!task.some((t:any)=>t.id===c.id))];const source=merged.length?merged:TASK_CATEGORIES;return source.map((c:any)=>({...c,groupId:typeof c.groupId==="string"?c.groupId:(c.id==="goal"||c.id==="initiative"||c.id==="feature"?"planning":c.id==="research"||c.id==="other"?"general":"work")}))}
-function normalizeGroups(raw:any,categories:CategoryDef[]):CategoryGroup[]{const groups:CategoryGroup[]=Array.isArray(raw)?raw.filter((g:any)=>g&&typeof g.id==="string"&&typeof g.label==="string"):CATEGORY_GROUPS.map(x=>({...x}));for(const c of categories)if(!groups.some(g=>g.id===c.groupId))groups.push({id:c.groupId,label:c.groupId});return groups}
-export function normalizeWorkspace(value:unknown):Workspace|null{
- if(!value||typeof value!=="object")return null;const r:any=value;
- if(Array.isArray(r.projects)&&r.projects.every((p:any)=>validBase(p)&&Array.isArray(p.tasks))){const projects=r.projects.map((p:any)=>{const{category,blocked,blockReason,...rawProject}=p;const project=normalizeEffort({...rawProject,notes:normalizeNotes(rawProject.notes)});return{...project,tasks:p.tasks.filter(validBase).map((t:any)=>{const{blocked,blockReason,...task}=t;return normalizeEffort({...task,notes:normalizeNotes(task.notes),assignee:normalizeAssignee(task.assignee)})})}});const categories=normalizeCategories(r.categories);const collaboration=r.collaboration&&typeof r.collaboration.shareId==="string"&&typeof r.collaboration.ownerLogin==="string"?{shareId:r.collaboration.shareId,ownerLogin:r.collaboration.ownerLogin}:undefined;return{id:r.id,name:r.name||DEFAULT_WORKSPACE_NAME,createdAt:r.createdAt||Date.now(),projects,activeProjectId:projects.some((p:Project)=>p.id===r.activeProjectId)?r.activeProjectId:null,categories,categoryGroups:normalizeGroups(r.categoryGroups,categories),skills:normalizeSkills(r.skills),...(collaboration?{collaboration}:{})};}
- if(!Array.isArray(r.projects))return null;const boards=r.projects;const plans=boards.filter((b:any)=>b.type==="plan").flatMap((b:any)=>Array.isArray(b.items)?b.items:[]).filter(validBase);const tasks=boards.filter((b:any)=>b.type==="task").flatMap((b:any)=>Array.isArray(b.items)?b.items:[]).filter(validBase);const projects:Project[]=plans.map((p:any)=>{const {parentId,parentIds,files,category,blocked,blockReason,...base}=p;return{...normalizeEffort({...base,notes:normalizeNotes(base.notes)}),tasks:tasks.filter((t:any)=>t.parentId===p.id||(Array.isArray(t.parentIds)&&t.parentIds.includes(p.id))).map((t:any)=>{const{parentId,parentIds,files,blocked,blockReason,...task}=t;return normalizeEffort({...task,notes:normalizeNotes(task.notes)});})}});const categories=normalizeCategories({project:r.categories?.plan,task:r.categories?.task});return{id:r.id||uid(),name:r.name||DEFAULT_WORKSPACE_NAME,createdAt:r.createdAt||Date.now(),projects,activeProjectId:null,categories,categoryGroups:normalizeGroups(r.categoryGroups,categories),skills:normalizeSkills(r.skills)};
+function validBase(x: any): boolean {
+  return (
+    x &&
+    typeof x.id === "string" &&
+    typeof x.title === "string" &&
+    Array.isArray(x.tags) &&
+    Array.isArray(x.notes)
+  );
 }
-export function normalizeAppState(v:unknown):AppState|null{if(!v||typeof v!=="object")return null;const r:any=v;if(!Array.isArray(r.workspaces))return null;const workspaces=r.workspaces.map(normalizeWorkspace).filter(Boolean) as Workspace[];return workspaces.length?{workspaces,activeWorkspaceId:workspaces.some(w=>w.id===r.activeWorkspaceId)?r.activeWorkspaceId:workspaces[0].id}:null}
-function storageKey(base:string,scope?:string){return scope?`${base}.${scope}`:base}
-function load(scope?:string):AppState{try{for(const key of[STORAGE_KEY,...LEGACY_KEYS]){const raw=localStorage.getItem(storageKey(key,scope));if(raw){const s=normalizeAppState(JSON.parse(raw));if(s)return s;}}}catch{}const w=newWorkspace();return{workspaces:[w],activeWorkspaceId:w.id}}
-export function useBoard(scope?:string,remoteToken?:string|null){const token=remoteToken??null;const[state,dispatch]=useReducer(reducer,scope,load);const[remoteReady,setRemoteReady]=useState(!token);const[sync,setSync]=useState<BoardSyncState>(token?{status:"loading",message:"Loading cloud workspaces..."}:{status:"local",message:"Local-only storage"});const version=useRef(0),skip=useRef(false),paused=useRef(false),dirty=useRef(false),revision=useRef(0),queue=useRef(Promise.resolve()),previousState=useRef(state);useEffect(()=>localStorage.setItem(storageKey(STORAGE_KEY,scope),JSON.stringify(state)),[state,scope]);useEffect(()=>{let cancel=false;if(!token){setRemoteReady(true);return}setRemoteReady(false);fetchRemoteBoard(token).then(r=>{if(cancel)return;version.current=r.version;if(r.state){const s=normalizeAppState(r.state);if(!s)throw Error("Cloud workspace data is invalid.");skip.current=true;dispatch({type:"hydrate",state:s})}setSync({status:"synced",message:"Synced",updatedAt:r.updatedAt});setRemoteReady(true)}).catch(e=>{paused.current=true;setSync({status:"error",message:e.message})});return()=>{cancel=true}},[scope,token]);useEffect(()=>{const immediate=findTaskStageTransitions(previousState.current,state).length>0;previousState.current=state;if(!token||!remoteReady||paused.current)return;if(skip.current){skip.current=false;return}dirty.current=true;const rev=++revision.current;setSync({status:"saving",message:"Saving..."});const timer=setTimeout(()=>{queue.current=queue.current.then(async()=>{try{const r=await saveRemoteBoard(token,state,version.current);version.current=r.version;if(rev===revision.current){if(r.state){const canonical=normalizeAppState(r.state);if(canonical&&JSON.stringify(canonical)!==JSON.stringify(state)){skip.current=true;dispatch({type:"hydrate",state:canonical})}}dirty.current=false;setSync({status:"synced",message:"Synced",updatedAt:r.updatedAt})}}catch(e){paused.current=true;setSync(e instanceof RemoteBoardConflict?{status:"conflict",message:"Remote workspaces changed. Refresh.",updatedAt:e.remote.updatedAt}:{status:"error",message:e instanceof Error?e.message:"Sync failed"})}})},immediate?0:800);return()=>clearTimeout(timer)},[state,token,remoteReady]);return{state,dispatch,sync}}
+function normalizeEffort<T extends { effort: any }>(item: T): T {
+  return item.effort === "xhigh" ? { ...item, effort: "high" } : item;
+}
+function normalizeStage<T extends { stage: any }>(item: T): T {
+  return { ...item, stage: stageFrom(item.stage) ?? "to-do" };
+}
+function normalizeAssignee(value: any): TaskAssignee | null | undefined {
+  if (value == null) return value;
+  if (
+    typeof value !== "object" ||
+    typeof value.userId !== "string" ||
+    typeof value.login !== "string"
+  )
+    return undefined;
+  return {
+    userId: value.userId,
+    login: value.login,
+    name: typeof value.name === "string" ? value.name : null,
+    avatarUrl: typeof value.avatarUrl === "string" ? value.avatarUrl : "",
+  };
+}
+const NOTE_COLORS: NoteColor[] = [
+  "neutral",
+  "red",
+  "orange",
+  "green",
+  "blue",
+  "purple",
+];
+function normalizeNotes(notes: any[]): Note[] {
+  return notes.map((note: any) => ({
+    id: note.id,
+    text: note.text,
+    createdAt: note.createdAt,
+    color: NOTE_COLORS.includes(note.color)
+      ? note.color
+      : note.blocked
+        ? "red"
+        : "neutral",
+  }));
+}
+function moveBefore<T extends { id: string }>(
+  items: T[],
+  id: string,
+  beforeId?: string,
+): T[] {
+  if (id === beforeId) return items;
+  const item = items.find((x) => x.id === id);
+  if (!item) return items;
+  const rest = items.filter((x) => x.id !== id),
+    at = beforeId ? rest.findIndex((x) => x.id === beforeId) : -1;
+  if (beforeId && at < 0) return items;
+  const next = [...rest];
+  at < 0 ? next.push(item) : next.splice(at, 0, item);
+  return next.every((x, index) => x === items[index]) ? items : next;
+}
+function reorder<T extends { id: string }>(
+  items: T[],
+  id: string,
+  direction: -1 | 1,
+): T[] {
+  const from = items.findIndex((x) => x.id === id),
+    to = from + direction;
+  if (from < 0 || to < 0 || to >= items.length) return items;
+  const next = [...items],
+    [item] = next.splice(from, 1);
+  next.splice(to, 0, item);
+  return next;
+}
+function reorderWithinGroup(
+  items: CategoryDef[],
+  id: string,
+  direction: -1 | 1,
+): CategoryDef[] {
+  const item = items.find((c) => c.id === id);
+  if (!item) return items;
+  const peers = items.filter((c) => c.groupId === item.groupId),
+    from = peers.findIndex((c) => c.id === id),
+    target = peers[from + direction];
+  if (!target) return items;
+  const next = [...items],
+    a = next.findIndex((c) => c.id === id),
+    b = next.findIndex((c) => c.id === target.id);
+  [next[a], next[b]] = [next[b], next[a]];
+  return next;
+}
+const LEGACY_PROJECT_CATEGORIES = [
+  { id: "goal", label: "Goal", glyph: "◎" },
+  { id: "initiative", label: "Initiative", glyph: "◆" },
+  { id: "feature", label: "Feature", glyph: "✦" },
+  { id: "research", label: "Research", glyph: "⌕" },
+  { id: "improvement", label: "Improvement", glyph: "↗" },
+  { id: "other", label: "Other", glyph: "·" },
+];
+function normalizeCategories(raw: any): Categories {
+  const task = Array.isArray(raw)
+    ? raw
+    : Array.isArray(raw?.task)
+      ? raw.task
+      : [];
+  const project = Array.isArray(raw)
+    ? []
+    : Array.isArray(raw?.project)
+      ? raw.project
+      : LEGACY_PROJECT_CATEGORIES;
+  const merged = [
+    ...task,
+    ...project.filter((c: any) => !task.some((t: any) => t.id === c.id)),
+  ];
+  const source = merged.length ? merged : TASK_CATEGORIES;
+  return source.map((c: any) => ({
+    ...c,
+    groupId:
+      typeof c.groupId === "string"
+        ? c.groupId
+        : c.id === "goal" || c.id === "initiative" || c.id === "feature"
+          ? "planning"
+          : c.id === "research" || c.id === "other"
+            ? "general"
+            : "work",
+  }));
+}
+function normalizeGroups(raw: any, categories: CategoryDef[]): CategoryGroup[] {
+  const groups: CategoryGroup[] = Array.isArray(raw)
+    ? raw.filter(
+        (g: any) =>
+          g && typeof g.id === "string" && typeof g.label === "string",
+      )
+    : CATEGORY_GROUPS.map((x) => ({ ...x }));
+  for (const c of categories)
+    if (!groups.some((g) => g.id === c.groupId))
+      groups.push({ id: c.groupId, label: c.groupId });
+  return groups;
+}
+export function normalizeWorkspace(value: unknown): Workspace | null {
+  if (!value || typeof value !== "object") return null;
+  const r: any = value;
+  if (
+    Array.isArray(r.projects) &&
+    r.projects.every((p: any) => validBase(p) && Array.isArray(p.tasks))
+  ) {
+    const projects = r.projects.map((p: any) => {
+      const { category, blocked, blockReason, ...rawProject } = p;
+      const project = normalizeStage(
+        normalizeEffort({
+          ...rawProject,
+          notes: normalizeNotes(rawProject.notes),
+        }),
+      );
+      return {
+        ...project,
+        tasks: p.tasks.filter(validBase).map((t: any) => {
+          const { blocked, blockReason, ...task } = t;
+          return normalizeStage(
+            normalizeEffort({
+              ...task,
+              notes: normalizeNotes(task.notes),
+              assignee: normalizeAssignee(task.assignee),
+            }),
+          );
+        }),
+      };
+    });
+    const categories = normalizeCategories(r.categories);
+    const collaboration =
+      r.collaboration &&
+      typeof r.collaboration.shareId === "string" &&
+      typeof r.collaboration.ownerLogin === "string"
+        ? {
+            shareId: r.collaboration.shareId,
+            ownerLogin: r.collaboration.ownerLogin,
+          }
+        : undefined;
+    return {
+      id: r.id,
+      name: r.name || DEFAULT_WORKSPACE_NAME,
+      createdAt: r.createdAt || Date.now(),
+      projects,
+      activeProjectId: projects.some((p: Project) => p.id === r.activeProjectId)
+        ? r.activeProjectId
+        : null,
+      categories,
+      categoryGroups: normalizeGroups(r.categoryGroups, categories),
+      skills: normalizeSkills(r.skills),
+      ...(collaboration ? { collaboration } : {}),
+    };
+  }
+  if (!Array.isArray(r.projects)) return null;
+  const boards = r.projects;
+  const plans = boards
+    .filter((b: any) => b.type === "plan")
+    .flatMap((b: any) => (Array.isArray(b.items) ? b.items : []))
+    .filter(validBase);
+  const tasks = boards
+    .filter((b: any) => b.type === "task")
+    .flatMap((b: any) => (Array.isArray(b.items) ? b.items : []))
+    .filter(validBase);
+  const projects: Project[] = plans.map((p: any) => {
+    const {
+      parentId,
+      parentIds,
+      files,
+      category,
+      blocked,
+      blockReason,
+      ...base
+    } = p;
+    return {
+      ...normalizeStage(
+        normalizeEffort({ ...base, notes: normalizeNotes(base.notes) }),
+      ),
+      tasks: tasks
+        .filter(
+          (t: any) =>
+            t.parentId === p.id ||
+            (Array.isArray(t.parentIds) && t.parentIds.includes(p.id)),
+        )
+        .map((t: any) => {
+          const { parentId, parentIds, files, blocked, blockReason, ...task } =
+            t;
+          return normalizeStage(
+            normalizeEffort({ ...task, notes: normalizeNotes(task.notes) }),
+          );
+        }),
+    };
+  });
+  const categories = normalizeCategories({
+    project: r.categories?.plan,
+    task: r.categories?.task,
+  });
+  return {
+    id: r.id || uid(),
+    name: r.name || DEFAULT_WORKSPACE_NAME,
+    createdAt: r.createdAt || Date.now(),
+    projects,
+    activeProjectId: null,
+    categories,
+    categoryGroups: normalizeGroups(r.categoryGroups, categories),
+    skills: normalizeSkills(r.skills),
+  };
+}
+export function normalizeAppState(v: unknown): AppState | null {
+  if (!v || typeof v !== "object") return null;
+  const r: any = v;
+  if (!Array.isArray(r.workspaces)) return null;
+  const workspaces = r.workspaces
+    .map(normalizeWorkspace)
+    .filter(Boolean) as Workspace[];
+  return workspaces.length
+    ? {
+        workspaces,
+        activeWorkspaceId: workspaces.some((w) => w.id === r.activeWorkspaceId)
+          ? r.activeWorkspaceId
+          : workspaces[0].id,
+      }
+    : null;
+}
+function storageKey(base: string, scope?: string) {
+  return scope ? `${base}.${scope}` : base;
+}
+function load(scope?: string): AppState {
+  try {
+    for (const key of [STORAGE_KEY, ...LEGACY_KEYS]) {
+      const raw = localStorage.getItem(storageKey(key, scope));
+      if (raw) {
+        const s = normalizeAppState(JSON.parse(raw));
+        if (s) return s;
+      }
+    }
+  } catch {}
+  const w = newWorkspace();
+  return { workspaces: [w], activeWorkspaceId: w.id };
+}
+export function useBoard(scope?: string, remoteToken?: string | null) {
+  const token = remoteToken ?? null;
+  const [state, rawDispatch] = useReducer(reducer, scope, load);
+  const [remoteReady, setRemoteReady] = useState(!token);
+  const [sync, setSync] = useState<BoardSyncState>(
+    token
+      ? { status: "loading", message: "Loading cloud workspaces..." }
+      : { status: "local", message: "Local-only storage" },
+  );
+  const version = useRef(0),
+    skip = useRef(false),
+    paused = useRef(false),
+    dirty = useRef(false),
+    revision = useRef(0),
+    queue = useRef(Promise.resolve()),
+    previousState = useRef(state);
+  const dispatch = useCallback((action: Action) => {
+    if (action.type !== "hydrate") revision.current += 1;
+    rawDispatch(action);
+  }, []);
+  useEffect(
+    () =>
+      localStorage.setItem(
+        storageKey(STORAGE_KEY, scope),
+        JSON.stringify(state),
+      ),
+    [state, scope],
+  );
+  useEffect(() => {
+    let cancel = false;
+    const fetchRevision = revision.current;
+    if (!token) {
+      setRemoteReady(true);
+      return;
+    }
+    setRemoteReady(false);
+    fetchRemoteBoard(token)
+      .then((r) => {
+        if (cancel) return;
+        version.current = r.version;
+        if (r.state && fetchRevision === revision.current) {
+          const s = normalizeAppState(r.state);
+          if (!s) throw Error("Cloud workspace data is invalid.");
+          skip.current = true;
+          rawDispatch({ type: "hydrate", state: s });
+        }
+        setSync({
+          status: "synced",
+          message: "Synced",
+          updatedAt: r.updatedAt,
+        });
+        setRemoteReady(true);
+      })
+      .catch((e) => {
+        paused.current = true;
+        setSync({ status: "error", message: e.message });
+      });
+    return () => {
+      cancel = true;
+    };
+  }, [scope, token]);
+  useEffect(() => {
+    const immediate =
+      findTaskStageTransitions(previousState.current, state).length > 0;
+    previousState.current = state;
+    if (!token || !remoteReady || paused.current) return;
+    if (skip.current) {
+      skip.current = false;
+      return;
+    }
+    dirty.current = true;
+    const rev = revision.current;
+    setSync({ status: "saving", message: "Saving..." });
+    const timer = setTimeout(
+      () => {
+        queue.current = queue.current.then(async () => {
+          try {
+            const r = await saveRemoteBoard(token, state, version.current);
+            version.current = r.version;
+            if (rev === revision.current) {
+              if (r.state) {
+                const canonical = normalizeAppState(r.state);
+                if (
+                  canonical &&
+                  JSON.stringify(canonical) !== JSON.stringify(state)
+                ) {
+                  skip.current = true;
+                  rawDispatch({ type: "hydrate", state: canonical });
+                }
+              }
+              dirty.current = false;
+              setSync({
+                status: "synced",
+                message: "Synced",
+                updatedAt: r.updatedAt,
+              });
+            }
+          } catch (e) {
+            paused.current = true;
+            setSync(
+              e instanceof RemoteBoardConflict
+                ? {
+                    status: "conflict",
+                    message: "Remote workspaces changed. Refresh.",
+                    updatedAt: e.remote.updatedAt,
+                  }
+                : {
+                    status: "error",
+                    message: e instanceof Error ? e.message : "Sync failed",
+                  },
+            );
+          }
+        });
+      },
+      immediate ? 0 : 800,
+    );
+    return () => clearTimeout(timer);
+  }, [state, token, remoteReady]);
+  return { state, dispatch, sync };
+}

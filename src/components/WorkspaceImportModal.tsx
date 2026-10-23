@@ -1,3 +1,4 @@
+import {useDialog} from "../lib/useDialog";
 import {useEffect, useState} from "react";
 import {copyWorkspaceForImport, parseWorkspaceJson} from "../lib/export";
 import type {Workspace} from "../lib/store";
@@ -9,6 +10,7 @@ interface Props {
 }
 
 export function WorkspaceImportModal({file, onImport, onClose}: Props) {
+  const {dialogRef, onDialogKeyDown} = useDialog<HTMLDivElement>(onClose);
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -27,7 +29,7 @@ export function WorkspaceImportModal({file, onImport, onClose}: Props) {
 
   return (
     <div className="modal-veil" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-      <div className="modal modal-narrow">
+      <div ref={dialogRef} className="modal modal-narrow" role="dialog" aria-modal="true" aria-label="Import workspace" tabIndex={-1} onKeyDown={onDialogKeyDown}>
         <div className="modal-head">
           <h2>Import workspace</h2>
           <button className="icon-btn" onClick={onClose} aria-label="Close">✕</button>

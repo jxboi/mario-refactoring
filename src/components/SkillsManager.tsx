@@ -1,3 +1,4 @@
+import {useDialog} from "../lib/useDialog";
 import {useState} from "react";
 import type {CategoryDef, ItemConfig} from "../types";
 import type {Skill} from "../lib/skills";
@@ -26,6 +27,7 @@ function download(filename: string, content: string, mime: string) {
 }
 
 export function SkillsManager({skills, categories, config, onCreate, onUpdate, onDelete, onClose}: Props) {
+  const {dialogRef, onDialogKeyDown} = useDialog<HTMLDivElement>(onClose);
   const [selectedId, setSelectedId] = useState<string | null>(skills[0]?.id ?? null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -59,7 +61,7 @@ export function SkillsManager({skills, categories, config, onCreate, onUpdate, o
 
   return (
     <div className="modal-veil" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="modal modal-skills">
+      <div ref={dialogRef} className="modal modal-skills" role="dialog" aria-modal="true" aria-label="Skills" tabIndex={-1} onKeyDown={onDialogKeyDown}>
         <div className="modal-head">
           <h2>Skills</h2>
           <button className="icon-btn" onClick={onClose} aria-label="Close">

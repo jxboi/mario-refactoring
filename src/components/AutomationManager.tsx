@@ -1,3 +1,4 @@
+import {useDialog} from "../lib/useDialog";
 import {useCallback, useEffect, useMemo, useState} from "react";
 import type {Project, Stage} from "../types";
 import {TASK_STAGES} from "../types";
@@ -46,11 +47,7 @@ export function AutomationManager({workspaceId, projects, isGuest, onClose}: Pro
 
   useEffect(() => { void loadRules(); }, [loadRules]);
   useEffect(() => { setSelectedId(null); setDraft(newDraft(workspaceId)); setRuns([]); }, [workspaceId]);
-  useEffect(() => {
-    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
-    window.addEventListener("keydown", closeOnEscape);
-    return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [onClose]);
+  const {dialogRef, onDialogKeyDown} = useDialog<HTMLElement>(onClose);
 
   const selected = useMemo(() => rules.find((rule) => rule.id === selectedId) ?? null, [rules, selectedId]);
   const loadRuns = useCallback(async (ruleId: string) => {
@@ -98,7 +95,7 @@ export function AutomationManager({workspaceId, projects, isGuest, onClose}: Pro
   };
 
   return <div className="modal-veil" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-    <section className="automation-modal" role="dialog" aria-modal="true" aria-labelledby="automation-title">
+    <section ref={dialogRef} tabIndex={-1} onKeyDown={onDialogKeyDown} className="automation-modal" role="dialog" aria-modal="true" aria-labelledby="automation-title">
       <header className="automation-head"><div><span className="front-kicker">Workspace settings</span><h2 id="automation-title">Automations</h2><p>Run an action when a task changes stage.</p></div><button className="icon-btn" onClick={onClose} aria-label="Close automations">×</button></header>
       {isGuest ? <div className="automation-guest"><span aria-hidden="true">✉</span><h3>Sign in to use automations</h3><p>Email actions run securely from the cloud and need a GitHub-authenticated workspace.</p></div> :
       <div className="automation-layout">

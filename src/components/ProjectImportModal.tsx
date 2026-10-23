@@ -1,5 +1,6 @@
+import {useDialog} from "../lib/useDialog";
 import {useEffect, useRef, useState} from "react";
-import {copyProjectForImport, exportProjectTemplate, parseProjectJson} from "../lib/export";
+import {copyProjectForImport, exportProjectImportSkill, exportProjectTemplate, parseProjectJson} from "../lib/export";
 import type {Categories} from "../lib/store";
 import type {Project} from "../types";
 
@@ -10,6 +11,7 @@ interface Props {
 }
 
 export function ProjectImportModal({templateCategories, onImport, onClose}: Props) {
+  const {dialogRef, onDialogKeyDown} = useDialog<HTMLElement>(onClose);
   const fileRef = useRef<HTMLInputElement>(null);
   const chooseRef = useRef<HTMLButtonElement>(null);
   const readVersionRef = useRef(0);
@@ -40,7 +42,7 @@ export function ProjectImportModal({templateCategories, onImport, onClose}: Prop
 
   return (
     <div className="modal-veil" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-      <section className="modal modal-narrow" role="dialog" aria-modal="true" aria-labelledby="project-import-title" onKeyDown={(event) => { if (event.key === "Escape") onClose(); }}>
+      <section ref={dialogRef} tabIndex={-1} className="modal modal-narrow" role="dialog" aria-modal="true" aria-labelledby="project-import-title" onKeyDown={onDialogKeyDown}>
         <div className="modal-head">
           <h2 id="project-import-title">Import project</h2>
           <button className="icon-btn" onClick={onClose} aria-label="Close">✕</button>
@@ -53,7 +55,10 @@ export function ProjectImportModal({templateCategories, onImport, onClose}: Prop
           <span>{fileName ? "Choose another file or drop it here" : "or"}</span>
           <button ref={chooseRef} type="button" className="btn btn-ghost btn-sm" onClick={() => fileRef.current?.click()}>Choose JSON file</button>
         </div>
-        <button type="button" className="project-template-download" onClick={() => exportProjectTemplate(templateCategories)}>Download template JSON</button>
+        <div className="project-import-downloads">
+          <button type="button" className="project-template-download" onClick={() => exportProjectImportSkill(templateCategories)}>Download project import skill (.md)</button>
+          <button type="button" className="project-template-download" onClick={() => exportProjectTemplate(templateCategories)}>Download template JSON</button>
+        </div>
         {reading ? (
           <p className="project-import-status" role="status">Reading {fileName}…</p>
         ) : error ? (

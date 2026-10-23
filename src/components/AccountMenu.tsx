@@ -35,6 +35,7 @@ export function AccountMenu({user, isGuest, sync, onManageCategories, onManageSk
   }, [open]);
 
   const run = (fn: () => void) => () => {
+    rootRef.current?.querySelector<HTMLButtonElement>(".account-trigger")?.focus();
     fn();
     setOpen(false);
   };
@@ -44,7 +45,7 @@ export function AccountMenu({user, isGuest, sync, onManageCategories, onManageSk
 
   return (
     <div className="account-menu" ref={rootRef}>
-      <button className={`account-user account-trigger${isGuest ? " account-guest" : ""}${open ? " open" : ""}`} onClick={() => setOpen((o) => !o)} aria-haspopup="menu" aria-expanded={open} title={isGuest ? "Local-only guest session" : `@${user.login} on GitHub`}>
+      <button className={`account-user account-trigger${isGuest ? " account-guest" : ""}${open ? " open" : ""}`} onClick={() => setOpen((o) => !o)} aria-label="Account and settings" aria-haspopup="menu" aria-expanded={open} title={isGuest ? "Local-only guest session" : `@${user.login} on GitHub`}>
         {isGuest ? (
           <span className="account-avatar account-avatar-guest" aria-hidden="true">
             ᴳ

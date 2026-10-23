@@ -32,6 +32,7 @@ interface Props {
   onWorkspaceRename: (id: string, name: string) => void;
   onWorkspaceDelete: (id: string) => void;
   onProjectRename: (name: string) => void;
+  onCreateTask: () => void;
   onHome: () => void;
   user: GitHubUser;
   isGuest: boolean;
@@ -63,6 +64,7 @@ export function Header({
   onWorkspaceRename,
   onWorkspaceDelete,
   onProjectRename,
+  onCreateTask,
   onHome,
   user,
   isGuest,
@@ -74,7 +76,8 @@ export function Header({
   const projectNameCommitRef = useRef(false);
   const [editingProjectName, setEditingProjectName] = useState(false);
   const [projectNameDraft, setProjectNameDraft] = useState("");
-  const total = items.filter((item) => item.stage !== "on-hold").length;
+  const total = items.length;
+  const completed = items.filter((item) => item.stage === "done").length;
   const priorityDescending = filters.prioritySort === "desc";
   const effortDescending = filters.effortSort === "desc";
   const categoryOptions = availableTaskCategories(items, categories);
@@ -203,13 +206,13 @@ export function Header({
         </div>
         <div className="view-tabs-wrap">
           <nav className="view-tabs" aria-label={project ? "Project view" : "Workspace view"}>
-            <button className={view === "work" ? "active" : ""} onClick={() => onView("work")}>{project ? "Tasks" : "Projects"}</button>
-            <button className={view === "timeline" ? "active" : ""} onClick={() => onView("timeline")}>Timeline</button>
+            <button className={view === "work" ? "active" : ""} aria-pressed={view === "work"} onClick={() => onView("work")}>{project ? "Tasks" : "Projects"}</button>
+            <button className={view === "timeline" ? "active" : ""} aria-pressed={view === "timeline"} onClick={() => onView("timeline")}>Timeline</button>
           </nav>
           {view === "timeline" && timelineRefreshing && <span className="timeline-refreshing" role="status"><span aria-hidden="true" />Updating</span>}
         </div>
         <div className="header-right">
-          {project && <button className="btn btn-ghost share-project-btn" onClick={onManageCollaboration}><span aria-hidden="true">◎</span> Share</button>}
+          {project && <button className="btn btn-ghost share-project-btn" aria-label="Share project" onClick={onManageCollaboration}><span aria-hidden="true">◎</span> Share</button>}
           <AccountMenu
             user={user}
             isGuest={isGuest}
@@ -223,16 +226,32 @@ export function Header({
           />
         </div>
       </div>
-      {project && view === "work" && total > 0 && (
+      {project && view === "work" && (
+        <div className="project-heading">
+          <div className="project-heading-copy">
+            <h1>{project.title || "Untitled project"}</h1>
+            <p>{total ? `${total} ${total === 1 ? "task" : "tasks"} · ${completed} complete` : "A clear outcome starts with a first task."}</p>
+          </div>
+          <button className="btn btn-primary" onClick={onCreateTask} aria-keyshortcuts="C">
+            <span aria-hidden="true">＋</span> New task <kbd aria-hidden="true">C</kbd>
+          </button>
+        </div>
+      )}
+      {project && view === "work" && (
         <div className="header-row filter-row">
           <input
             className="search-input"
             type="search"
+            aria-label="Search tasks"
             placeholder="Search titles and tags…"
             value={filters.query}
             onChange={(event) => onFilters({...filters, query: event.target.value})}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") onFilters({...filters, query: ""});
+            }}
           />
           <div className="filter-chips">
+            {(filters.query || hasCategoryFilterChanges) && <button className="chip filter-reset" onClick={() => onFilters({...filters, query: "", categories: categories.map((category) => category.id)})}>Reset filters <span aria-hidden="true">×</span></button>}
             {taskLayout === "board" && categoryOptions.length > 0 && (
               <details ref={categoryFilterRef} className="category-filter">
                 <summary className={`chip category-filter-trigger${hasCategoryFilterChanges ? " active" : ""}`}>
@@ -282,11 +301,11 @@ export function Header({
             </>}
           </div>
           <div className="layout-toggle" role="group" aria-label="Task layout">
-            <button className={taskLayout === "board" ? "active" : ""} aria-pressed={taskLayout === "board"} onClick={() => onTaskLayout("board")} title="Kanban view">
+            <button className={taskLayout === "board" ? "active" : ""} aria-pressed={taskLayout === "board"} onClick={() => onTaskLayout("board")} aria-label="Kanban" title="Kanban view">
               <span className="layout-icon layout-icon-board" aria-hidden="true"><i /><i /><i /></span>
               <span>Kanban</span>
             </button>
-            <button className={taskLayout === "list" ? "active" : ""} aria-pressed={taskLayout === "list"} onClick={() => { onFilters({...filters, categories: categories.map((category) => category.id)}); onTaskLayout("list"); }} title="List view">
+            <button className={taskLayout === "list" ? "active" : ""} aria-pressed={taskLayout === "list"} onClick={() => { onFilters({...filters, categories: categories.map((category) => category.id)}); onTaskLayout("list"); }} aria-label="List" title="List view">
               <span className="layout-icon layout-icon-list" aria-hidden="true"><i /><i /><i /></span>
               <span>List</span>
             </button>

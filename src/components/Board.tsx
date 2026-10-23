@@ -7,6 +7,8 @@ import {filterTasksByRecentDays, type SortDirection} from "../lib/taskFilters";
 import {EffortDots, RiskPill, timeAgo} from "./ui";
 
 interface BoardProps {
+  hasActiveFilters: boolean;
+  onClearFilters: () => void;
   items: Task[];
   categories: CategoryDef[];
   config: ItemConfig;
@@ -147,7 +149,7 @@ function slotBeforeId(container: HTMLElement, clientY: number): string | null {
   return null;
 }
 
-export function Board({items, categories, config, layout, listSort, categorySort, prioritySort, effortSort, updatedSort, statusSort, onCategorySort, onPrioritySort, onEffortSort, onUpdatedSort, onStatusSort, onMove, onSelect, onOpen, onDuplicate, onToggleFavourite, onMoveToProject, onMoveToTrash, moveTargets, onAddItem}: BoardProps) {
+export function Board({items, categories, config, layout, listSort, categorySort, prioritySort, effortSort, updatedSort, statusSort, onCategorySort, onPrioritySort, onEffortSort, onUpdatedSort, onStatusSort, onMove, onSelect, onOpen, onDuplicate, onToggleFavourite, onMoveToProject, onMoveToTrash, moveTargets, onAddItem, hasActiveFilters, onClearFilters}: BoardProps) {
   const [dragId, setDragId] = useState<string | null>(null);
   const [overStage, setOverStage] = useState<Stage | null>(null);
   // Where a placeholder should show while dragging: the target stage and the id
@@ -167,6 +169,14 @@ export function Board({items, categories, config, layout, listSort, categorySort
       else next.delete(stage);
       return next;
     });
+
+  if (!items.length && hasActiveFilters) {
+    return <main className="no-results"><div role="status"><span className="empty-state-icon" aria-hidden="true">⌕</span><h2>No tasks match your filters</h2><p>Try another search or reset your filters to see all tasks.</p></div><button className="btn btn-ghost" onClick={onClearFilters}>Reset filters</button></main>;
+  }
+
+  if (!items.length && layout === "list") {
+    return <main className="no-results"><h2>Your first task starts here</h2><p>Break your project into a small, actionable next step.</p><button className="btn btn-ghost" onClick={() => onAddItem("to-do")}>Create a task</button></main>;
+  }
 
   if (layout === "list") {
     return (
@@ -188,7 +198,6 @@ export function Board({items, categories, config, layout, listSort, categorySort
         onMove={onMove}
         onSelect={onSelect}
         onDuplicate={onDuplicate}
-        onAddItem={onAddItem}
       />
     );
   }
@@ -312,6 +321,10 @@ export function Board({items, categories, config, layout, listSort, categorySort
               }}
               onDrop={handleDrop}
             >
+              {colItems.length === 0 && !dragId && <div className="column-empty">
+                <p>{stageItems.length > 0 ? "No completed tasks in this timeframe." : stage.hint}</p>
+                {stage.id === "to-do" && <button onClick={() => onAddItem(stage.id)}>+ Add a task</button>}
+              </div>}
               {colItems.map((item, itemIndex) => (
                 <Fragment key={item.id}>
                   {dropTarget?.stage === stage.id && dropTarget.beforeId === item.id && !isNoOp(item.id, colItems) && <div className="card-placeholder" style={dragHeight ? {height: dragHeight} : undefined} />}
@@ -369,10 +382,9 @@ interface TaskListProps {
   onMove: (id: string, stage: Stage) => void;
   onSelect: (id: string) => void;
   onDuplicate: (id: string) => void;
-  onAddItem: (stage: Stage) => void;
 }
 
-function TaskList({items, categories, config, listSort, categorySort, prioritySort, effortSort, updatedSort, statusSort, onCategorySort, onPrioritySort, onEffortSort, onUpdatedSort, onStatusSort, onMove, onSelect, onDuplicate, onAddItem}: TaskListProps) {
+function TaskList({items, categories, config, listSort, categorySort, prioritySort, effortSort, updatedSort, statusSort, onCategorySort, onPrioritySort, onEffortSort, onUpdatedSort, onStatusSort, onMove, onSelect, onDuplicate}: TaskListProps) {
   if (items.length === 0) {
     return (
       <main className="task-list-page task-list-empty">
@@ -400,9 +412,6 @@ function TaskList({items, categories, config, listSort, categorySort, prioritySo
   return (
     <main className="task-list-page">
       <div className="task-list-shell">
-        <header className="task-list-titlebar">
-          <button className="btn btn-primary task-list-new" aria-label="New task" onClick={() => onAddItem("to-do")}><span aria-hidden="true">＋</span> New Task</button>
-        </header>
         <div className="task-list-table" role="table" aria-label="Project tasks">
           <div className="task-list-columns" role="row">
             <span role="columnheader">Task</span>

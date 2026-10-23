@@ -16,7 +16,6 @@ import { Timeline } from "./components/Timeline";
 import {
   boardScope,
   githubConfigured,
-  guestSession,
   type Session,
   useAuth,
 } from "./lib/auth";
@@ -30,7 +29,6 @@ import { summariseProject } from "./lib/projectSummaryApi";
 import {
   activeProject,
   activeWorkspace,
-  DEFAULT_WORKSPACE_NAME,
   newProject,
   newTask,
   useBoard,
@@ -83,28 +81,18 @@ function taskDraftChanged(draft: Task, initial: Task) {
   );
 }
 export default function App() {
-  const { session, loading, signIn, signOut } = useAuth();
-  const [name, setName] = useState<string | null>(null);
-  if (loading) return null;
-  if (!session)
-    return (
-      <SignInScreen
-        onCreateWorkspace={(n) => {
-          setName(n);
-          signIn(guestSession());
-        }}
-      />
-    );
-  return <BoardApp session={session} onSignOut={signOut} initialName={name} />;
+  const { session, loading, signOut } = useAuth();
+  if (loading) return <main className="app-loading" role="status"><span className="loading-indicator" aria-hidden="true" />Opening your workspace…</main>;
+  if (session?.kind !== "github") return <SignInScreen />;
+  return <BoardApp session={session} onSignOut={signOut} />;
 }
+
 function BoardApp({
   session,
   onSignOut,
-  initialName,
 }: {
   session: Session;
   onSignOut: () => void;
-  initialName: string | null;
 }) {
   const selfAssignee = useMemo<TaskAssignee>(
     () => ({
@@ -131,15 +119,7 @@ function BoardApp({
     project = activeProject(state);
   const [view, setView] = useState<"work" | "timeline">("work"),
     [timelineRefreshing, setTimelineRefreshing] = useState(false);
-  const [taskLayout, setTaskLayout] = useState<TaskLayout>(() => {
-    try {
-      return localStorage.getItem("chisel.task-layout.v1") === "list"
-        ? "list"
-        : "board";
-    } catch {
-      return "board";
-    }
-  });
+  const [taskLayout, setTaskLayout] = useState<TaskLayout>("board");
   const [filters, setFilters] = useState<Filters>(() => ({
     ...EMPTY,
     categories: workspace.categories.map((category) => category.id),
@@ -161,15 +141,6 @@ function BoardApp({
   const [aiSignInOpen, setAiSignInOpen] = useState(false);
   const workspaceFileRef = useRef<HTMLInputElement>(null);
   const { toasts, pushToast, dismissToast } = useToasts();
-  const initialized = useRef(false);
-  if (
-    initialName &&
-    !initialized.current &&
-    workspace.name === DEFAULT_WORKSPACE_NAME
-  ) {
-    initialized.current = true;
-    dispatch({ type: "workspace-rename", id: workspace.id, name: initialName });
-  }
   const openTask = (id: string, mode: "side" | "full" = "side") => {
     setTaskOpenMode(mode);
     setSelectedTask(id);
@@ -377,7 +348,8 @@ function BoardApp({
         e.altKey ||
         e.shiftKey ||
         e.repeat ||
-        isEditing
+        isEditing ||
+        target?.closest('[role="dialog"], [role="menu"]')
       )
         return;
       e.preventDefault();
@@ -464,6 +436,7 @@ function BoardApp({
         }}
       />
       <Header
+        onCreateTask={() => createTask()}
         items={tasks}
         categories={workspace.categories}
         project={project}
@@ -542,6 +515,8 @@ function BoardApp({
         />
       ) : project ? (
         <Board
+          hasActiveFilters={!!filters.query.trim() || filters.categories.length !== workspace.categories.length}
+          onClearFilters={() => setFilters(defaultFilters())}
           items={filtered}
           categories={workspace.categories}
           config={TASK_CONFIG}
@@ -1306,7 +1281,7 @@ function ProjectOverview({
       );
   }, [cardMenu?.projectId, cardMenu?.confirmDelete]);
   return (
-    <main className="board-empty">
+    <main className="board-empty workspace-page">
       <section className="front-page project-overview-page">
         <div className="front-copy">
           <div className="workspace-kicker-row">
@@ -1370,19 +1345,35 @@ function ProjectOverview({
               </div>
             )}
           </div>
-          {shared && <h1>A project shared with you</h1>}
-          <p className="front-lede">
-            {shared
-              ? "Open the project’s Kanban board to collaborate."
-              : "Choose a project to open its Kanban board, or create a new one."}
-          </p>
-          {!shared && (
-            <div className="front-actions">
-              <button className="btn btn-primary" onClick={onCreate}>
-                + New Project
-              </button>
+          <div className="workspace-heading">
+            <div>
+              <h1>{shared ? "Shared with you" : "Your projects"}</h1>
+              <p className="front-lede">
+                {shared
+                  ? "Open the project’s Kanban board to collaborate."
+                  : projects.length
+                    ? "A clear view of what you’re building and what’s next."
+                    : "Give your next idea a place to take shape."}
+              </p>
             </div>
-          )}
+            {!shared && projects.length > 0 && (
+              <div className="front-actions">
+                <button className="btn btn-ghost" onClick={onImportProject}>Import project</button>
+                <button className="btn btn-primary" onClick={onCreate}>+ New project</button>
+              </div>
+            )}
+          </div>
+          {projects.length > 0 && <div className="workspace-summary" aria-label="Workspace summary">
+            <span><strong>{projects.length}</strong> {projects.length === 1 ? "project" : "projects"}</span>
+            <span><strong>{projects.reduce((count, p) => count + p.tasks.filter((task) => task.stage === "in-progress").length, 0)}</strong> in progress</span>
+            <span><strong>{projects.reduce((count, p) => count + p.tasks.filter((task) => task.stage === "done").length, 0)}</strong> completed</span>
+          </div>}
+          {projects.length === 0 && <div className="workspace-empty-state">
+            <span className="empty-state-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16M13 9h4M13 13h3"/></svg></span>
+            <h2>{shared ? "No shared projects yet" : "Start with one project"}</h2>
+            <p>{shared ? "Projects shared with you will appear here." : "Capture an outcome, break it into tasks, and move the work forward. Already have a plan? Import it to get started."}</p>
+            {!shared && <div className="empty-state-actions"><button className="btn btn-primary" onClick={onCreate}>+ New project</button><button className="btn btn-ghost" onClick={onImportProject}>Import project</button></div>}
+          </div>}
           <div className="project-overview-grid">
             {projects.map((p) => {
               const done = p.tasks.filter((t) => t.stage === "done").length,
@@ -1438,6 +1429,7 @@ function ProjectOverview({
                     setDropTarget(null);
                   }}
                   onKeyDown={(e) => {
+                    if (e.target !== e.currentTarget) return;
                     if (e.key === "Enter" || e.key === " ") {
                       e.preventDefault();
                       onOpen(p.id);
@@ -1508,7 +1500,7 @@ function ProjectOverview({
                       className="project-card-count"
                       aria-label={`${done} of ${p.tasks.length} tasks done`}
                     >
-                      {done}/{p.tasks.length}
+                      {done}/{p.tasks.length} done
                     </span>
                   </div>
                 </article>

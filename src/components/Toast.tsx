@@ -14,7 +14,7 @@ export function useToasts() {
   }, []);
   const pushToast = useCallback((text: string, kind: Toast['kind'] = 'info') => {
     const id = uid();
-    setToasts((t) => [...t, { id, text, kind }]);
+    setToasts((t) => [...t.slice(-2), { id, text, kind }]);
     setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 3600);
   }, []);
   return { toasts, pushToast, dismissToast };
@@ -24,9 +24,9 @@ export function ToastHost({ toasts, onDismiss }: { toasts: Toast[]; onDismiss: (
   return (
     <div className="toast-host" role="status">
       {toasts.map((t) => (
-        <div key={t.id} className={`toast toast-${t.kind}`} onClick={() => onDismiss(t.id)}>
-          {t.kind === 'success' ? '✓ ' : t.kind === 'error' ? '⚠ ' : ''}
-          {t.text}
+        <div key={t.id} className={`toast toast-${t.kind}`}>
+          <span><span aria-hidden="true">{t.kind === 'success' ? '✓ ' : t.kind === 'error' ? '⚠ ' : ''}</span>{t.text}</span>
+          <button className="toast-dismiss" aria-label={`Dismiss: ${t.text}`} onClick={() => onDismiss(t.id)}>×</button>
         </div>
       ))}
     </div>

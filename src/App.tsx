@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { ThinkingOrb } from "thinking-orbs";
 import { AutomationManager } from "./components/AutomationManager";
 import { Board } from "./components/Board";
 import { CategoryManager } from "./components/CategoryManager";
@@ -1489,7 +1490,8 @@ function ProjectOverview({
                   )}
                   {summarising && (
                     <div className="project-summary-status" role="status">
-                      <i aria-hidden="true" /> Summarising…
+                      <ThinkingOrb state="composing" size={20} theme="dark" aria-hidden="true" />
+                      Summarising…
                     </div>
                   )}
                   <div className="project-card-footer">
@@ -1564,7 +1566,11 @@ function ProjectOverview({
                       void onSummarise(id);
                     }}
                   >
-                    <span aria-hidden="true">✦</span>
+                    {summarisingProjectId === cardMenu.projectId ? (
+                      <ThinkingOrb state="composing" size={20} theme="dark" aria-hidden="true" />
+                    ) : (
+                      <span aria-hidden="true">✦</span>
+                    )}
                     {summarisingProjectId === cardMenu.projectId
                       ? "Summarising…"
                       : "Summarise project"}

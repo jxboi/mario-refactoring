@@ -2141,17 +2141,9 @@ code,
   font-weight: 600;
 }
 
-.project-summary-status i {
-  width: 10px;
-  height: 10px;
-  border: 1.5px solid rgba(232, 180, 90, 0.35);
-  border-top-color: var(--accent);
-  border-radius: 50%;
-  animation: project-summary-spin 0.8s linear infinite;
-}
-
-@keyframes project-summary-spin {
-  to { transform: rotate(360deg); }
+.project-summary-status canvas,
+.project-summary-action canvas {
+  flex-shrink: 0;
 }
 
 .project-delete-confirm {

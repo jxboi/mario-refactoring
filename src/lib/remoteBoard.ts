@@ -1,4 +1,4 @@
-import type {AppState} from "./store";
+import type {AppState} from "./store.js";
 
 export interface RemoteBoardSnapshot {
   state: AppState | null;

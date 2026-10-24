@@ -8,7 +8,7 @@ import type {
   Stage,
   Task,
   TaskAssignee,
-} from "../types";
+} from "../types.js";
 import {
   CATEGORY_GROUPS,
   FALLBACK_CATEGORY_ID,
@@ -16,14 +16,14 @@ import {
   stageFrom,
   TASK_CATEGORIES,
   uid,
-} from "../types";
-import { defaultSkills, normalizeSkills, type Skill } from "./skills";
+} from "../types.js";
+import { defaultSkills, normalizeSkills, type Skill } from "./skills.js";
 import {
   fetchRemoteBoard,
   RemoteBoardConflict,
   saveRemoteBoard,
-} from "./remoteBoard";
-import { findTaskStageTransitions } from "./automations";
+} from "./remoteBoard.js";
+import { findTaskStageTransitions } from "./automations.js";
 
 const STORAGE_KEY = "chisel.workspaces.v5";
 const LEGACY_KEYS = [

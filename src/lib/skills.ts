@@ -1,5 +1,5 @@
-import type {CategoryDef, ItemConfig, ItemKind} from "../types";
-import {slugifyCategory, uid} from "../types";
+import type {CategoryDef, ItemConfig, ItemKind} from "../types.js";
+import {slugifyCategory, uid} from "../types.js";
 
 /**
  * A "skill" is a reusable, user-authored prompt template for structured work discovery.

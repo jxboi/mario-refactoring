@@ -1,6 +1,6 @@
-import type {AppState, Workspace} from "./store";
-import type {Project, Stage, Task} from "../types";
-import {TASK_STAGES} from "../types";
+import type {AppState, Workspace} from "./store.js";
+import type {Project, Stage, Task} from "../types.js";
+import {TASK_STAGES} from "../types.js";
 
 export const AUTOMATION_PLACEHOLDERS = [
   "workspace.name",

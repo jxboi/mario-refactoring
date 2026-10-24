@@ -1,6 +1,6 @@
 import {Body, Container, Head, Heading, Hr, Html, Preview, Section, Text} from "@react-email/components";
 import {createElement as h} from "react";
-import type {AutomationEmailPayload} from "../src/lib/automations.ts";
+import type {AutomationEmailPayload} from "../src/lib/automations.js";
 
 export function TaskStageChangedEmail(payload: AutomationEmailPayload) {
   return h(Html, null,

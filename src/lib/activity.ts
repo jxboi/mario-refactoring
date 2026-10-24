@@ -1,7 +1,7 @@
-import type {CategoryDef, CategoryGroup, Note, Project, Task} from "../types";
-import {uid} from "../types";
-import type {AppState, Workspace} from "./store";
-import type {Skill} from "./skills";
+import type {CategoryDef, CategoryGroup, Note, Project, Task} from "../types.js";
+import {uid} from "../types.js";
+import type {AppState, Workspace} from "./store.js";
+import type {Skill} from "./skills.js";
 
 export type ActivityFamily = "status" | "updates" | "notes" | "organization";
 export type ActivityEntity = "workspace" | "project" | "task" | "note" | "category" | "category-group" | "skill";

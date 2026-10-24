@@ -1,5 +1,5 @@
-import {deliverAutomationRun} from "../_automationDelivery.ts";
-import {createQueueClient} from "../_queueClient.ts";
+import {deliverAutomationRun} from "../_automationDelivery.js";
+import {createQueueClient} from "../_queueClient.js";
 
 interface QueueMessage { runId: string; }
 
@@ -14,7 +14,7 @@ export default queue.handleNodeCallback<QueueMessage>(async (message, metadata) 
     const statusCode = (error as Error & {statusCode?: number | null}).statusCode;
     const retryable = statusCode == null || statusCode === 408 || statusCode === 409 || statusCode === 429 || statusCode >= 500;
     if (!retryable || attempt >= MAX_ATTEMPTS) {
-      const {getQuery} = await import("../_db.ts");
+      const {getQuery} = await import("../_db.js");
       const sql = getQuery();
       const messageText = error instanceof Error ? error.message.slice(0, 1000) : "Email delivery failed.";
       await sql`update automation_runs set status = 'failed', last_error = ${messageText}, updated_at = now() where id = ${message.runId}`;

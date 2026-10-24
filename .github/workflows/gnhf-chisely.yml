@@ -1,0 +1,102 @@
+name: GNHF Chisely experiment
+
+on:
+  push:
+    branches:
+      - experiment/gnhf-chisely
+  workflow_dispatch:
+    inputs:
+      run_codex:
+        description: Run the bounded Codex experiment
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install Chisely
+        run: npm ci
+      - name: Install and verify GNHF
+        run: |
+          npm install --global gnhf@0.1.51
+          gnhf --version
+      - name: Baseline tests and build
+        run: |
+          npm test
+          npm run build
+
+  codex-trial:
+    needs: smoke
+    if: github.event_name == 'push' || inputs.run_codex == true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Check optional agent credentials
+        id: credentials
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          if [ -n "$OPENAI_API_KEY" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No OPENAI_API_KEY repository secret; skipping the agent trial." >> "$GITHUB_STEP_SUMMARY"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Install Codex and GNHF
+        if: steps.credentials.outputs.ready == 'true'
+        run: npm install --global @openai/codex gnhf@0.1.51
+      - name: Run isolated two-iteration experiment
+        if: steps.credentials.outputs.ready == 'true'
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          git config user.name "chisely-gnhf-experiment"
+          git config user.email "chisely-gnhf-experiment@users.noreply.github.com"
+          set +e
+          gnhf --agent codex --worktree --max-iterations 2 --max-tokens 60000 --prevent-sleep off "$(cat experiments/gnhf/OBJECTIVE.md)"
+          status=$?
+          echo "$status" > gnhf-exit-code.txt
+          exit "$status"
+      - name: Export test-only patch for inspection
+        if: always() && steps.credentials.outputs.ready == 'true'
+        run: |
+          branch="$(git for-each-ref --sort=-committerdate --format='%(refname:short)' 'refs/heads/gnhf/' | head -n 1)"
+          if [ -n "$branch" ]; then
+            git diff --name-only "$GITHUB_SHA" "$branch" > gnhf-files-changed.txt
+            git diff --binary "$GITHUB_SHA" "$branch" -- tests/ > gnhf-regression.patch
+            echo "Agent branch: $branch" >> "$GITHUB_STEP_SUMMARY"
+            echo "Patch is limited to tests/; no generated code is pushed or merged." >> "$GITHUB_STEP_SUMMARY"
+            if grep -vE '^(tests/|\\.gnhf/)' gnhf-files-changed.txt; then
+              echo "Agent touched files outside the requested test scope. Review before use." >> "$GITHUB_STEP_SUMMARY"
+            fi
+          else
+            echo "No GNHF branch was produced." >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always() && steps.credentials.outputs.ready == 'true'
+        with:
+          name: chisely-gnhf-trial
+          path: |
+            gnhf-exit-code.txt
+            gnhf-files-changed.txt
+            gnhf-regression.patch
+          if-no-files-found: ignore
